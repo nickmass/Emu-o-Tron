@@ -1,0 +1,33 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Drawing;
+
+namespace DirectXEmu
+{
+    abstract class Scaler
+    {
+        protected int x;
+        protected int y;
+        protected bool resize;
+        protected bool maintainAR;
+        public abstract int xSize
+        {
+            get;
+        }
+        public abstract int ySize
+        {
+            get;
+        }
+        public abstract bool resizeable
+        {
+            get;
+        }
+        public abstract bool maintainAspectRatio
+        {
+            get;
+        }
+        public abstract Bitmap PerformScale(Bitmap orig); 
+    }
+}
