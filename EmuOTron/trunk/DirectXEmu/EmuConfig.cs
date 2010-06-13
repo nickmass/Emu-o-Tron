@@ -82,6 +82,9 @@ namespace DirectXEmu
             defaults["rewindBufferSeconds"] = "10";
             defaults["7z"] = @"{APP-PATH}\7z.dll";
             defaults["tmpDir"] = @"{APP-PATH}\tmp";
+            defaults["disableSpriteLimit"] = "1";
+            defaults["displayBG"] = "1";
+            defaults["displaySprites"] = "1";
 #if DEBUG
             defaults["romPath2"] = @"C:\Games\Emulators\Roms\NES";
             defaults["romPath3"] = @"C:\Games\Emulators\Roms\MapperNes";

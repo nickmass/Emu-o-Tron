@@ -251,7 +251,6 @@
     <Content Include="NesCarts.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="NesCoreBack.cs" />
     <Compile Include="OpenRomDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -339,6 +338,7 @@
     <None Include="Emu-o-Tron.chm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="Emu-o-Tron.hnd" />
     <None Include="palettes\ASQ_realityA.pal">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

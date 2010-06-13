@@ -156,7 +156,6 @@ namespace DirectXEmu
             timer.Interval = 100;
             timer.Tick += new EventHandler(timer_Tick);
             timer.Start();
-            this.marioHackToolStripMenuItem.Dispose();
 #if !DEBUG
             this.logToolStripMenuItem.Dispose();
             this.openWithFXCEUToolStripMenuItem.Dispose();
@@ -175,7 +174,6 @@ namespace DirectXEmu
             timer.Interval = 100;
             timer.Tick += new EventHandler(timer_Tick);
             timer.Start();
-            this.marioHackToolStripMenuItem.Dispose();
 #if !DEBUG
             this.logToolStripMenuItem.Dispose();
             this.openWithFXCEUToolStripMenuItem.Dispose();
@@ -268,6 +266,9 @@ namespace DirectXEmu
                 this.showInputToolStripMenuItem.Checked = false;
                 this.showInput = false;
             }
+            this.spritesToolStripMenuItem.Checked = (config["displaySprites"] == "1");
+            this.backgroundToolStripMenuItem.Checked = (config["displayBG"] == "1");
+            this.spriteLimitToolStripMenuItem.Checked = (config["disableSpriteLimit"] == "1");
             this.openPaletteDialog.InitialDirectory = this.config["paletteDir"];
             this.openMovieDialog.InitialDirectory = this.config["movieDir"];
             this.openFile.InitialDirectory = this.config["romPath1"];
@@ -1144,12 +1145,7 @@ namespace DirectXEmu
             else if (e.KeyCode == keyBindings.Power)
             {
                 this.SaveGame();
-                bool logState = this.cpu.logging;
-                this.cpu = new NESCore(this.romPath, this.appPath);
-                this.cpu.logging = logState;
-                this.LoadGame();
-                this.cpu.gameGenieCodeNum = this.gameGenieCodeCount;
-                this.cpu.gameGenieCodes = this.gameGenieCodes;
+                this.StartEmu();
                 this.message = "Power";
                 this.messageDuration = 90;
             }
@@ -1264,16 +1260,6 @@ namespace DirectXEmu
             catch(Exception e)
             {
             }
-        }
-        private void EmuWindow_FormClosed(object sender, FormClosedEventArgs e)
-        {
-            //this.SaveGame();
-            //this.config.Save();
-            //this.closed = true;
-        }
-        private void Event_MruFile(int number, String filename)
-        {
-            this.OpenFile(filename);
         }
         private void openWithFCEUXToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -1473,7 +1459,6 @@ namespace DirectXEmu
             this.gameGenieCodesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.nameTablesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.patternTablesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.marioHackToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.moiveToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.openMovieToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.playMovieToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -1621,8 +1606,7 @@ namespace DirectXEmu
             this.keyBindingsToolStripMenuItem,
             this.gameGenieCodesToolStripMenuItem,
             this.nameTablesToolStripMenuItem,
-            this.patternTablesToolStripMenuItem,
-            this.marioHackToolStripMenuItem});
+            this.patternTablesToolStripMenuItem});
             this.optionsToolStripMenuItem.Name = "optionsToolStripMenuItem";
             this.optionsToolStripMenuItem.Size = new System.Drawing.Size(61, 20);
             this.optionsToolStripMenuItem.Text = "Options";
@@ -1777,14 +1761,6 @@ namespace DirectXEmu
             this.patternTablesToolStripMenuItem.Text = "Pattern Tables...";
             this.patternTablesToolStripMenuItem.Click += new System.EventHandler(this.patternTablesToolStripMenuItem_Click);
             // 
-            // marioHackToolStripMenuItem
-            // 
-            this.marioHackToolStripMenuItem.CheckOnClick = true;
-            this.marioHackToolStripMenuItem.Name = "marioHackToolStripMenuItem";
-            this.marioHackToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
-            this.marioHackToolStripMenuItem.Text = "Mario Hack";
-            this.marioHackToolStripMenuItem.CheckedChanged += new System.EventHandler(this.marioHackToolStripMenuItem_CheckedChanged);
-            // 
             // moiveToolStripMenuItem
             // 
             this.moiveToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -1923,7 +1899,6 @@ namespace DirectXEmu
             this.Name = "Program";
             this.Text = "Emu-o-Tron";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Program_FormClosing);
-            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.EmuWindow_FormClosed);
             this.ResizeEnd += new System.EventHandler(this.Program_Resize);
             this.DragDrop += new System.Windows.Forms.DragEventHandler(this.Program_DragDrop);
             this.DragEnter += new System.Windows.Forms.DragEventHandler(this.Program_DragEnter);
@@ -1958,7 +1933,6 @@ namespace DirectXEmu
         private System.Windows.Forms.ToolStripMenuItem openLogToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem gameGenieCodesToolStripMenuItem;
         private Panel insideSize;
-        private ToolStripMenuItem marioHackToolStripMenuItem;
         private ToolStripMenuItem helpToolStripMenuItem;
         private ToolStripMenuItem aboutEmuoTronToolStripMenuItem;
         private ToolStripMenuItem helpToolStripMenuItem1;
@@ -2002,10 +1976,6 @@ namespace DirectXEmu
             pps.BackBufferHeight = this.surfaceControl.Height;
             pps.BackBufferWidth = this.surfaceControl.Width;
             ResetDevice();
-        }
-
-        private void marioHackToolStripMenuItem_CheckedChanged(object sender, EventArgs e)
-        {
         }
 
         private void aboutEmuoTronToolStripMenuItem_Click(object sender, EventArgs e)
@@ -2123,16 +2093,9 @@ namespace DirectXEmu
                 if (extractedFileName != "")
                 {
                     this.romPath = extractedFileName;
-                    this.cpu = new NESCore(this.romPath, this.appPath);
-                    this.LoadGame();
-                    LoadSaveStateFiles();
-                    this.cpu.gameGenieCodeNum = this.gameGenieCodeCount;
-                    this.cpu.gameGenieCodes = this.gameGenieCodes;
-                    this.Text = this.cpu.fileName + " - Emu-o-Tron";
+                    this.StartEmu();
                     if (addToRecent)
                         this.AddRecentFile(fileName);
-                    state = SystemState.Playing;
-                    surfaceControl.Visible = true;
                 }
             }
             catch (Exception e)
@@ -2152,7 +2115,26 @@ namespace DirectXEmu
                     throw (e);
             }
         }
+        private void StartEmu()
+        {
+            
+            bool logState = false;
+            if(this.cpu != null)
+                logState = this.cpu.logging;
+            this.cpu = new NESCore(this.romPath, this.appPath);
+            this.cpu.logging = logState;
+            this.cpu.displayBG = (config["displayBG"] == "1");
+            this.cpu.displaySprites = (config["displaySprites"] == "1");
+            this.cpu.displaySpriteLimit = !(config["disableSpriteLimit"] == "1");
+            this.LoadGame();
+            this.LoadSaveStateFiles();
+            this.cpu.gameGenieCodeNum = this.gameGenieCodeCount;
+            this.cpu.gameGenieCodes = this.gameGenieCodes;
+            this.Text = this.cpu.fileName + " - Emu-o-Tron";
+            this.state = SystemState.Playing;
+            this.surfaceControl.Visible = true;
 
+        }
         private void helpToolStripMenuItem1_Click(object sender, EventArgs e)
         {
             Help.ShowHelp(this.ActiveControl, this.config["helpFile"]);
@@ -2351,19 +2333,25 @@ namespace DirectXEmu
         private void spritesToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (cpu != null)
-            {
                 cpu.displaySprites = !cpu.displaySprites;
-                this.spritesToolStripMenuItem.Checked = cpu.displaySprites;
-            }
+            this.spritesToolStripMenuItem.Checked = !this.spritesToolStripMenuItem.Checked;
+            config["displaySprites"] = this.spritesToolStripMenuItem.Checked ? "1" : "0";
         }
 
         private void backgroundToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (cpu != null)
-            {
                 cpu.displayBG = !cpu.displayBG;
-                this.backgroundToolStripMenuItem.Checked = cpu.displayBG;
-            }
+            this.backgroundToolStripMenuItem.Checked = !this.backgroundToolStripMenuItem.Checked;
+            config["displayBG"] = this.backgroundToolStripMenuItem.Checked ? "1" : "0";
+        }
+
+        private void spriteLimitToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (cpu != null)
+                cpu.displaySpriteLimit = !cpu.displaySpriteLimit;
+            this.spriteLimitToolStripMenuItem.Checked = !this.spriteLimitToolStripMenuItem.Checked;
+            config["disableSpriteLimit"] = this.spriteLimitToolStripMenuItem.Checked ? "1" : "0";
         }
 
         private void showInputToolStripMenuItem_Click(object sender, EventArgs e)
@@ -2488,15 +2476,6 @@ namespace DirectXEmu
             pps.BackBufferWidth = this.surfaceControl.Width;
             ResetDevice();
             Program_Resize(this, new EventArgs());
-        }
-
-        private void spriteLimitToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            if (cpu != null)
-            {
-                cpu.displaySpriteLimit = !cpu.displaySpriteLimit;
-                this.spriteLimitToolStripMenuItem.Checked = !cpu.displaySpriteLimit;
-            }
         }
         private string IPSPatch(string rom, string patch)
         {

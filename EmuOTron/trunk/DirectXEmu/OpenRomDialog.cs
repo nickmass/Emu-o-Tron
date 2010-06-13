@@ -1,4 +1,14 @@
-﻿using System;
+﻿/* This is far far far to slow to use and will be always unless I use
+ * tons of win api calls and even then it would be slowish
+ * Though I do like the idea of having a file browser I can customize
+ * to hide unsupported mappers and display extra rom header info,
+ * so I will leave this code in here even though it isn't being used
+ * and if far from complete
+ *
+ */
+
+
+using System;
 using System.IO;
 using System.Collections.Generic;
 using System.ComponentModel;
