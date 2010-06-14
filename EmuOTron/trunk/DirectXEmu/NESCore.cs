@@ -38,7 +38,7 @@ namespace DirectXEmu
         private int[] addressingTypes = new int[0x100];
 
         private int[] scanlineLengths = { 113, 113, 114 };
-        private int slCounter = 0;
+        private byte slCounter = 0;
         private int scanline = 241;
         private int vblank = 1;
 
@@ -99,8 +99,6 @@ namespace DirectXEmu
         private ushort loopyV;
         private byte readBuffer;
 
-        private APU apu;
-
         public bool displaySprites = true;
         public bool displayBG = true;
         public bool displaySpriteLimit = false;
@@ -108,6 +106,8 @@ namespace DirectXEmu
         public string cartDBLocation = "";
 
         private bool turbo = false;
+
+        public APU APU;
 #if LogOpcodeStats
         private byte[] opcodeUsage = new byte[50000000];
         private int op = 0;
@@ -1471,6 +1471,7 @@ break;
 break;
                 }
                 #endregion
+                APU.AddCycles(this.cycles[opCode]);
                 if (this.interruptBRK)
                 {
                     this.pushWordStack((ushort)(this.programCounter+1));
@@ -1495,7 +1496,7 @@ break;
                     this.programCounter = this.readLogWord(0xFFFA);
                     this.interruptNMI = false;
                 }
-                else if ((this.interruptIRQ || this.apu.frameIRQ || romMapper.interruptMapper) && (this.P & 0x04) == 0)
+                else if ((this.interruptIRQ || romMapper.interruptMapper || APU.frameIRQ) && (this.P & 0x04) == 0)
                 {
                     this.pushWordStack(this.programCounter);
                     this.pushByteStack(this.P);
@@ -1503,12 +1504,10 @@ break;
                     this.programCounter = this.readLogWord(0xFFFE);
                     this.interruptIRQ = false;
                 }
-                if (this.counter >= this.scanlineLengths[this.slCounter])
+                if (this.counter >= this.scanlineLengths[this.slCounter % 3])
                 {
+                    this.counter -= this.scanlineLengths[this.slCounter % 3];
                     this.slCounter++;
-                    if (this.slCounter > 2)
-                        this.slCounter = 0;
-                    this.counter -= this.scanlineLengths[this.slCounter];
 
                     if (this.scanline == -1)
                     {
@@ -1532,49 +1531,6 @@ break;
                         this.patternTables = this.GeneratePatternTables();
                     }
 
-                    //APU code
-                    this.apu.frameCounter++;
-                    if (!this.apu.PAL)
-                    {
-                        if (this.apu.frameCounter > 262) //240hz
-                        {
-                            this.apu.frameCounter = 0;
-                        }
-                        else if (this.apu.frameCounter == 65)//120hz
-                        {
-                        }
-                        else if (this.apu.frameCounter == 131)//240hz
-                        {
-                        }
-                        else if (this.apu.frameCounter == 196)//240hz 120hz 60hz
-                        {
-                            if (!this.apu.frameIRQInhibit)
-                            {
-                                //this.apu.frameIRQ = true;
-                                //this.Memory[0x4015] |= 40;
-                            }
-
-                        }
-                    }
-                    else//PALs gross 192hz cycle
-                    {
-                        this.apu.PALCount++;
-                        if (this.apu.PALCount > 4)
-                            this.apu.PALCount = 0;
-                        if (this.apu.frameCounter > 262 && this.apu.PALCount != 4)
-                        {
-                            this.apu.frameCounter = 0;
-                        }
-                        else if (this.apu.frameCounter == 65 && this.apu.PALCount != 4)
-                        {
-                        }
-                        else if (this.apu.frameCounter == 131 && this.apu.PALCount != 4)
-                        {
-                        }
-                        else if (this.apu.frameCounter == 196 && this.apu.PALCount != 4)
-                        {
-                        }
-                    }
                     romMapper.MapperScanline(scanline, vblank);
 
                     this.scanline++;
@@ -1600,6 +1556,7 @@ break;
                     }
                 }
             }
+            APU.Update();
             this.generateNameTables = false;
             this.generatePatternTables = false;
         }/*
@@ -1681,6 +1638,7 @@ break;
             else
                 PPUMemory = new MemoryStore(0x20 + (4 * 0x08), false);
             PPUMemory.swapOffset = 0x20;
+            APU = new APU(Memory);
             romInfo.AppendLine(input);
             romInfo.AppendLine();
             romInfo.AppendLine("Mapper: " + mapper);
@@ -1689,9 +1647,9 @@ break;
             romInfo.AppendLine("Mirroring: " + (fourScreenMirroring ? "Four-screen" : (vertMirroring ? "Vertical" : "Horizontal")));
             if(VS)
                 romInfo.AppendLine("VS Unisystem Game");
-            inputStream.Position = 0x10;
             if (this.sramPresent)
                 romInfo.AppendLine("SRAM Present");
+            inputStream.Position = 0x10;
             if (trainer)
             {
                 romInfo.AppendLine("Trainer Present");
@@ -2068,11 +2026,7 @@ break;
                         break;
                 }
             }
-            else if (this.MirrorMap[address] == 0x4015)//Length Counter enable and status
-            {
-                this.apu.frameIRQ = false;
-                this.Memory[0x4015] &= 0xBF; //toggle off frame irq status
-            }
+            nextByte = APU.Read(nextByte, this.MirrorMap[address]);
             return nextByte;
         }
         private ushort readWord()
@@ -2210,23 +2164,9 @@ break;
                         this.player2Read = 2;
                 }
             }
-            else if (this.MirrorMap[address] == 0x4017)//APU Frame rate/ IRQ control
-            {
-                this.apu.frameCounter = 0;
-                this.apu.PALCount = 0;
-                if ((value & 0x40) != 0)
-                {
-                    this.apu.frameIRQInhibit = true;
-                }
-                if ((value & 0x80) != 0)
-                {
-                    this.apu.PAL = true;
-                }
-                else
-                {
-                    this.apu.PAL = false;
-                }
-            }
+
+            APU.Write(value, this.MirrorMap[address]);
+
             if (this.readOnly[this.MirrorMap[address]] == false)
                 this.Memory[this.MirrorMap[address]] = value;
             ApplyGameGenie();
@@ -3697,7 +3637,7 @@ break;
         public byte stateS;
         public byte stateP;
         public int stateCounter;
-        public int stateSlCounter;
+        public byte stateSlCounter;
         public int stateScanline;
         public int stateVblank;
         public bool stateInterruptReset;
@@ -3717,13 +3657,5 @@ break;
         public bool spriteZeroHit;
         public bool spriteOverflow;
         public bool isStored;
-    }
-    struct APU
-    {
-        public int frameCounter; //tick on scanline 0, 65, 131, 196, should be around 240hz in NTSC mode
-        public bool PAL;
-        public bool frameIRQInhibit;
-        public bool frameIRQ;
-        public int PALCount;
     }
 }

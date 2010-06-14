@@ -59,6 +59,11 @@ namespace DirectXEmu
         Mouse dMouse;
         DirectInput dInput;
         Direct3D d3d;
+        XAudio2 dAudio;
+        MasteringVoice mVoice;
+        SourceVoice sVoice;
+        WaveFormat audioFormat;
+        AudioBuffer audioBuffer = new AudioBuffer();
         PresentParameters pps = new PresentParameters();
         Sprite messageSprite;
         Texture texture;
@@ -195,7 +200,9 @@ namespace DirectXEmu
             while (!this.closed) // This is our message loop
             {
                 if (state == SystemState.Playing)
+                {
                     this.RunCPU();
+                }
                 if (this.frame++ % this.frameSkipper == 0 && state != SystemState.SystemPause)
                 {
                     this.Render(); // Keep rendering until the program terminates
@@ -211,7 +218,7 @@ namespace DirectXEmu
             {
                 d3d = new Direct3D();
                 pps.Windowed = true;
-                pps.PresentationInterval = PresentInterval.One;
+                pps.PresentationInterval = PresentInterval.Immediate;
                 pps.BackBufferWidth = this.surfaceControl.Height;
                 pps.BackBufferHeight = this.surfaceControl.Width;
                 device = new SlimDX.Direct3D9.Device(d3d, 0, SlimDX.Direct3D9.DeviceType.Hardware, this.surfaceControl.Handle, CreateFlags.HardwareVertexProcessing, pps);
@@ -224,6 +231,19 @@ namespace DirectXEmu
                 dKeyboard.Acquire();
                 dMouse = new Mouse(dInput);
                 dMouse.Acquire();
+                audioFormat = new WaveFormat();
+                audioFormat.BitsPerSample = 16;
+                audioFormat.Channels = 1;
+                audioFormat.SamplesPerSecond = 43653;
+                audioFormat.BlockAlignment = (short)(audioFormat.BitsPerSample * audioFormat.Channels / 8);
+                audioFormat.AverageBytesPerSecond = (audioFormat.BitsPerSample / 8) * audioFormat.SamplesPerSecond;
+                audioFormat.FormatTag = WaveFormatTag.Pcm;
+                dAudio = new XAudio2();
+                mVoice = new MasteringVoice(dAudio);
+                sVoice = new SourceVoice(dAudio, audioFormat);
+                audioBuffer = new AudioBuffer();
+                audioBuffer.AudioData = new MemoryStream(); 
+                sVoice.Start();
                 this.Program_Resize(this, new EventArgs());
                 return true;
             }
@@ -786,7 +806,46 @@ namespace DirectXEmu
             zapStatLight = player2Zap.lightDetected;
             zapStatTrig = player2Zap.triggerPulled;
             cpu.Start(player1, player2, player1Zap, player2Zap, (this.frame % this.frameSkipper != 0));
+            //while (sVoice.State.BuffersQueued > 0)
+            //{ }
+            /*
+             * byte[] sampleStream = new byte[cpu.APU.outputPtr * 2];
+            int streamPtr = 0;
+            for (int i = 0; i < cpu.APU.outputPtr; i++)
+            {
+                byte[] sample = BitConverter.GetBytes((ushort)(cpu.APU.output[i] * ushort.MaxValue));
+                for (int j = 0; j < sample.Length; j++)
+                {
+                    sampleStream[streamPtr] = sample[j];
+                    streamPtr++;
+                }
+            }*/
+            if (frame % 60 == 0)
+            {
 
+                audioBuffer.AudioData.SetLength(0);
+                audioBuffer.AudioData.Write(cpu.APU.outBytes, 0, cpu.APU.outputPtr * 2);
+                audioBuffer.AudioData.Position = 0;
+                audioBuffer.AudioBytes = cpu.APU.outputPtr * 2;
+                audioBuffer.Flags = BufferFlags.None;
+                sVoice.SubmitSourceBuffer(audioBuffer);
+                cpu.APU.ResetBuffer();
+            }
+            /*for (int i = 0; i < cpu.APU.outputPtr; i++)
+            {
+                byte[] stream = BitConverter.GetBytes((ushort)(cpu.APU.output[i] * ushort.MaxValue));
+                for (int j = 0; j < stream.Length; j++)
+                {
+                    if (audioOutPtr < audioOut.Length)
+                    audioOut[audioOutPtr] = stream[j];
+                    audioOutPtr++;
+                }
+            }
+            if (audioOutPtr >= audioOut.Length)
+            {
+                File.WriteAllBytes("audio.bin", audioOut);
+                audioOutPtr = 0;
+            }*/
             if (this.generatePatternTables && this.frame % this.patternTableUpdate == 0)
             {
                 this.patternTablePreview.UpdatePatternTables(cpu.patternTables, cpu.patternTablesPalette);

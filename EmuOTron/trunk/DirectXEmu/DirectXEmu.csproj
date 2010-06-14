@@ -97,6 +97,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="APU.cs" />
     <Compile Include="CRC32.cs" />
     <Compile Include="Fill.cs" />
     <Compile Include="mappers\m000.cs" />
