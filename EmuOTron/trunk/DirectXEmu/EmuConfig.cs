@@ -85,6 +85,7 @@ namespace DirectXEmu
             defaults["disableSpriteLimit"] = "1";
             defaults["displayBG"] = "1";
             defaults["displaySprites"] = "1";
+            defaults["sound"] = "1";
 #if DEBUG
             defaults["romPath2"] = @"C:\Games\Emulators\Roms\NES";
             defaults["romPath3"] = @"C:\Games\Emulators\Roms\MapperNes";

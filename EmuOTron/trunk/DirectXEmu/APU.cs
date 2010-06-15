@@ -11,6 +11,8 @@ namespace DirectXEmu
                              //1662607 PAL
         public int divider = 41;
 
+        public bool mute = true;
+
         private int cycles;
         private int lastUpdateCycle;
         private int lastCycleClock;
@@ -29,21 +31,47 @@ namespace DirectXEmu
         private bool pulse1HaltFlag;
         private byte pulse1Envelope;
         private byte pulse1EnvelopeCounter;
-        private int pulse1EnvelopeClock;
+        private int pulse1EnvelopeDivider;
         private bool pulse1ConstantVolume;
         private ushort pulse1Timer;
         private bool pulse1StartFlag;
+        private bool pulse1EnvelopeLoop;
+        private int pulse1Divider;
+        private bool pulse1SweepEnable;
+        private byte pulse1SweepTimer;
+        private byte pulse1SweepDivider;
+        private bool pulse1SweepNegate;
+        private bool pulse1SweepReload;
+        private byte pulse1SweepShift;
+
+
 
         private bool pulse2Enable;
         private byte pulse2LengthCounter;
         private int pulse2DutySequencer;
-        private int pulse2Duty;
+        private byte pulse2Duty;
         private bool pulse2HaltFlag;
+        private byte pulse2Envelope;
+        private byte pulse2EnvelopeCounter;
+        private int pulse2EnvelopeDivider;
+        private bool pulse2ConstantVolume;
+        private ushort pulse2Timer;
+        private bool pulse2StartFlag;
+        private bool pulse2EnvelopeLoop;
+        private int pulse2Divider;
+        private bool pulse2SweepEnable;
+        private byte pulse2SweepTimer;
+        private byte pulse2SweepDivider;
+        private bool pulse2SweepNegate;
+        private bool pulse2SweepReload;
+        private byte pulse2SweepShift;
 
         private bool[][] dutyCycles = {new bool[] {false, true, false, false, false, false, false, false},
                                        new bool[] {false, true, true, false, false, false, false, false}, 
                                        new bool[] {false, true, true, true, true, false, false, false}, 
-                                       new bool[] {true, false, false, true, true, true, true, true}}; 
+                                       new bool[] {true, false, false, true, true, true, true, true}};
+
+        private byte[] lengthTable = { 10, 254, 20, 2, 40, 4, 80, 6, 160, 8, 60, 10, 14, 12, 26, 14, 12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30 };
 
         private bool noiseEnable;
         private byte noiseLengthCounter;
@@ -55,10 +83,12 @@ namespace DirectXEmu
         private bool noiseHaltFlag;
         private byte noiseEnvelope;
         private byte noiseEnvelopeCounter;
-        private int noiseEnvelopeClock;
+        private int noiseEnvelopeDivider;
         private bool noiseConstantVolume;
         private ushort noiseTimer;
         private bool noiseStartFlag;
+        private bool noiseEnvelopeLoop;
+        private int noiseDivider;
 
         private byte[] triangleSequence = {15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
         private byte triangleSequenceCounter = 0;
@@ -69,6 +99,7 @@ namespace DirectXEmu
         private byte triangleLinearCounter;
         private byte triangleLengthCounter;
         private ushort triangleTimer;
+        private int triangleDivider;
 
         private float[] pulseTable = new float[32];
         private float[] tndTable = new float[204];
@@ -80,8 +111,8 @@ namespace DirectXEmu
 
         public APU(MemoryStore Memory)
         {
-            output = new float[1789773 / divider / 1 * 60];
-            outBytes = new byte[1789773 / divider / 1 * 4 * 60];
+            output = new float[1789773 / divider];
+            outBytes = new byte[1789773 / divider * 4];
             this.Memory = Memory;
             for (int i = 0; i < 32; i++)
                 pulseTable[i] = ((95.52f / (8128.0f / i + 100f)));
@@ -117,62 +148,122 @@ namespace DirectXEmu
                 pulse1Envelope = (byte)(value & 0xF);
                 pulse1ConstantVolume = (value & 0x10) != 0;
                 pulse1HaltFlag = (value & 0x20) != 0;
+                pulse1EnvelopeLoop = pulse1HaltFlag;
                 pulse1Duty = (byte)(value >> 6);
+
+            }
+            else if (address == 0x4001) //Pulse 1 Sweep
+            {
+                Update();
+                pulse1SweepShift = (byte)(value & 0x7);
+                pulse1SweepNegate = ((value & 0x8) != 0);
+                pulse1SweepTimer = (byte)((value >> 4) & 0x7);
+                pulse1SweepDivider = (byte)(pulse1SweepTimer + 1);
+                pulse1SweepEnable = ((value & 0x80) != 0);
+                pulse1SweepReload = true;
 
             }
             else if (address == 0x4002) //Pulse 1 Low Timer
             {
                 Update();
                 pulse1Timer = (ushort)((pulse1Timer & 0xFF00) + value);
+                pulse1Divider = pulse1Timer + 1;
 
             }
             else if (address == 0x4003)//Pulse 1 Length Counter and High Timer
             {
                 Update();
                 if (pulse1Enable)
-                    pulse1LengthCounter = (byte)(value >> 3);
+                    pulse1LengthCounter = lengthTable[(byte)(value >> 3)];
                 pulse1Timer = (ushort)((pulse1Timer & 0x00FF) + ((value & 0x7) << 8));
+                pulse1Divider = pulse1Timer + 1;
                 pulse1DutySequencer = 0;
-                pulse1EnvelopeCounter = 0xF;
                 pulse1StartFlag = true;
+                pulse1HaltFlag = true;
+            }
+            else if (address == 0x4004) //Pulse 2 Duty
+            {
+                Update();
+                pulse2Envelope = (byte)(value & 0xF);
+                pulse2ConstantVolume = (value & 0x10) != 0;
+                pulse2HaltFlag = (value & 0x20) != 0;
+                pulse2EnvelopeLoop = pulse2HaltFlag;
+                pulse2Duty = (byte)(value >> 6);
+
+            }
+            else if (address == 0x4005) //Pulse 2 Sweep
+            {
+                Update();
+                pulse2SweepShift = (byte)(value & 0x7);
+                pulse2SweepNegate = ((value & 0x8) != 0);
+                pulse2SweepTimer = (byte)((value >> 4) & 0x7);
+                pulse2SweepDivider = (byte)(pulse2SweepTimer + 1);
+                pulse2SweepEnable = ((value & 0x80) != 0);
+                pulse2SweepReload = true;
+
+            }
+            else if (address == 0x4006) //Pulse 2 Low Timer
+            {
+                Update();
+                pulse2Timer = (ushort)((pulse2Timer & 0xFF00) + value);
+                pulse2Divider = pulse2Timer + 1;
+
+            }
+            else if (address == 0x4007)//Pulse 2 Length Counter and High Timer
+            {
+                Update();
+                if (pulse2Enable)
+                    pulse2LengthCounter = lengthTable[(byte)(value >> 3)];
+                pulse2Timer = (ushort)((pulse2Timer & 0x00FF) + ((value & 0x7) << 8));
+                pulse2Divider = pulse2Timer + 1;
+                pulse2DutySequencer = 0;
+                pulse2StartFlag = true;
+                pulse2HaltFlag = true;
             }
             else if (address == 0x400C) //Noise Envelope
             {
                 Update();
                 noiseEnvelope = (byte)(value & 0xF);
-                noiseConstantVolume = (value & 0x10) != 0;
+                noiseEnvelopeDivider = noiseEnvelope + 1;
+                noiseConstantVolume = ((value & 0x10) != 0);
                 noiseHaltFlag = (value & 0x20) != 0;
+                noiseEnvelopeLoop = noiseHaltFlag;
             }
             else if (address == 0x400E) //Noise Timer
             {
                 Update();
-                noiseTimer = noisePeriods[value & 0x7];
+                noiseTimer = noisePeriods[value & 0xF];
+                noiseDivider = noiseTimer;
                 noiseLoop = (value & 0x80) != 0;
             }
             else if (address == 0x400F)//Noise Length Counter
             {
                 Update();
                 if (noiseEnable)
-                    noiseLengthCounter = (byte)(value >> 3);
+                    noiseLengthCounter = lengthTable[(byte)(value >> 3)];
+                noiseStartFlag = true;
                 noiseHaltFlag = true;
             }
             else if (address == 0x4008) //Triangle Linear Counter
             {
                 Update();
                 triangleControlFlag = (value & 0x80) != 0;
+                triangleHaltFlag = triangleControlFlag;
                 triangleLinearCounterReload = (byte)(value & 0x7F);
             }
             else if (address == 0x400A) //Triangle Low Timer
             {
                 Update();
                 triangleTimer = (ushort)((triangleTimer & 0xFF00) + value);
+                triangleDivider = triangleTimer + 1;
             }
             else if (address == 0x400B)//Triangle Length Counter and High Timer
             {
                 Update();
                 if (triangleEnable)
-                    triangleLengthCounter = (byte)(value >> 3);
+                    triangleLengthCounter = lengthTable[(byte)(value >> 3)];
                 triangleTimer = (ushort)((triangleTimer & 0x00FF) + ((value & 0x7) << 8));
+                triangleDivider = triangleTimer + 1;
                 triangleHaltFlag = true;
             }
             else if (address == 0x4015)
@@ -194,6 +285,7 @@ namespace DirectXEmu
             }
             else if (address == 0x4017)//APU Frame rate/ IRQ control
             {
+                Update();
                 frameCounter = 0;
                 frameIRQInhibit = (value & 0x40) != 0;
                 if (frameIRQInhibit)
@@ -220,16 +312,85 @@ namespace DirectXEmu
             {
                 pulse1StartFlag = false;
                 pulse1EnvelopeCounter = 0xF;
-                pulse1EnvelopeClock = 0;
+                pulse1EnvelopeDivider = pulse1Envelope + 1;
             }
-            if (pulse1EnvelopeClock % (pulse1Envelope + 1) == 0)
+            else
             {
-                if (pulse1EnvelopeCounter != 0)
-                    pulse1EnvelopeCounter--;
-                else if (pulse1HaltFlag)
-                    pulse1EnvelopeCounter = 0xF;
+                pulse1EnvelopeDivider--;
+                if (pulse1EnvelopeDivider == 0)
+                {
+                    if (pulse1EnvelopeCounter != 0)
+                        pulse1EnvelopeCounter--;
+                    else if (pulse1EnvelopeLoop)
+                        pulse1EnvelopeCounter = 0xF;
+                    pulse1EnvelopeDivider = pulse1Envelope + 1;
+                }
             }
-            pulse1EnvelopeClock++;
+        }
+        public void Pulse1Sweep()
+        {
+            pulse1SweepDivider--;
+            if (pulse1SweepReload)
+            {
+                pulse1SweepReload = false;
+                pulse1SweepDivider = (byte)(pulse1SweepTimer + 1);
+            }
+            if (pulse1SweepDivider == 0)
+            {
+                int tmp = pulse1Timer >> pulse1SweepShift;
+                if (pulse1SweepNegate)
+                    tmp = (~tmp) & 0x7FF;
+                tmp += pulse1Timer;
+                if (pulse1SweepEnable && pulse1SweepShift != 0 && pulse1Timer >= 8 && tmp <= 0x7FF)
+                {
+                    pulse1Timer = (ushort)(tmp & 0x7FF);
+                }
+                pulse1SweepDivider = (byte)(pulse1SweepTimer + 1);
+
+            }
+        }
+        public void Pulse2Envelope()
+        {
+            if (pulse2StartFlag)
+            {
+                pulse2StartFlag = false;
+                pulse2EnvelopeCounter = 0xF;
+                pulse2EnvelopeDivider = pulse2Envelope + 1;
+            }
+            else
+            {
+                pulse2EnvelopeDivider--;
+                if (pulse2EnvelopeDivider == 0)
+                {
+                    if (pulse2EnvelopeCounter != 0)
+                        pulse2EnvelopeCounter--;
+                    else if (pulse2EnvelopeLoop)
+                        pulse2EnvelopeCounter = 0xF;
+                    pulse2EnvelopeDivider = pulse2Envelope + 1;
+                }
+            }
+        }
+        public void Pulse2Sweep()
+        {
+            pulse2SweepDivider--;
+            if (pulse2SweepReload)
+            {
+                pulse2SweepReload = false;
+                pulse2SweepDivider = (byte)(pulse2SweepTimer + 1);
+            }
+            if (pulse2SweepDivider == 0)
+            {
+                int tmp = pulse2Timer >> pulse2SweepShift;
+                if (pulse2SweepNegate)
+                    tmp = ((~tmp)+1) & 0x7FF;
+                tmp += pulse2Timer;
+                if (pulse2SweepEnable && pulse2SweepShift != 0 && pulse2Timer >= 8 && tmp <= 0x7FF)
+                {
+                    pulse2Timer = (ushort)(tmp & 0x7FF);
+                }
+                pulse2SweepDivider = (byte)(pulse2SweepTimer + 1);
+
+            }
         }
         public void NoiseEnvelope()
         {
@@ -237,30 +398,39 @@ namespace DirectXEmu
             {
                 noiseStartFlag = false;
                 noiseEnvelopeCounter = 0xF;
-                noiseEnvelopeClock = 0;
+                noiseEnvelopeDivider = noiseEnvelope + 1;
             }
-            if (noiseEnvelopeClock % (noiseEnvelope + 1) == 0)
+            else
             {
-                if (noiseEnvelopeCounter != 0)
-                    noiseEnvelopeCounter--;
-                else if (noiseHaltFlag)
-                    noiseEnvelopeCounter = 0xF;
+                noiseEnvelopeDivider--;
+                if (noiseEnvelopeDivider == 0)
+                {
+                    if (noiseEnvelopeCounter != 0)
+                        noiseEnvelopeCounter--;
+                    else if (noiseEnvelopeLoop)
+                        noiseEnvelopeCounter = 0xF;
+                    noiseEnvelopeDivider = noiseEnvelope + 1;
+                }
             }
-            noiseEnvelopeClock++;
         }
         public void TriangleLength()
         {
-            if (triangleEnable && !triangleHaltFlag && triangleLengthCounter != 0)
+            if (!triangleHaltFlag && triangleLengthCounter != 0)
                 triangleLengthCounter--;
         }
         public void Pulse1Length()
         {
-            if (pulse1Enable && !pulse1HaltFlag && pulse1LengthCounter != 0)
+            if (!pulse1HaltFlag && pulse1LengthCounter != 0)
                 pulse1LengthCounter--;
+        }
+        public void Pulse2Length()
+        {
+            if (!pulse2HaltFlag && pulse2LengthCounter != 0)
+                pulse2LengthCounter--;
         }
         public void NoiseLength()
         {
-            if (noiseEnable && !noiseHaltFlag && noiseLengthCounter != 0)
+            if (!noiseHaltFlag && noiseLengthCounter != 0)
                 noiseLengthCounter--;
         }
         public void AddCycles(int cycles)
@@ -277,6 +447,7 @@ namespace DirectXEmu
                     if (step == 0) //Envelopes + Triangle Linear Counter
                     {
                         Pulse1Envelope();
+                        Pulse2Envelope();
                         NoiseEnvelope();
                         TriangleLinear();
                     }
@@ -284,6 +455,10 @@ namespace DirectXEmu
                     {
                         Pulse1Envelope();
                         Pulse1Length();
+                        Pulse1Sweep();
+                        Pulse2Envelope();
+                        Pulse2Length();
+                        Pulse2Sweep();
                         NoiseEnvelope();
                         NoiseLength();
                         TriangleLinear();
@@ -292,6 +467,7 @@ namespace DirectXEmu
                     else if (step == 2) //Envelopes + Triangle Linear Counter
                     {
                         Pulse1Envelope();
+                        Pulse2Envelope();
                         NoiseEnvelope();
                         TriangleLinear();
                     }
@@ -299,6 +475,10 @@ namespace DirectXEmu
                     {
                         Pulse1Envelope();
                         Pulse1Length();
+                        Pulse1Sweep();
+                        Pulse2Envelope();
+                        Pulse2Length();
+                        Pulse2Sweep();
                         NoiseEnvelope();
                         NoiseLength();
                         TriangleLinear();
@@ -315,6 +495,10 @@ namespace DirectXEmu
                     {
                         Pulse1Envelope();
                         Pulse1Length();
+                        Pulse1Sweep();
+                        Pulse2Envelope();
+                        Pulse2Length();
+                        Pulse2Sweep();
                         NoiseEnvelope();
                         NoiseLength();
                         TriangleLinear();
@@ -323,6 +507,7 @@ namespace DirectXEmu
                     else if (step == 1)//Envelopes + Triangle Linear Counter
                     {
                         Pulse1Envelope();
+                        Pulse2Envelope();
                         NoiseEnvelope();
                         TriangleLinear();
                     }
@@ -330,6 +515,10 @@ namespace DirectXEmu
                     {
                         Pulse1Envelope();
                         Pulse1Length();
+                        Pulse1Sweep();
+                        Pulse2Envelope();
+                        Pulse2Length();
+                        Pulse2Sweep();
                         NoiseEnvelope();
                         NoiseLength();
                         TriangleLinear();
@@ -338,6 +527,7 @@ namespace DirectXEmu
                     else if (step == 3)//Envelopes + Triangle Linear Counter
                     {
                         Pulse1Envelope();
+                        Pulse2Envelope();
                         NoiseEnvelope();
                         TriangleLinear();
                     }
@@ -356,61 +546,116 @@ namespace DirectXEmu
         }
         public void Update()
         {
-            //int triangleClockRate = (CPUClock / (CPUClock / (triangleTimer + 1) / 32));
-            //int pulse1CockRate = CPUClock / (CPUClock / (16 * (pulse1Timer + 1)));
-            //int noiseClockRate = CPUClock / (CPUClock / (noiseTimer + 1));
+            if (mute)
+            {
+
+                for (int updateCycle = lastUpdateCycle; updateCycle < cycles; updateCycle++)
+                {
+                    if (updateCycle % divider == 0)
+                    {
+                        outBytes[(outputPtr * 4) + 0] = 0;
+                        outBytes[(outputPtr * 4) + 1] = 0;
+                        outBytes[(outputPtr * 4) + 2] = 0;
+                        outBytes[(outputPtr * 4) + 3] = 0;
+                        outputPtr++;
+                    }
+                }
+                lastUpdateCycle = cycles;
+                return;
+            }
             byte pulse1Volume = 0;
-            if (pulse1LengthCounter != 0 && dutyCycles[pulse1Duty][pulse1DutySequencer % 8])
-            {
-                if (pulse1ConstantVolume)
-                    pulse1Volume = pulse1Envelope;
-                else
-                    pulse1Volume = pulse1EnvelopeCounter;
-            }
+            if (pulse1LengthCounter == 0)
+                pulse1Volume = 0;
+            else if(!dutyCycles[pulse1Duty][pulse1DutySequencer % 8])
+                pulse1Volume = 0;
+            else if (pulse1ConstantVolume)
+                pulse1Volume = pulse1Envelope;
+            else
+                pulse1Volume = pulse1EnvelopeCounter;
+
+            byte pulse2Volume = 0;
+            if (pulse2LengthCounter == 0)
+                pulse2Volume = 0;
+            else if (!dutyCycles[pulse2Duty][pulse2DutySequencer % 8])
+                pulse2Volume = 0;
+            else if (pulse2ConstantVolume)
+                pulse2Volume = pulse2Envelope;
+            else
+                pulse2Volume = pulse2EnvelopeCounter;
             byte noiseVolume = 0;
-            if (noiseLengthCounter != 0 && ((noiseShiftReg & 1) == 0))
-            {
-                if (noiseConstantVolume)
-                    noiseVolume = noiseEnvelope;
-                else
-                    noiseVolume = noiseEnvelopeCounter;
-            }
+            if ((noiseShiftReg & 1) == 0)
+                noiseVolume = 0;
+            else if (noiseLengthCounter == 0)
+                noiseVolume = 0;
+            else if (noiseConstantVolume)
+                noiseVolume = noiseEnvelope;
+            else
+                noiseVolume = noiseEnvelopeCounter;
 
             byte triangleVolume = 0;
             if((triangleLengthCounter != 0 || triangleLinearCounter != 0))
                 triangleVolume = triangleSequence[triangleSequenceCounter % 32];
+            byte dmcVolume = 0;
             for (int updateCycle = lastUpdateCycle; updateCycle < cycles; updateCycle++)
             {
-                if ((triangleLengthCounter != 0 || triangleLinearCounter != 0) && updateCycle % (triangleTimer +1) == 0)
+                triangleDivider--;
+                if (triangleDivider == 0 && (triangleLengthCounter != 0 || triangleLinearCounter != 0))
                 {
                     triangleSequenceCounter++;
                     triangleVolume = triangleSequence[triangleSequenceCounter % 32];
+                    triangleDivider = triangleTimer + 1;
                 }
-                if (updateCycle % (pulse1Timer +1) == 0)
+                pulse1Divider--;
+                if (pulse1Divider == 0)
                 {
-                    if ((pulse1LengthCounter != 0 && dutyCycles[pulse1Duty][pulse1DutySequencer % 8]))
-                    {
-                        if (pulse1ConstantVolume)
-                            pulse1Volume = pulse1Envelope;
-                        else
-                            pulse1Volume = pulse1EnvelopeCounter;
-                    }
+                    if (pulse1LengthCounter == 0)
+                        pulse1Volume = 0;
+                    else if (!dutyCycles[pulse1Duty][pulse1DutySequencer % 8])
+                        pulse1Volume = 0;
+                    else if (pulse1ConstantVolume)
+                        pulse1Volume = pulse1Envelope;
+                    else
+                        pulse1Volume = pulse1EnvelopeCounter;
                     pulse1DutySequencer++;
+                    pulse1Divider = pulse1Timer + 1;
                 }
-                if (updateCycle % (noiseTimer +1) == 0)
+                pulse2Divider--;
+                if (pulse2Divider == 0)
                 {
-                    if (noiseLengthCounter != 0 && ((noiseShiftReg & 1) == 0))
-                    {
-                        if (noiseConstantVolume)
-                            noiseVolume = noiseEnvelope;
-                        else
-                            noiseVolume = noiseEnvelopeCounter;
-                    }
+                    if (pulse2LengthCounter == 0)
+                        pulse2Volume = 0;
+                    else if (!dutyCycles[pulse2Duty][pulse2DutySequencer % 8])
+                        pulse2Volume = 0;
+                    else if (pulse2ConstantVolume)
+                        pulse2Volume = pulse2Envelope;
+                    else
+                        pulse2Volume = pulse2EnvelopeCounter;
+                    pulse2DutySequencer++;
+                    pulse2Divider = pulse2Timer + 1;
+                }
+                noiseDivider--;
+                if (noiseDivider == 0)
+                {
                     NoiseClock();
+                    if ((noiseShiftReg & 1) == 0)
+                        noiseVolume = 0;
+                    else if (noiseLengthCounter == 0)
+                        noiseVolume = 0;
+                    else if (noiseConstantVolume)
+                        noiseVolume = noiseEnvelope;
+                    else
+                        noiseVolume = noiseEnvelopeCounter;
+                    noiseDivider = noiseTimer;
                 }
                 if (updateCycle % divider == 0)
                 {
-                    output[outputPtr] = ((tndTable[(3 * triangleVolume) + (2 * 8) + 8] + pulseTable[8 + 8]) - 0.5f) * 2;
+                    //pulse1Volume = 8;
+                    //pulse2Volume = 8;
+                    //triangleVolume = 8;
+                    //noiseVolume = 8;
+                    dmcVolume = 8;
+                    
+                    output[outputPtr] = ((tndTable[(3 * triangleVolume) + (2 * noiseVolume) + dmcVolume] + pulseTable[pulse1Volume + pulse2Volume]) - 0.5f) * 2;
                     byte[] tmp = BitConverter.GetBytes(output[outputPtr]);
                     outBytes[(outputPtr * 4) + 0] = tmp[0];
                     outBytes[(outputPtr * 4) + 1] = tmp[1];
