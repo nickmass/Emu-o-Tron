@@ -244,10 +244,8 @@ namespace DirectXEmu
                 audioFormat.FormatTag = WaveFormatTag.IeeeFloat;
                 dAudio = new XAudio2();
                 mVoice = new MasteringVoice(dAudio);
-                sVoice = new SourceVoice(dAudio, audioFormat);
                 audioBuffer = new AudioBuffer();
-                audioBuffer.AudioData = new MemoryStream(); 
-                sVoice.Start();
+                audioBuffer.AudioData = new MemoryStream();
                 this.Program_Resize(this, new EventArgs());
                 return true;
             }
@@ -810,26 +808,16 @@ namespace DirectXEmu
             zapStatLight = player2Zap.lightDetected;
             zapStatTrig = player2Zap.triggerPulled;
             cpu.Start(player1, player2, player1Zap, player2Zap, (this.frame % this.frameSkipper != 0));
-            //while (sVoice.State.BuffersQueued > 0)
-            //{ }
-            /*
-             * byte[] sampleStream = new byte[cpu.APU.outputPtr * 2];
-            int streamPtr = 0;
-            for (int i = 0; i < cpu.APU.outputPtr; i++)
-            {
-                byte[] sample = BitConverter.GetBytes((ushort)(cpu.APU.output[i] * ushort.MaxValue));
-                for (int j = 0; j < sample.Length; j++)
-                {
-                    sampleStream[streamPtr] = sample[j];
-                    streamPtr++;
-                }
-            }*/
-            if (frame % 60 == 0)
+            if (!rewinding && frameSkipper == 1)
             {
                 if (wavRecord)
                 {
                     wavFile.Write(cpu.APU.outBytes, 0, cpu.APU.outputPtr * 4);
                     wavSamples += cpu.APU.outputPtr;
+                }
+                while (sVoice.State.BuffersQueued > 2)
+                {
+                    Thread.Sleep(1);
                 }
                 audioBuffer.AudioData.SetLength(0);
                 audioBuffer.AudioData.Write(cpu.APU.outBytes, 0, cpu.APU.outputPtr * 4);
@@ -837,23 +825,8 @@ namespace DirectXEmu
                 audioBuffer.AudioBytes = cpu.APU.outputPtr * 4;
                 audioBuffer.Flags = BufferFlags.None;
                 sVoice.SubmitSourceBuffer(audioBuffer);
-                cpu.APU.ResetBuffer();
             }
-            /*for (int i = 0; i < cpu.APU.outputPtr; i++)
-            {
-                byte[] stream = BitConverter.GetBytes((ushort)(cpu.APU.output[i] * ushort.MaxValue));
-                for (int j = 0; j < stream.Length; j++)
-                {
-                    if (audioOutPtr < audioOut.Length)
-                    audioOut[audioOutPtr] = stream[j];
-                    audioOutPtr++;
-                }
-            }
-            if (audioOutPtr >= audioOut.Length)
-            {
-                File.WriteAllBytes("audio.bin", audioOut);
-                audioOutPtr = 0;
-            }*/
+            cpu.APU.ResetBuffer();
             if (this.generatePatternTables && this.frame % this.patternTableUpdate == 0)
             {
                 this.patternTablePreview.UpdatePatternTables(cpu.patternTables, cpu.patternTablesPalette);
@@ -1681,7 +1654,7 @@ namespace DirectXEmu
             // recordWAVToolStripMenuItem
             // 
             this.recordWAVToolStripMenuItem.Name = "recordWAVToolStripMenuItem";
-            this.recordWAVToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.recordWAVToolStripMenuItem.Size = new System.Drawing.Size(140, 22);
             this.recordWAVToolStripMenuItem.Text = "Record WAV";
             this.recordWAVToolStripMenuItem.Click += new System.EventHandler(this.recordWAVToolStripMenuItem_Click);
             // 
@@ -1689,7 +1662,7 @@ namespace DirectXEmu
             // 
             this.stopWAVToolStripMenuItem.Enabled = false;
             this.stopWAVToolStripMenuItem.Name = "stopWAVToolStripMenuItem";
-            this.stopWAVToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.stopWAVToolStripMenuItem.Size = new System.Drawing.Size(140, 22);
             this.stopWAVToolStripMenuItem.Text = "Stop WAV";
             this.stopWAVToolStripMenuItem.Click += new System.EventHandler(this.stopWAVToolStripMenuItem_Click);
             // 
@@ -1983,6 +1956,7 @@ namespace DirectXEmu
             // recordDialog
             // 
             this.recordDialog.DefaultExt = "wav";
+            this.recordDialog.Filter = "Wav files|(*.wav)";
             // 
             // Program
             // 
@@ -2222,6 +2196,9 @@ namespace DirectXEmu
             if(this.cpu != null)
                 logState = this.cpu.logging;
             this.cpu = new NESCore(this.romPath, this.appPath);
+            audioFormat.SamplesPerSecond = this.cpu.APU.CPUClock / this.cpu.APU.divider;
+            sVoice = new SourceVoice(dAudio, audioFormat);
+            sVoice.Start();
             this.cpu.logging = logState;
             this.cpu.displayBG = (config["displayBG"] == "1");
             this.cpu.displaySprites = (config["displaySprites"] == "1");
@@ -2762,7 +2739,6 @@ namespace DirectXEmu
             wavFile.WriteByte((byte)'t');
             wavFile.WriteByte((byte)'a');
             wavFile.Write(BitConverter.GetBytes(Subchunk2Size), 0, 4);
-            MessageBox.Show(wavFile.Position.ToString());
             wavFile.Close();
 
 

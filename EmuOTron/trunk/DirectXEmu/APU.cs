@@ -7,9 +7,9 @@ namespace DirectXEmu
 {
     class APU
     {
-        private int CPUClock = 1789773; //NTSC
+        public int CPUClock = 1789773; //NTSC
                              //1662607 PAL
-        private int divider = 41;
+        public int divider = 41;
 
         private int cycles;
         private int lastUpdateCycle;
@@ -52,6 +52,14 @@ namespace DirectXEmu
                                         //NTSC Freq ~= 1.79MHz/n+1
         private ushort noiseShiftReg = 1; //Set to 1 on power up suppposed to be 15 bits wide
         private bool noiseLoop;
+        private bool noiseHaltFlag;
+        private byte noiseEnvelope;
+        private byte noiseEnvelopeCounter;
+        private int noiseEnvelopeClock;
+        private bool noiseConstantVolume;
+        private ushort noiseTimer;
+        private bool noiseStartFlag;
+
         private byte[] triangleSequence = {15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
         private byte triangleSequenceCounter = 0;
         private bool triangleEnable;
@@ -72,8 +80,8 @@ namespace DirectXEmu
 
         public APU(MemoryStore Memory)
         {
-            output = new float[1789773 / divider / 60 * 60];
-            outBytes = new byte[1789773 / divider / 60 * 4 * 60];
+            output = new float[1789773 / divider / 1 * 60];
+            outBytes = new byte[1789773 / divider / 1 * 4 * 60];
             this.Memory = Memory;
             for (int i = 0; i < 32; i++)
                 pulseTable[i] = ((95.52f / (8128.0f / i + 100f)));
@@ -127,6 +135,26 @@ namespace DirectXEmu
                 pulse1DutySequencer = 0;
                 pulse1EnvelopeCounter = 0xF;
                 pulse1StartFlag = true;
+            }
+            else if (address == 0x400C) //Noise Envelope
+            {
+                Update();
+                noiseEnvelope = (byte)(value & 0xF);
+                noiseConstantVolume = (value & 0x10) != 0;
+                noiseHaltFlag = (value & 0x20) != 0;
+            }
+            else if (address == 0x400E) //Noise Timer
+            {
+                Update();
+                noiseTimer = noisePeriods[value & 0x7];
+                noiseLoop = (value & 0x80) != 0;
+            }
+            else if (address == 0x400F)//Noise Length Counter
+            {
+                Update();
+                if (noiseEnable)
+                    noiseLengthCounter = (byte)(value >> 3);
+                noiseHaltFlag = true;
             }
             else if (address == 0x4008) //Triangle Linear Counter
             {
@@ -203,6 +231,23 @@ namespace DirectXEmu
             }
             pulse1EnvelopeClock++;
         }
+        public void NoiseEnvelope()
+        {
+            if (noiseStartFlag)
+            {
+                noiseStartFlag = false;
+                noiseEnvelopeCounter = 0xF;
+                noiseEnvelopeClock = 0;
+            }
+            if (noiseEnvelopeClock % (noiseEnvelope + 1) == 0)
+            {
+                if (noiseEnvelopeCounter != 0)
+                    noiseEnvelopeCounter--;
+                else if (noiseHaltFlag)
+                    noiseEnvelopeCounter = 0xF;
+            }
+            noiseEnvelopeClock++;
+        }
         public void TriangleLength()
         {
             if (triangleEnable && !triangleHaltFlag && triangleLengthCounter != 0)
@@ -212,6 +257,11 @@ namespace DirectXEmu
         {
             if (pulse1Enable && !pulse1HaltFlag && pulse1LengthCounter != 0)
                 pulse1LengthCounter--;
+        }
+        public void NoiseLength()
+        {
+            if (noiseEnable && !noiseHaltFlag && noiseLengthCounter != 0)
+                noiseLengthCounter--;
         }
         public void AddCycles(int cycles)
         {
@@ -227,22 +277,30 @@ namespace DirectXEmu
                     if (step == 0) //Envelopes + Triangle Linear Counter
                     {
                         Pulse1Envelope();
+                        NoiseEnvelope();
                         TriangleLinear();
                     }
                     else if (step == 1) //Envelopes + Triangle Linear Counter + Length Counters + Sweep Units
                     {
                         Pulse1Envelope();
+                        Pulse1Length();
+                        NoiseEnvelope();
+                        NoiseLength();
                         TriangleLinear();
                         TriangleLength();
                     }
                     else if (step == 2) //Envelopes + Triangle Linear Counter
                     {
                         Pulse1Envelope();
+                        NoiseEnvelope();
                         TriangleLinear();
                     }
                     else if (step == 3) //Envelopes + Triangle Linear Counter + Length Counters + Sweep Units + Interrupt
                     {
                         Pulse1Envelope();
+                        Pulse1Length();
+                        NoiseEnvelope();
+                        NoiseLength();
                         TriangleLinear();
                         TriangleLength();
                         if (!frameIRQInhibit)
@@ -256,23 +314,31 @@ namespace DirectXEmu
                     if (step == 0)//Envelopes + Triangle Linear Counter + Length Counters + Sweep Units
                     {
                         Pulse1Envelope();
+                        Pulse1Length();
+                        NoiseEnvelope();
+                        NoiseLength();
                         TriangleLinear();
                         TriangleLength();
                     }
                     else if (step == 1)//Envelopes + Triangle Linear Counter
                     {
                         Pulse1Envelope();
+                        NoiseEnvelope();
                         TriangleLinear();
                     }
                     else if (step == 2)//Envelopes + Triangle Linear Counter + Length Counters + Sweep Units
                     {
                         Pulse1Envelope();
+                        Pulse1Length();
+                        NoiseEnvelope();
+                        NoiseLength();
                         TriangleLinear();
                         TriangleLength();
                     }
                     else if (step == 3)//Envelopes + Triangle Linear Counter
                     {
                         Pulse1Envelope();
+                        NoiseEnvelope();
                         TriangleLinear();
                     }
                 }
@@ -290,8 +356,9 @@ namespace DirectXEmu
         }
         public void Update()
         {
-            int triangleClockRate = (CPUClock / (CPUClock / (triangleTimer + 1) / 32));
-            int pulse1CockRate = CPUClock / (CPUClock / (16 * (pulse1Timer + 1)));
+            //int triangleClockRate = (CPUClock / (CPUClock / (triangleTimer + 1) / 32));
+            //int pulse1CockRate = CPUClock / (CPUClock / (16 * (pulse1Timer + 1)));
+            //int noiseClockRate = CPUClock / (CPUClock / (noiseTimer + 1));
             byte pulse1Volume = 0;
             if (pulse1LengthCounter != 0 && dutyCycles[pulse1Duty][pulse1DutySequencer % 8])
             {
@@ -300,17 +367,26 @@ namespace DirectXEmu
                 else
                     pulse1Volume = pulse1EnvelopeCounter;
             }
+            byte noiseVolume = 0;
+            if (noiseLengthCounter != 0 && ((noiseShiftReg & 1) == 0))
+            {
+                if (noiseConstantVolume)
+                    noiseVolume = noiseEnvelope;
+                else
+                    noiseVolume = noiseEnvelopeCounter;
+            }
+
             byte triangleVolume = 0;
             if((triangleLengthCounter != 0 || triangleLinearCounter != 0))
                 triangleVolume = triangleSequence[triangleSequenceCounter % 32];
             for (int updateCycle = lastUpdateCycle; updateCycle < cycles; updateCycle++)
             {
-                if ((triangleLengthCounter != 0 || triangleLinearCounter != 0) && updateCycle % triangleClockRate == 0)
+                if ((triangleLengthCounter != 0 || triangleLinearCounter != 0) && updateCycle % (triangleTimer +1) == 0)
                 {
                     triangleSequenceCounter++;
                     triangleVolume = triangleSequence[triangleSequenceCounter % 32];
                 }
-                if (updateCycle % pulse1CockRate == 0)
+                if (updateCycle % (pulse1Timer +1) == 0)
                 {
                     if ((pulse1LengthCounter != 0 && dutyCycles[pulse1Duty][pulse1DutySequencer % 8]))
                     {
@@ -320,6 +396,17 @@ namespace DirectXEmu
                             pulse1Volume = pulse1EnvelopeCounter;
                     }
                     pulse1DutySequencer++;
+                }
+                if (updateCycle % (noiseTimer +1) == 0)
+                {
+                    if (noiseLengthCounter != 0 && ((noiseShiftReg & 1) == 0))
+                    {
+                        if (noiseConstantVolume)
+                            noiseVolume = noiseEnvelope;
+                        else
+                            noiseVolume = noiseEnvelopeCounter;
+                    }
+                    NoiseClock();
                 }
                 if (updateCycle % divider == 0)
                 {
