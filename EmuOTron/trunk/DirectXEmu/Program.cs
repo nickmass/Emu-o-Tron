@@ -148,6 +148,10 @@ namespace DirectXEmu
         private ToolStripMenuItem scale3xToolStripMenuItem;
         private ToolStripMenuItem spriteLimitToolStripMenuItem;
         int maxFrameSkip = 10;
+        private ToolStripMenuItem recordToolStripMenuItem;
+        private ToolStripMenuItem recordWAVToolStripMenuItem;
+        private ToolStripMenuItem stopWAVToolStripMenuItem;
+        private SaveFileDialog recordDialog;
 
         bool controlStrobe = false;
         public Program()
@@ -232,12 +236,12 @@ namespace DirectXEmu
                 dMouse = new Mouse(dInput);
                 dMouse.Acquire();
                 audioFormat = new WaveFormat();
-                audioFormat.BitsPerSample = 16;
+                audioFormat.BitsPerSample = 32;
                 audioFormat.Channels = 1;
-                audioFormat.SamplesPerSecond = 43653;
+                audioFormat.SamplesPerSecond = 1789773 / 41;
                 audioFormat.BlockAlignment = (short)(audioFormat.BitsPerSample * audioFormat.Channels / 8);
                 audioFormat.AverageBytesPerSecond = (audioFormat.BitsPerSample / 8) * audioFormat.SamplesPerSecond;
-                audioFormat.FormatTag = WaveFormatTag.Pcm;
+                audioFormat.FormatTag = WaveFormatTag.IeeeFloat;
                 dAudio = new XAudio2();
                 mVoice = new MasteringVoice(dAudio);
                 sVoice = new SourceVoice(dAudio, audioFormat);
@@ -822,11 +826,15 @@ namespace DirectXEmu
             }*/
             if (frame % 60 == 0)
             {
-
+                if (wavRecord)
+                {
+                    wavFile.Write(cpu.APU.outBytes, 0, cpu.APU.outputPtr * 4);
+                    wavSamples += cpu.APU.outputPtr;
+                }
                 audioBuffer.AudioData.SetLength(0);
-                audioBuffer.AudioData.Write(cpu.APU.outBytes, 0, cpu.APU.outputPtr * 2);
+                audioBuffer.AudioData.Write(cpu.APU.outBytes, 0, cpu.APU.outputPtr * 4);
                 audioBuffer.AudioData.Position = 0;
-                audioBuffer.AudioBytes = cpu.APU.outputPtr * 2;
+                audioBuffer.AudioBytes = cpu.APU.outputPtr * 4;
                 audioBuffer.Flags = BufferFlags.None;
                 sVoice.SubmitSourceBuffer(audioBuffer);
                 cpu.APU.ResetBuffer();
@@ -1498,6 +1506,9 @@ namespace DirectXEmu
             this.exitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.openWithFXCEUToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.recordToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.recordWAVToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.stopWAVToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.optionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.loadPaletteToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.videoModeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -1534,6 +1545,7 @@ namespace DirectXEmu
             this.insideSize = new System.Windows.Forms.Panel();
             this.openPaletteDialog = new System.Windows.Forms.OpenFileDialog();
             this.openMovieDialog = new System.Windows.Forms.OpenFileDialog();
+            this.recordDialog = new System.Windows.Forms.SaveFileDialog();
             this.menuStrip.SuspendLayout();
             this.insideSize.SuspendLayout();
             this.SuspendLayout();
@@ -1565,7 +1577,8 @@ namespace DirectXEmu
             this.toolStripSeparator2,
             this.exitToolStripMenuItem,
             this.toolStripSeparator3,
-            this.openWithFXCEUToolStripMenuItem});
+            this.openWithFXCEUToolStripMenuItem,
+            this.recordToolStripMenuItem});
             this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
             this.fileToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
             this.fileToolStripMenuItem.Text = "File";
@@ -1655,6 +1668,30 @@ namespace DirectXEmu
             this.openWithFXCEUToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.openWithFXCEUToolStripMenuItem.Text = "Open with FCEUX";
             this.openWithFXCEUToolStripMenuItem.Click += new System.EventHandler(this.openWithFCEUXToolStripMenuItem_Click);
+            // 
+            // recordToolStripMenuItem
+            // 
+            this.recordToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.recordWAVToolStripMenuItem,
+            this.stopWAVToolStripMenuItem});
+            this.recordToolStripMenuItem.Name = "recordToolStripMenuItem";
+            this.recordToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.recordToolStripMenuItem.Text = "Record";
+            // 
+            // recordWAVToolStripMenuItem
+            // 
+            this.recordWAVToolStripMenuItem.Name = "recordWAVToolStripMenuItem";
+            this.recordWAVToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.recordWAVToolStripMenuItem.Text = "Record WAV";
+            this.recordWAVToolStripMenuItem.Click += new System.EventHandler(this.recordWAVToolStripMenuItem_Click);
+            // 
+            // stopWAVToolStripMenuItem
+            // 
+            this.stopWAVToolStripMenuItem.Enabled = false;
+            this.stopWAVToolStripMenuItem.Name = "stopWAVToolStripMenuItem";
+            this.stopWAVToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.stopWAVToolStripMenuItem.Text = "Stop WAV";
+            this.stopWAVToolStripMenuItem.Click += new System.EventHandler(this.stopWAVToolStripMenuItem_Click);
             // 
             // optionsToolStripMenuItem
             // 
@@ -1942,6 +1979,10 @@ namespace DirectXEmu
             this.openMovieDialog.DefaultExt = "fm2";
             this.openMovieDialog.Filter = "FM2 Files (*.fm2)|*.fm2|All Files (*.*)|*.*";
             this.openMovieDialog.Title = "Open Movie";
+            // 
+            // recordDialog
+            // 
+            this.recordDialog.DefaultExt = "wav";
             // 
             // Program
             // 
@@ -2664,6 +2705,67 @@ namespace DirectXEmu
                 offset += shift;
             }
             return offset;
+        }
+        FileStream wavFile;
+        bool wavRecord;
+        int wavSamples;
+        private void recordWAVToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (state != SystemState.Empty)
+            {
+                recordDialog.FileName = cpu.fileName;
+                if (recordDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                {
+                    if (!File.Exists(recordDialog.FileName))
+                    {
+                        wavSamples = 0;
+                        if (wavRecord)
+                            wavFile.Close();
+                        wavFile = File.Create(recordDialog.FileName);
+                        for (int i = 0; i < 44; i++)
+                            wavFile.WriteByte(0);
+                        wavRecord = true;
+                        stopWAVToolStripMenuItem.Enabled = true;
+                    }
+                }
+            }
+        }
+
+        private void stopWAVToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            wavRecord = false;
+            //DO HEADER
+            wavFile.Seek(0, SeekOrigin.Begin);
+            int Subchunk2Size = wavSamples * audioFormat.Channels * (audioFormat.BitsPerSample / 8);
+            wavFile.WriteByte((byte)'R');
+            wavFile.WriteByte((byte)'I');
+            wavFile.WriteByte((byte)'F');
+            wavFile.WriteByte((byte)'F');
+            wavFile.Write(BitConverter.GetBytes(Subchunk2Size + 36), 0, 4);
+            wavFile.WriteByte((byte)'W');
+            wavFile.WriteByte((byte)'A');
+            wavFile.WriteByte((byte)'V');
+            wavFile.WriteByte((byte)'E');
+            wavFile.WriteByte((byte)'f');
+            wavFile.WriteByte((byte)'m');
+            wavFile.WriteByte((byte)'t');
+            wavFile.WriteByte((byte)' ');
+            wavFile.Write(BitConverter.GetBytes((int)16), 0, 4);
+            wavFile.Write(BitConverter.GetBytes((short)audioFormat.FormatTag), 0, 2);
+            wavFile.Write(BitConverter.GetBytes(audioFormat.Channels), 0, 2);
+            wavFile.Write(BitConverter.GetBytes(audioFormat.SamplesPerSecond), 0, 4);
+            wavFile.Write(BitConverter.GetBytes(audioFormat.AverageBytesPerSecond), 0, 4);
+            wavFile.Write(BitConverter.GetBytes(audioFormat.BlockAlignment), 0, 2);
+            wavFile.Write(BitConverter.GetBytes(audioFormat.BitsPerSample), 0, 2);
+            wavFile.WriteByte((byte)'d');
+            wavFile.WriteByte((byte)'a');
+            wavFile.WriteByte((byte)'t');
+            wavFile.WriteByte((byte)'a');
+            wavFile.Write(BitConverter.GetBytes(Subchunk2Size), 0, 4);
+            MessageBox.Show(wavFile.Position.ToString());
+            wavFile.Close();
+
+
         }
     }
     class ArchiveCallback : IArchiveExtractCallback

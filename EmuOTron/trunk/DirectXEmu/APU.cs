@@ -2,13 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-
+using System.Windows.Forms;
 namespace DirectXEmu
 {
     class APU
     {
         private int CPUClock = 1789773; //NTSC
                              //1662607 PAL
+        private int divider = 41;
 
         private int cycles;
         private int lastUpdateCycle;
@@ -61,26 +62,23 @@ namespace DirectXEmu
         private byte triangleLengthCounter;
         private ushort triangleTimer;
 
-        private double[] pulseTable = new double[32];
-        private double[] tndTable = new double[204];
-        //output = pulse_out + tnd_out
-        //pulse_out = pulse_table [pulse1 + pulse2]
-        //tnd_out = tnd_table [3 * triangle + 2 * noise + dmc]
+        private float[] pulseTable = new float[32];
+        private float[] tndTable = new float[204];
 
-        //public double[] output = new double[5000]; //CPUCLOCK / 41 / 60 = 728
-        //public byte[] output = new byte[5000];
-        public short[] output = new short[750* 60];
-        public byte[] outBytes = new byte[1500 * 60];
+        public float[] output;
+        public byte[] outBytes;
         public int outputPtr = 0;
 
 
         public APU(MemoryStore Memory)
         {
+            output = new float[1789773 / divider / 60 * 60];
+            outBytes = new byte[1789773 / divider / 60 * 4 * 60];
             this.Memory = Memory;
             for (int i = 0; i < 32; i++)
-                pulseTable[i] = 95.52 / (8128.0 / i + 100);
+                pulseTable[i] = ((95.52f / (8128.0f / i + 100f)));
             for (int i = 0; i < 204; i++)
-                tndTable[i] = 163.67 / (24329.0 / i + 100);
+                tndTable[i] = ((163.67f / (24329.0f / i + 100f)));
         }
         public byte Read(byte value, ushort address)
         {
@@ -292,7 +290,7 @@ namespace DirectXEmu
         }
         public void Update()
         {
-            int triangleClockRate = CPUClock / (CPUClock / (32 * (triangleTimer + 1)));
+            int triangleClockRate = (CPUClock / (CPUClock / (triangleTimer + 1) / 32));
             int pulse1CockRate = CPUClock / (CPUClock / (16 * (pulse1Timer + 1)));
             byte pulse1Volume = 0;
             if (pulse1LengthCounter != 0 && dutyCycles[pulse1Duty][pulse1DutySequencer % 8])
@@ -323,12 +321,14 @@ namespace DirectXEmu
                     }
                     pulse1DutySequencer++;
                 }
-                if (updateCycle % 41 == 0)
+                if (updateCycle % divider == 0)
                 {
-                    output[outputPtr] = (short)((((tndTable[3 * triangleVolume + 2 * 0 + 0] + pulseTable[0 + 0]) - 0.0) * 1.0) * (short.MaxValue - 1));
-                    byte[]  tmp = BitConverter.GetBytes(output[outputPtr]);
-                    outBytes[outputPtr * 2] = tmp[0];
-                    outBytes[(outputPtr * 2) + 1] = tmp[1];
+                    output[outputPtr] = ((tndTable[(3 * triangleVolume) + (2 * 8) + 8] + pulseTable[8 + 8]) - 0.5f) * 2;
+                    byte[] tmp = BitConverter.GetBytes(output[outputPtr]);
+                    outBytes[(outputPtr * 4) + 0] = tmp[0];
+                    outBytes[(outputPtr * 4) + 1] = tmp[1];
+                    outBytes[(outputPtr * 4) + 2] = tmp[2];
+                    outBytes[(outputPtr * 4) + 3] = tmp[3];
                     outputPtr++;
                 }
             }
