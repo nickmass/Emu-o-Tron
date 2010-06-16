@@ -208,6 +208,10 @@ namespace DirectXEmu
                 {
                     this.RunCPU();
                 }
+                else
+                {
+                    Thread.Sleep(12);
+                }
                 if (this.frame++ % this.frameSkipper == 0 && state != SystemState.SystemPause)
                 {
                     this.Render(); // Keep rendering until the program terminates
@@ -236,20 +240,6 @@ namespace DirectXEmu
                 dKeyboard.Acquire();
                 dMouse = new Mouse(dInput);
                 dMouse.Acquire();
-                audioFormat = new WaveFormat();
-                audioFormat.BitsPerSample = 32;
-                audioFormat.Channels = 1;
-                audioFormat.SamplesPerSecond = 1789773 / 41;
-                audioFormat.BlockAlignment = (short)(audioFormat.BitsPerSample * audioFormat.Channels / 8);
-                audioFormat.AverageBytesPerSecond = (audioFormat.BitsPerSample / 8) * audioFormat.SamplesPerSecond;
-                audioFormat.FormatTag = WaveFormatTag.IeeeFloat;
-                dAudio = new XAudio2();
-                mVoice = new MasteringVoice(dAudio);
-                FilterParameters filter = new FilterParameters();
-                filter.Frequency = 20000f;
-                filter.Type = FilterType.HighPassFilter;
-                audioBuffer = new AudioBuffer();
-                audioBuffer.AudioData = new MemoryStream();
                 this.Program_Resize(this, new EventArgs());
                 return true;
             }
@@ -367,6 +357,18 @@ namespace DirectXEmu
             player2.bTurbo.count = 1;
             state = SystemState.Empty;
             surfaceControl.Visible = false;
+            audioFormat = new WaveFormat();
+            audioFormat.BitsPerSample = 32;
+            audioFormat.Channels = 1;
+            audioFormat.SamplesPerSecond = 1789773 / 41;
+            audioFormat.BlockAlignment = (short)(audioFormat.BitsPerSample * audioFormat.Channels / 8);
+            audioFormat.AverageBytesPerSecond = (audioFormat.BitsPerSample / 8) * audioFormat.SamplesPerSecond;
+            audioFormat.FormatTag = WaveFormatTag.IeeeFloat;
+            dAudio = new XAudio2();
+            mVoice = new MasteringVoice(dAudio);
+            mVoice.Volume = 0.5f;
+            audioBuffer = new AudioBuffer();
+            audioBuffer.AudioData = new MemoryStream();
             if (this.romPath != "")
                 this.OpenFile(romPath);
         }
@@ -2211,12 +2213,12 @@ namespace DirectXEmu
                 logState = this.cpu.logging;
             this.cpu = new NESCore(this.romPath, this.appPath);
             audioFormat.SamplesPerSecond = this.cpu.APU.CPUClock / this.cpu.APU.divider;
-            sVoice = new SourceVoice(dAudio, audioFormat);/*
-            FilterParameters filter = new FilterParameters();
-            filter.Frequency = 0.5f;
-            filter.Type = FilterType.LowPassFilter;
-            filter.OneOverQ = 1.5f;
-            sVoice.FilterParameters = filter;*/
+            sVoice = new SourceVoice(dAudio, audioFormat, VoiceFlags.UseFilter);
+            //FilterParameters filter = new FilterParameters();
+            //filter.Frequency = (float)(2 * Math.Sin(Math.PI * (7280.0) / audioFormat.SamplesPerSecond));
+            //filter.Type = FilterType.HighPassFilter;
+            //filter.OneOverQ = 1.5f;
+            //sVoice.FilterParameters = filter;
             sVoice.Start();
             this.cpu.logging = logState;
             this.cpu.displayBG = (config["displayBG"] == "1");

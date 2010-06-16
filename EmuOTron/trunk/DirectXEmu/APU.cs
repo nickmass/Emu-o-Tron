@@ -101,6 +101,24 @@ namespace DirectXEmu
         private ushort triangleTimer;
         private int triangleDivider;
 
+        public bool dmcInterrupt;
+        private bool dmcInterruptEnable;
+        private bool dmcLoop;
+        private int dmcRate;
+        private int dmcDivider;
+        private int dmcSampleAddress;
+        private int dmcSampleCurrentAddress;
+        private int dmcSampleLength;
+        private int dmcSampleCounter;
+        private byte dmcDeltaCounter;
+        private int dmcBytesRemaining;
+        private byte dmcSampleBuffer;
+        private bool dmcSampleBufferEmpty;
+        private bool dmcSilence;
+        private byte dmcShiftReg;
+
+        private int[] dmcRates = { 428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54 }; //NTSC only
+
         private float[] pulseTable = new float[32];
         private float[] tndTable = new float[204];
 
@@ -111,8 +129,8 @@ namespace DirectXEmu
 
         public APU(MemoryStore Memory)
         {
-            output = new float[1789773 / divider];
-            outBytes = new byte[1789773 / divider * 4];
+            output = new float[CPUClock / divider];
+            outBytes = new byte[CPUClock / divider * 4];
             this.Memory = Memory;
             for (int i = 0; i < 32; i++)
                 pulseTable[i] = ((95.52f / (8128.0f / i + 100f)));
@@ -133,9 +151,12 @@ namespace DirectXEmu
                     value |= 0x4;
                 if (noiseLengthCounter != 0)
                     value |= 0x8;
+                if (dmcBytesRemaining != 0)
+                    value |= 0x10;
                 if (frameIRQ)
                     value |= 0x40;
-                //DMC Interrupt Flag, DMC bytes remaining
+                if (dmcInterrupt)
+                    value |= 0x80;
                 frameIRQ = false;
             }
             return nextByte;
@@ -266,6 +287,31 @@ namespace DirectXEmu
                 triangleDivider = triangleTimer + 1;
                 triangleHaltFlag = true;
             }
+            else if (address == 0x4010) //DMC Flags and Freq
+            {
+                Update();
+                dmcRate = dmcRates[value & 0xF];
+                dmcDivider = dmcRate;
+                dmcLoop = (value & 0x40) != 0;
+                dmcInterruptEnable = (value & 0x80) != 0;
+                if(!dmcInterruptEnable)
+                    dmcInterrupt = false;
+            }
+            else if (address == 0x4011) //DMC Direct Load
+            {
+                Update();
+                dmcDeltaCounter = (byte)(value & 0x7F);
+            }
+            else if (address == 0x4012) //DMC Sample Address
+            {
+                Update();
+                dmcSampleAddress = 0xC000 + (value << 6);
+            }
+            else if (address == 0x4013) //DMC Sample Length
+            {
+                Update();
+                dmcSampleLength = (value << 4) + 1;
+            }
             else if (address == 0x4015)
             {
                 Update();
@@ -281,7 +327,14 @@ namespace DirectXEmu
                 noiseEnable = (value & 0x8) != 0;
                 if (!noiseEnable)
                     noiseLengthCounter = 0;
-                //Clear DMC Interrupt, Set DMC bytes remaining
+                if ((value & 0x10) == 0)
+                    dmcBytesRemaining = 0;
+                else if (dmcBytesRemaining == 0)
+                {
+                    dmcSampleCurrentAddress = dmcSampleAddress;
+                    dmcBytesRemaining = dmcSampleLength;
+                }
+                dmcInterrupt = false;
             }
             else if (address == 0x4017)//APU Frame rate/ IRQ control
             {
@@ -544,6 +597,51 @@ namespace DirectXEmu
             noiseShiftReg >>= 1;
             noiseShiftReg = (ushort)(noiseShiftReg | (feedback << 14));
         }
+        private int DMCOutput()
+        {
+            if (dmcSampleBufferEmpty)
+                dmcSilence = true;
+            else
+            {
+                dmcSilence = false;
+                dmcShiftReg = dmcSampleBuffer;
+                dmcSampleBufferEmpty = true;
+            }
+            if (dmcSampleBufferEmpty && dmcBytesRemaining != 0)
+            {
+                dmcSampleBuffer = Memory[dmcSampleCurrentAddress];
+                dmcSampleBufferEmpty = false;
+                dmcSampleCurrentAddress++;
+                if (dmcSampleCurrentAddress > 0xFFFF)
+                    dmcSampleCurrentAddress = 0x8000;
+                dmcBytesRemaining--;
+                if (dmcBytesRemaining == 0)
+                {
+                    if (dmcLoop)
+                    {
+                        dmcBytesRemaining = dmcSampleLength;
+                        dmcSampleCurrentAddress = dmcSampleAddress;
+                    }
+                    else if (dmcInterruptEnable)
+                        dmcInterrupt = true;
+                }
+            }
+            dmcDivider--;
+            if (dmcDivider == 0)
+            {
+
+                for (int i = 0; i < 8; i++)
+                {
+                    if (!dmcSilence && (dmcShiftReg & 1) != 0 && dmcDeltaCounter > 1)
+                        dmcDeltaCounter -= 2;
+                    else if (!dmcSilence && (dmcShiftReg & 1) == 0 && dmcDeltaCounter < 126)
+                        dmcDeltaCounter += 2;
+                    dmcShiftReg >>= 1;
+                }
+                dmcDivider = dmcRate;
+            }
+            return dmcDeltaCounter & 0x7F;
+        }
         public void Update()
         {
             if (mute)
@@ -595,14 +693,17 @@ namespace DirectXEmu
             byte triangleVolume = 0;
             if((triangleLengthCounter != 0 || triangleLinearCounter != 0))
                 triangleVolume = triangleSequence[triangleSequenceCounter % 32];
-            byte dmcVolume = 0;
+            int dmcVolume = 0;
             for (int updateCycle = lastUpdateCycle; updateCycle < cycles; updateCycle++)
             {
                 triangleDivider--;
                 if (triangleDivider == 0 && (triangleLengthCounter != 0 || triangleLinearCounter != 0))
                 {
                     triangleSequenceCounter++;
-                    triangleVolume = triangleSequence[triangleSequenceCounter % 32];
+                    if (triangleTimer < 2)
+                        triangleVolume = 7;
+                    else
+                        triangleVolume = triangleSequence[triangleSequenceCounter % 32];
                     triangleDivider = triangleTimer + 1;
                 }
                 pulse1Divider--;
@@ -647,15 +748,16 @@ namespace DirectXEmu
                         noiseVolume = noiseEnvelopeCounter;
                     noiseDivider = noiseTimer;
                 }
+                dmcVolume = DMCOutput();
                 if (updateCycle % divider == 0)
                 {
                     //pulse1Volume = 8;
                     //pulse2Volume = 8;
                     //triangleVolume = 8;
                     //noiseVolume = 8;
-                    dmcVolume = 8;
+                    //dmcVolume = 0;
                     
-                    output[outputPtr] = ((tndTable[(3 * triangleVolume) + (2 * noiseVolume) + dmcVolume] + pulseTable[pulse1Volume + pulse2Volume]) - 0.5f) * 2;
+                    output[outputPtr] = ((tndTable[(3 * triangleVolume) + (2 * noiseVolume) + dmcVolume] + pulseTable[pulse1Volume + pulse2Volume]) - 0.0f)* 1;
                     byte[] tmp = BitConverter.GetBytes(output[outputPtr]);
                     outBytes[(outputPtr * 4) + 0] = tmp[0];
                     outBytes[(outputPtr * 4) + 1] = tmp[1];

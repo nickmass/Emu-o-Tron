@@ -1496,7 +1496,7 @@ break;
                     this.programCounter = this.readLogWord(0xFFFA);
                     this.interruptNMI = false;
                 }
-                else if ((this.interruptIRQ || romMapper.interruptMapper || APU.frameIRQ) && (this.P & 0x04) == 0)
+                else if ((this.interruptIRQ || romMapper.interruptMapper || APU.frameIRQ || APU.dmcInterrupt) && (this.P & 0x04) == 0)
                 {
                     this.pushWordStack(this.programCounter);
                     this.pushByteStack(this.P);
