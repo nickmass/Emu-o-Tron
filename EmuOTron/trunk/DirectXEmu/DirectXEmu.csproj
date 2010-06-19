@@ -133,6 +133,15 @@
       <DependentUpon>Keybind.cs</DependentUpon>
     </Compile>
     <Compile Include="Keybinds.cs" />
+    <Compile Include="SoundConfig.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="SoundConfig.Designer.cs">
+      <DependentUpon>SoundConfig.cs</DependentUpon>
+    </Compile>
+    <Compile Include="VerticalProgressBar.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Content Include="docs\2C02 technical reference.TXT" />
     <Content Include="docs\everynes.htm" />
     <Content Include="docs\loopyppu\SKINNY.TXT" />
@@ -337,6 +346,9 @@
       <DependentUpon>Resources.resx</DependentUpon>
       <DesignTime>True</DesignTime>
     </Compile>
+    <EmbeddedResource Include="SoundConfig.resx">
+      <DependentUpon>SoundConfig.cs</DependentUpon>
+    </EmbeddedResource>
     <None Include="Emu-o-Tron.chm">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

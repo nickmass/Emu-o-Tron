@@ -13,6 +13,9 @@ namespace DirectXEmu
 
         public bool mute = true;
 
+        public SoundLevels levels;
+        public SoundVolume volume;
+
         private int cycles;
         private int lastUpdateCycle;
         private int lastCycleClock;
@@ -348,6 +351,12 @@ namespace DirectXEmu
         }
         public void ResetBuffer()
         {
+            levels.pulse1 /= outputPtr;
+            levels.pulse2 /= outputPtr;
+            levels.triangle /= outputPtr;
+            levels.noise /= outputPtr;
+            levels.dmc /= outputPtr;
+            levels.master /= outputPtr;
             outputPtr = 0;
         }
         public void TriangleLinear()
@@ -756,8 +765,13 @@ namespace DirectXEmu
                     //triangleVolume = 8;
                     //noiseVolume = 8;
                     //dmcVolume = 0;
-                    
-                    output[outputPtr] = ((tndTable[(3 * triangleVolume) + (2 * noiseVolume) + dmcVolume] + pulseTable[pulse1Volume + pulse2Volume]) - 0.0f)* 1;
+                    levels.pulse1 += pulse1Volume;
+                    levels.pulse2 += pulse2Volume;
+                    levels.triangle += triangleVolume;
+                    levels.noise += noiseVolume;
+                    levels.dmc += dmcVolume;
+                    output[outputPtr] = ((tndTable[(3 * (int)(triangleVolume * volume.triangle)) + (2 * (int)(noiseVolume * volume.noise)) + (int)(dmcVolume * volume.dmc)] + pulseTable[(int)(pulse1Volume * volume.pulse1) + (int)(pulse2Volume * volume.pulse2)]) - 0.0f) * 1;
+                    levels.master += (int)(output[outputPtr] * 100);
                     byte[] tmp = BitConverter.GetBytes(output[outputPtr]);
                     outBytes[(outputPtr * 4) + 0] = tmp[0];
                     outBytes[(outputPtr * 4) + 1] = tmp[1];

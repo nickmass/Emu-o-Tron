@@ -153,6 +153,7 @@ namespace DirectXEmu
         private ToolStripMenuItem stopWAVToolStripMenuItem;
         private SaveFileDialog recordDialog;
         private ToolStripMenuItem enableSoundToolStripMenuItem;
+        private ToolStripMenuItem soundToolStripMenuItem;
 
         bool controlStrobe = false;
         public Program()
@@ -193,6 +194,8 @@ namespace DirectXEmu
 
         void timer_Tick(object sender, EventArgs e)
         {
+            if (soundConfig != null)
+                soundConfig.UpdateLevels(levels);
             if (reinitializeD3D)
             {
                 InitializeDirect3D();
@@ -369,9 +372,28 @@ namespace DirectXEmu
             mVoice.Volume = 0.5f;
             audioBuffer = new AudioBuffer();
             audioBuffer.AudioData = new MemoryStream();
+            volume.master = mVoice.Volume;
+            volume.pulse1 = 1;
+            volume.pulse2 = 1;
+            volume.triangle = 1;
+            volume.noise = 1;
+            volume.dmc = 1;
             if (this.romPath != "")
                 this.OpenFile(romPath);
         }
+        SoundLevels levels;
+        SoundVolume volume;
+        void soundVolume_ValueChanged(object sender, EventArgs e)
+        {
+            mVoice.Volume = soundConfig.soundVolume.Value / 100f;
+            volume.master = mVoice.Volume;
+            volume.pulse1 = soundConfig.pulse1Volume.Value / 100f;
+            volume.pulse2 = soundConfig.pulse2Volume.Value / 100f;
+            volume.triangle = soundConfig.triangleVolume.Value / 100f;
+            volume.noise = soundConfig.noiseVolume.Value / 100f;
+            volume.dmc = soundConfig.dmcVolume.Value / 100f;
+        }
+        SoundConfig soundConfig;
         private void LoadSaveStateFiles()
         {
             saveSlots = new SaveState[10];
@@ -826,6 +848,7 @@ namespace DirectXEmu
                 {
                     Thread.Sleep(1);
                 }
+                cpu.APU.volume = volume;
                 audioBuffer.AudioData.SetLength(0);
                 audioBuffer.AudioData.Write(cpu.APU.outBytes, 0, cpu.APU.outputPtr * 4);
                 audioBuffer.AudioData.Position = 0;
@@ -834,6 +857,8 @@ namespace DirectXEmu
                 sVoice.SubmitSourceBuffer(audioBuffer);
             }
             cpu.APU.ResetBuffer();
+            levels = cpu.APU.levels;
+            cpu.APU.levels = new SoundLevels();
             if (this.generatePatternTables && this.frame % this.patternTableUpdate == 0)
             {
                 this.patternTablePreview.UpdatePatternTables(cpu.patternTables, cpu.patternTablesPalette);
@@ -1490,6 +1515,7 @@ namespace DirectXEmu
             this.stopWAVToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.openWithFXCEUToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.optionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.enableSoundToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.loadPaletteToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.videoModeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.sizeableToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -1526,7 +1552,7 @@ namespace DirectXEmu
             this.openPaletteDialog = new System.Windows.Forms.OpenFileDialog();
             this.openMovieDialog = new System.Windows.Forms.OpenFileDialog();
             this.recordDialog = new System.Windows.Forms.SaveFileDialog();
-            this.enableSoundToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.soundToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip.SuspendLayout();
             this.insideSize.SuspendLayout();
             this.SuspendLayout();
@@ -1684,10 +1710,18 @@ namespace DirectXEmu
             this.keyBindingsToolStripMenuItem,
             this.gameGenieCodesToolStripMenuItem,
             this.nameTablesToolStripMenuItem,
-            this.patternTablesToolStripMenuItem});
+            this.patternTablesToolStripMenuItem,
+            this.soundToolStripMenuItem});
             this.optionsToolStripMenuItem.Name = "optionsToolStripMenuItem";
             this.optionsToolStripMenuItem.Size = new System.Drawing.Size(61, 20);
             this.optionsToolStripMenuItem.Text = "Options";
+            // 
+            // enableSoundToolStripMenuItem
+            // 
+            this.enableSoundToolStripMenuItem.Name = "enableSoundToolStripMenuItem";
+            this.enableSoundToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.enableSoundToolStripMenuItem.Text = "Enable Sound";
+            this.enableSoundToolStripMenuItem.Click += new System.EventHandler(this.enableSoundToolStripMenuItem_Click);
             // 
             // loadPaletteToolStripMenuItem
             // 
@@ -1967,12 +2001,12 @@ namespace DirectXEmu
             this.recordDialog.DefaultExt = "wav";
             this.recordDialog.Filter = "Wav files (*.wav)|*.wav";
             // 
-            // enableSoundToolStripMenuItem
+            // soundToolStripMenuItem
             // 
-            this.enableSoundToolStripMenuItem.Name = "enableSoundToolStripMenuItem";
-            this.enableSoundToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
-            this.enableSoundToolStripMenuItem.Text = "Enable Sound";
-            this.enableSoundToolStripMenuItem.Click += new System.EventHandler(this.enableSoundToolStripMenuItem_Click);
+            this.soundToolStripMenuItem.Name = "soundToolStripMenuItem";
+            this.soundToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.soundToolStripMenuItem.Text = "Sound...";
+            this.soundToolStripMenuItem.Click += new System.EventHandler(this.soundToolStripMenuItem_Click);
             // 
             // Program
             // 
@@ -2774,6 +2808,18 @@ namespace DirectXEmu
             if (cpu != null)
                 cpu.APU.mute = !enableSoundToolStripMenuItem.Checked;
             config["sound"] = enableSoundToolStripMenuItem.Checked ? "1" : "0";
+        }
+
+        private void soundToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            soundConfig = new SoundConfig(volume);
+            soundConfig.soundVolume.ValueChanged += new EventHandler(soundVolume_ValueChanged);
+            soundConfig.pulse1Volume.ValueChanged += new EventHandler(soundVolume_ValueChanged);
+            soundConfig.pulse2Volume.ValueChanged += new EventHandler(soundVolume_ValueChanged);
+            soundConfig.triangleVolume.ValueChanged += new EventHandler(soundVolume_ValueChanged);
+            soundConfig.noiseVolume.ValueChanged += new EventHandler(soundVolume_ValueChanged);
+            soundConfig.dmcVolume.ValueChanged += new EventHandler(soundVolume_ValueChanged);
+            soundConfig.Show();
         }
     }
     class ArchiveCallback : IArchiveExtractCallback
