@@ -63,6 +63,7 @@ namespace DirectXEmu
         MasteringVoice mVoice;
         SourceVoice sVoice;
         WaveFormat audioFormat;
+        WaveFormat outWavFormat;
         AudioBuffer audioBuffer = new AudioBuffer();
         PresentParameters pps = new PresentParameters();
         Sprite messageSprite;
@@ -367,6 +368,15 @@ namespace DirectXEmu
             audioFormat.BlockAlignment = (short)(audioFormat.BitsPerSample * audioFormat.Channels / 8);
             audioFormat.AverageBytesPerSecond = (audioFormat.BitsPerSample / 8) * audioFormat.SamplesPerSecond;
             audioFormat.FormatTag = WaveFormatTag.IeeeFloat;
+
+            outWavFormat = new WaveFormat();
+            outWavFormat.BitsPerSample = 32;
+            outWavFormat.Channels = 1;
+            outWavFormat.SamplesPerSecond = 44100;
+            outWavFormat.BlockAlignment = (short)(outWavFormat.BitsPerSample * outWavFormat.Channels / 8);
+            outWavFormat.AverageBytesPerSecond = (outWavFormat.BitsPerSample / 8) * outWavFormat.SamplesPerSecond;
+            outWavFormat.FormatTag = WaveFormatTag.IeeeFloat;
+
             dAudio = new XAudio2();
             mVoice = new MasteringVoice(dAudio);
             mVoice.Volume = Convert.ToInt32(config["volume"]) / 100f;
@@ -844,6 +854,7 @@ namespace DirectXEmu
                 {
                     wavFile.Write(cpu.APU.outBytes, 0, cpu.APU.outputPtr * 4);
                     wavSamples += cpu.APU.outputPtr;
+                    //wavSamples += WriteToWav(cpu.APU.output, cpu.APU.outputPtr, audioFormat.SamplesPerSecond);
                 }
                 while (sVoice.State.BuffersQueued > 2)
                 {
@@ -2248,6 +2259,7 @@ namespace DirectXEmu
                 logState = this.cpu.logging;
             this.cpu = new NESCore(this.romPath, this.appPath);
             audioFormat.SamplesPerSecond = this.cpu.APU.CPUClock / this.cpu.APU.divider;
+            outWavFormat.SamplesPerSecond = audioFormat.SamplesPerSecond;
             sVoice = new SourceVoice(dAudio, audioFormat, VoiceFlags.UseFilter);
             //FilterParameters filter = new FilterParameters();
             //filter.Frequency = (float)(2 * Math.Sin(Math.PI * (7280.0) / audioFormat.SamplesPerSecond));
@@ -2767,12 +2779,11 @@ namespace DirectXEmu
                 state = old;
             }
         }
-
         private void stopWAVToolStripMenuItem_Click(object sender, EventArgs e)
         {
             wavRecord = false;
             wavFile.Seek(0, SeekOrigin.Begin);
-            int Subchunk2Size = wavSamples * audioFormat.Channels * (audioFormat.BitsPerSample / 8);
+            int Subchunk2Size = wavSamples * outWavFormat.Channels * (outWavFormat.BitsPerSample / 8);
             wavFile.WriteByte((byte)'R');
             wavFile.WriteByte((byte)'I');
             wavFile.WriteByte((byte)'F');
@@ -2787,12 +2798,12 @@ namespace DirectXEmu
             wavFile.WriteByte((byte)'t');
             wavFile.WriteByte((byte)' ');
             wavFile.Write(BitConverter.GetBytes((int)16), 0, 4);
-            wavFile.Write(BitConverter.GetBytes((short)audioFormat.FormatTag), 0, 2);
-            wavFile.Write(BitConverter.GetBytes(audioFormat.Channels), 0, 2);
-            wavFile.Write(BitConverter.GetBytes(audioFormat.SamplesPerSecond), 0, 4);
-            wavFile.Write(BitConverter.GetBytes(audioFormat.AverageBytesPerSecond), 0, 4);
-            wavFile.Write(BitConverter.GetBytes(audioFormat.BlockAlignment), 0, 2);
-            wavFile.Write(BitConverter.GetBytes(audioFormat.BitsPerSample), 0, 2);
+            wavFile.Write(BitConverter.GetBytes((short)outWavFormat.FormatTag), 0, 2);
+            wavFile.Write(BitConverter.GetBytes(outWavFormat.Channels), 0, 2);
+            wavFile.Write(BitConverter.GetBytes(outWavFormat.SamplesPerSecond), 0, 4);
+            wavFile.Write(BitConverter.GetBytes(outWavFormat.AverageBytesPerSecond), 0, 4);
+            wavFile.Write(BitConverter.GetBytes(outWavFormat.BlockAlignment), 0, 2);
+            wavFile.Write(BitConverter.GetBytes(outWavFormat.BitsPerSample), 0, 2);
             wavFile.WriteByte((byte)'d');
             wavFile.WriteByte((byte)'a');
             wavFile.WriteByte((byte)'t');
@@ -2802,7 +2813,54 @@ namespace DirectXEmu
 
 
         }
-
+        private int Gcd(int a, int b)
+        {
+            int t = 0;
+            while (b != 0)
+            {
+                t = b;
+                b = a % b;
+                a = t;
+            }
+            return a;
+        }
+        private int Lcm(int a, int b)
+        {
+            return (Math.Abs(a) *  Math.Abs(b)) / Gcd(a,b);
+        }
+        private int ResampleAudio(float[] inBuff, int inSampleRate, int inSize, out float[] outBuff, int outSampleRate)
+        {
+            int lcm = Lcm(inSampleRate, outSampleRate);
+            int inRateDivsor = (lcm / inSampleRate);
+            int outRateDivsor = (lcm / outSampleRate);
+            float[] lcmBuffer = new float[inSize * inRateDivsor];
+            int outBuffSize = (lcmBuffer.Length / outRateDivsor) +1;
+            outBuff = new float[outBuffSize];
+            for (int i = 0; i < lcmBuffer.Length; i++)
+            {
+                if (i % inRateDivsor == 0)
+                    lcmBuffer[i] = inBuff[i / inRateDivsor];
+                else
+                    lcmBuffer[i] = 0;
+            }
+            for (int i = 0; i < lcmBuffer.Length; i++)
+            {
+                if (i % outRateDivsor == 0)
+                    outBuff[i / outRateDivsor] = lcmBuffer[i];
+            }
+            return outBuffSize;
+        }
+        private int WriteToWav(float[] inBuff, int inSize, int inSampleRate)
+        {
+            float[] resampledBuffer;
+            int outSize = ResampleAudio(inBuff, inSampleRate, inSize, out resampledBuffer, outWavFormat.SamplesPerSecond);
+            for (int i = 0; i < outSize; i++)
+            {
+                byte[] tmp = BitConverter.GetBytes(resampledBuffer[i]);
+                wavFile.Write(tmp, 0, 4);
+            }
+            return outSize;
+        }
         private void enableSoundToolStripMenuItem_Click(object sender, EventArgs e)
         {
             enableSoundToolStripMenuItem.Checked = !enableSoundToolStripMenuItem.Checked;

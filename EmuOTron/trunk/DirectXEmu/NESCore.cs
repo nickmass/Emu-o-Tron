@@ -2161,7 +2161,7 @@ break;
                         this.player2Read = 2;
                 }
             }
-
+            
             APU.Write(value, this.MirrorMap[address]);
 
             if (this.MirrorMap[address] != 0x2002)
