@@ -369,7 +369,7 @@ namespace DirectXEmu
             audioFormat.FormatTag = WaveFormatTag.IeeeFloat;
             dAudio = new XAudio2();
             mVoice = new MasteringVoice(dAudio);
-            mVoice.Volume = 0.5f;
+            mVoice.Volume = Convert.ToInt32(config["volume"]) / 100f;
             audioBuffer = new AudioBuffer();
             audioBuffer.AudioData = new MemoryStream();
             volume.master = mVoice.Volume;
@@ -385,6 +385,7 @@ namespace DirectXEmu
         SoundVolume volume;
         void soundVolume_ValueChanged(object sender, EventArgs e)
         {
+            config["volume"] = soundConfig.soundVolume.Value.ToString();
             mVoice.Volume = soundConfig.soundVolume.Value / 100f;
             volume.master = mVoice.Volume;
             volume.pulse1 = soundConfig.pulse1Volume.Value / 100f;

@@ -86,6 +86,7 @@ namespace DirectXEmu
             defaults["displayBG"] = "1";
             defaults["displaySprites"] = "1";
             defaults["sound"] = "1";
+            defaults["volume"] = "100";
 #if DEBUG
             defaults["romPath2"] = @"C:\Games\Emulators\Roms\NES";
             defaults["romPath3"] = @"C:\Games\Emulators\Roms\MapperNes";

@@ -17,7 +17,6 @@ namespace DirectXEmu
         private ushort programCounter = 0x0;
         private MemoryStore Memory;
         private ushort[] MirrorMap = new ushort[0x10000];
-        private bool[] readOnly = new bool[0x10000];
         private bool emulationRunning = false;
         private byte A = 0;
         private byte X = 0;
@@ -1656,7 +1655,6 @@ break;
                 for (int i = 0x00; i < 0x200; i++)
                 {
                     this.Memory[i + 0x7000] = (byte)inputStream.ReadByte();
-                    this.readOnly[i + 0x7000] = true;
                 }
             }
             for (int i = 0x00; i < numprgrom * 0x4000; i++)
@@ -1693,7 +1691,6 @@ break;
                 romInfo.AppendLine("Title: " + title);
             inputStream.Close();
 
-            this.readOnly[0x2002] = true;
             if (fourScreenMirroring)
             {
                 PPUMemory.FourScreenMirroring();
@@ -2167,7 +2164,7 @@ break;
 
             APU.Write(value, this.MirrorMap[address]);
 
-            if (this.readOnly[this.MirrorMap[address]] == false)
+            if (this.MirrorMap[address] != 0x2002)
                 this.Memory[this.MirrorMap[address]] = value;
             ApplyGameGenie();
         }

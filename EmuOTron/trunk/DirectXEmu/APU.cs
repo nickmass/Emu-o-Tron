@@ -343,10 +343,10 @@ namespace DirectXEmu
             {
                 Update();
                 frameCounter = 0;
+                mode = (value & 0x80) != 0;
                 frameIRQInhibit = (value & 0x40) != 0;
                 if (frameIRQInhibit)
                     frameIRQ = false;
-                mode = (value & 0x80) != 0;
             }
         }
         public void ResetBuffer()
