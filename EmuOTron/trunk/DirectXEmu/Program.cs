@@ -372,7 +372,7 @@ namespace DirectXEmu
             outWavFormat = new WaveFormat();
             outWavFormat.BitsPerSample = 32;
             outWavFormat.Channels = 1;
-            outWavFormat.SamplesPerSecond = 44100;
+            outWavFormat.SamplesPerSecond = 1789773 / 41;
             outWavFormat.BlockAlignment = (short)(outWavFormat.BitsPerSample * outWavFormat.Channels / 8);
             outWavFormat.AverageBytesPerSecond = (outWavFormat.BitsPerSample / 8) * outWavFormat.SamplesPerSecond;
             outWavFormat.FormatTag = WaveFormatTag.IeeeFloat;
@@ -848,7 +848,7 @@ namespace DirectXEmu
             zapStatLight = player2Zap.lightDetected;
             zapStatTrig = player2Zap.triggerPulled;
             cpu.Start(player1, player2, player1Zap, player2Zap, (this.frame % this.frameSkipper != 0));
-            if (!rewinding && frameSkipper == 1)
+            if (frameSkipper == 1)
             {
                 if (wavRecord)
                 {
@@ -862,6 +862,26 @@ namespace DirectXEmu
                 }
                 cpu.APU.volume = volume;
                 audioBuffer.AudioData.SetLength(0);
+                if (rewinding)
+                {
+                    byte[] tmp = new byte[4];
+                    for (int i = 0; i < cpu.APU.outputPtr; i++)
+                    {
+                        int reverseIndex = cpu.APU.outputPtr - i;
+                        tmp[0] = cpu.APU.outBytes[(i * 4)];
+                        tmp[1] = cpu.APU.outBytes[(i * 4) + 1];
+                        tmp[2] = cpu.APU.outBytes[(i * 4) + 2];
+                        tmp[3] = cpu.APU.outBytes[(i * 4) + 3];
+                        cpu.APU.outBytes[(i * 4)] = cpu.APU.outBytes[(reverseIndex * 4)];
+                        cpu.APU.outBytes[(i * 4) + 1] = cpu.APU.outBytes[(reverseIndex * 4) + 1];
+                        cpu.APU.outBytes[(i * 4) + 2] = cpu.APU.outBytes[(reverseIndex * 4) + 2];
+                        cpu.APU.outBytes[(i * 4) + 3] = cpu.APU.outBytes[(reverseIndex * 4) + 3];
+                        cpu.APU.outBytes[(reverseIndex * 4)] = tmp[0];
+                        cpu.APU.outBytes[(reverseIndex * 4) + 1] = tmp[1];
+                        cpu.APU.outBytes[(reverseIndex * 4) + 2] = tmp[2];
+                        cpu.APU.outBytes[(reverseIndex * 4) + 3] = tmp[3];
+                    }
+                }
                 audioBuffer.AudioData.Write(cpu.APU.outBytes, 0, cpu.APU.outputPtr * 4);
                 audioBuffer.AudioData.Position = 0;
                 audioBuffer.AudioBytes = cpu.APU.outputPtr * 4;
@@ -2842,7 +2862,7 @@ namespace DirectXEmu
                     lcmBuffer[i] = inBuff[i / inRateDivsor];
                 else
                     lcmBuffer[i] = 0;
-            }
+            } //Need to run FIR filter at this point
             for (int i = 0; i < lcmBuffer.Length; i++)
             {
                 if (i % outRateDivsor == 0)

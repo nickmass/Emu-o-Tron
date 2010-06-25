@@ -770,7 +770,7 @@ namespace DirectXEmu
                     levels.triangle += triangleVolume;
                     levels.noise += noiseVolume;
                     levels.dmc += dmcVolume;
-                    output[outputPtr] = ((tndTable[(3 * (int)(triangleVolume * volume.triangle)) + (2 * (int)(noiseVolume * volume.noise)) + (int)(dmcVolume * volume.dmc)] + pulseTable[(int)(pulse1Volume * volume.pulse1) + (int)(pulse2Volume * volume.pulse2)]) - 0.0f) * 1;
+                    output[outputPtr] = ((tndTable[(3 * (int)(triangleVolume * volume.triangle)) + (2 * (int)(noiseVolume * volume.noise)) + (int)(dmcVolume * volume.dmc)] + pulseTable[(int)(pulse1Volume * volume.pulse1) + (int)(pulse2Volume * volume.pulse2)]));
                     levels.master += (int)(output[outputPtr] * 100);
                     byte[] tmp = BitConverter.GetBytes(output[outputPtr]);
                     outBytes[(outputPtr * 4) + 0] = tmp[0];
