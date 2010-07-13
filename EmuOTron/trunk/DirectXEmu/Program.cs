@@ -856,12 +856,6 @@ namespace DirectXEmu
                     wavSamples += cpu.APU.outputPtr;
                     //wavSamples += WriteToWav(cpu.APU.output, cpu.APU.outputPtr, audioFormat.SamplesPerSecond);
                 }
-                while (sVoice.State.BuffersQueued > 2)
-                {
-                    Thread.Sleep(1);
-                }
-                cpu.APU.volume = volume;
-                audioBuffer.AudioData.SetLength(0);
                 if (rewinding)
                 {
                     byte[] tmp = new byte[4];
@@ -882,6 +876,12 @@ namespace DirectXEmu
                         cpu.APU.outBytes[(reverseIndex * 4) + 3] = tmp[3];
                     }
                 }
+                while (sVoice.State.BuffersQueued > 2)
+                {
+                    Thread.Sleep(1);
+                }
+                cpu.APU.volume = volume;
+                audioBuffer.AudioData.SetLength(0);
                 audioBuffer.AudioData.Write(cpu.APU.outBytes, 0, cpu.APU.outputPtr * 4);
                 audioBuffer.AudioData.Position = 0;
                 audioBuffer.AudioBytes = cpu.APU.outputPtr * 4;
@@ -2278,13 +2278,13 @@ namespace DirectXEmu
             if(this.cpu != null)
                 logState = this.cpu.logging;
             this.cpu = new NESCore(this.romPath, this.appPath);
-            audioFormat.SamplesPerSecond = this.cpu.APU.CPUClock / this.cpu.APU.divider;
+            audioFormat.SamplesPerSecond = this.cpu.APU.sampleRate;
             outWavFormat.SamplesPerSecond = audioFormat.SamplesPerSecond;
-            sVoice = new SourceVoice(dAudio, audioFormat, VoiceFlags.UseFilter);
+            sVoice = new SourceVoice(dAudio, audioFormat, VoiceFlags.None);
             //FilterParameters filter = new FilterParameters();
-            //filter.Frequency = (float)(2 * Math.Sin(Math.PI * (7280.0) / audioFormat.SamplesPerSecond));
-            //filter.Type = FilterType.HighPassFilter;
-            //filter.OneOverQ = 1.5f;
+            //filter.Frequency = (float)(2 * Math.Sin(Math.PI * (15000.0) / audioFormat.SamplesPerSecond));
+            //filter.Type = FilterType.LowPassFilter;
+            //filter.OneOverQ = 1.0f;
             //sVoice.FilterParameters = filter;
             sVoice.Start();
             this.cpu.logging = logState;

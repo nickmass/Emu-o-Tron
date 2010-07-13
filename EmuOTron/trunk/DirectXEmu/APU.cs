@@ -13,6 +13,10 @@ namespace DirectXEmu
 
         public bool mute = true;
 
+
+        public int sampleRate = 44100;
+        public int sampleRateDivider = 1;
+
         public SoundLevels levels;
         public SoundVolume volume;
 
@@ -758,7 +762,8 @@ namespace DirectXEmu
                     noiseDivider = noiseTimer;
                 }
                 dmcVolume = DMCOutput();
-                if (updateCycle % divider == 0)
+                sampleRateDivider--;
+                if (sampleRateDivider == 0)
                 {
                     //pulse1Volume = 8;
                     //pulse2Volume = 8;
@@ -778,6 +783,7 @@ namespace DirectXEmu
                     outBytes[(outputPtr * 4) + 2] = tmp[2];
                     outBytes[(outputPtr * 4) + 3] = tmp[3];
                     outputPtr++;
+                    sampleRateDivider = CPUClock / sampleRate;
                 }
             }
             lastUpdateCycle = cycles;

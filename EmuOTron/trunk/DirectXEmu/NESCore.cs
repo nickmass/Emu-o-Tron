@@ -2488,7 +2488,7 @@ break;
                     if ((PPUCTRL & 0x08) != 0)
                         spriteTable = 0x1000;
                 }
-                for (int sprite = 63; sprite >= 0; sprite--)
+                for (int sprite = 0; sprite < 64; sprite++)
                 {
                     byte yPos = (byte)(this.SPRMemory[sprite * 4] + 1);
                     byte tileNum = this.SPRMemory[(sprite * 4) + 1];
@@ -2504,7 +2504,7 @@ break;
                             {
                                 for (byte spritePixel = 0; spritePixel < 8; spritePixel++)
                                 {
-                                    if (spritePixel + xPos < 256)
+                                    if (spritePixel + xPos < 256 && (spriteBelowLine[spritePixel + xPos] == false && spriteAboveLine[spritePixel + xPos] == false))
                                     {
                                         int vertFlip = 0;
                                         if ((attr & 0x80) != 0)
@@ -2548,7 +2548,7 @@ break;
                             {
                                 for (byte spritePixel = 0; spritePixel < 8; spritePixel++)
                                 {
-                                    if (spritePixel + xPos < 256)
+                                    if (spritePixel + xPos < 256 && (spriteBelowLine[spritePixel + xPos] == false && spriteAboveLine[spritePixel + xPos] == false))
                                     {
                                         int vertFlip = 0;
                                         if ((attr & 0x80) != 0)
