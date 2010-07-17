@@ -15,7 +15,7 @@ namespace DirectXEmu
     {
 
         private ushort programCounter = 0x0;
-        private MemoryStore Memory;
+        public MemoryStore Memory;
         private ushort[] MirrorMap = new ushort[0x10000];
         private bool emulationRunning = false;
         private byte A = 0;
@@ -43,7 +43,7 @@ namespace DirectXEmu
 
         private bool PPUAddrFlip = false;
 
-        private MemoryStore PPUMemory;
+        public MemoryStore PPUMemory;
         private ushort[] PPUMirrorMap = new ushort[0x8000];
         private bool[] PPUReadOnly = new bool[0x8000];
         private byte[] SPRMemory = new byte[0x100];

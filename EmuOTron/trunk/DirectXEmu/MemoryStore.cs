@@ -7,7 +7,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 
 namespace DirectXEmu
 {
-    class MemoryStore
+    public class MemoryStore
     {
         public byte[][] banks;
         public int[] memMap = new int[0x40];

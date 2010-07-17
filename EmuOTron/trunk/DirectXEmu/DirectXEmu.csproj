@@ -112,6 +112,12 @@
     <Compile Include="mappers\m071.cs" />
     <Compile Include="mappers\Mapper.cs" />
     <Compile Include="MemoryStore.cs" />
+    <Compile Include="MemoryViewer.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MemoryViewer.Designer.cs">
+      <DependentUpon>MemoryViewer.cs</DependentUpon>
+    </Compile>
     <Compile Include="NESCore.cs" />
     <Compile Include="About.cs">
       <SubType>Form</SubType>
@@ -317,6 +323,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Keybind.resx">
       <DependentUpon>Keybind.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MemoryViewer.resx">
+      <DependentUpon>MemoryViewer.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="NameTablePreview.resx">
       <DependentUpon>NameTablePreview.cs</DependentUpon>
