@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.IO;
 
 namespace DirectXEmu.mappers
 {
@@ -283,6 +284,27 @@ namespace DirectXEmu.mappers
                     interruptMapper = true;
                 irqReload = false;
             }
+        }
+        public override void MapperStateSave(ref MemoryStream buf)
+        {
+            BinaryWriter writer = new BinaryWriter(buf);
+            writer.Seek(0, SeekOrigin.Begin);
+            writer.Write(bankSelect);
+            writer.Write(irqCounter);
+            writer.Write(irqLatch);
+            writer.Write(irqReload);
+            writer.Write(irqEnable);
+            writer.Flush();
+        }
+        public override void MapperStateLoad(MemoryStream buf)
+        {
+            BinaryReader reader = new BinaryReader(buf);
+            reader.BaseStream.Seek(0, SeekOrigin.Begin);
+            bankSelect = reader.ReadByte();
+            irqCounter = reader.ReadByte();
+            irqLatch = reader.ReadByte();
+            irqReload = reader.ReadBoolean();
+            irqEnable = reader.ReadBoolean();
         }
     }
 }

@@ -214,7 +214,7 @@ namespace DirectXEmu
                 }
                 else
                 {
-                    Thread.Sleep(12);
+                    Thread.Sleep(16);
                 }
                 if (this.frame++ % this.frameSkipper == 0 && state != SystemState.SystemPause)
                 {

@@ -355,13 +355,16 @@ namespace DirectXEmu
         }
         public void ResetBuffer()
         {
-            levels.pulse1 /= outputPtr;
-            levels.pulse2 /= outputPtr;
-            levels.triangle /= outputPtr;
-            levels.noise /= outputPtr;
-            levels.dmc /= outputPtr;
-            levels.master /= outputPtr;
-            outputPtr = 0;
+            if (outputPtr != 0)
+            {
+                levels.pulse1 /= outputPtr;
+                levels.pulse2 /= outputPtr;
+                levels.triangle /= outputPtr;
+                levels.noise /= outputPtr;
+                levels.dmc /= outputPtr;
+                levels.master /= outputPtr;
+                outputPtr = 0;
+            }
         }
         public void TriangleLinear()
         {

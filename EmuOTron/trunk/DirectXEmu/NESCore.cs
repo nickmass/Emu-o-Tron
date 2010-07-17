@@ -316,6 +316,63 @@ namespace DirectXEmu
                     else
                         this.P &= 0xFD;
                     break;
+                    case 0xCB: //AXS #aa
+                    value = this.readByte();
+                    //CB nn     nzc---  2  AXS #nn          CMP+DEX  X=A AND X -nn  cy?
+                    break;
+                    case 0x6B: //ARR #aa
+                        value = this.readByte();
+                        /*
+                         *  AND byte with accumulator, then rotate one bit right in accu-
+                         *  mulator and check bit 5 and 6:
+                         *  If both bits are 1: set C, clear V.
+                         *  If both bits are 0: clear C and V.
+                         *  If only bit 5 is 1: set V, clear C.
+                         *  If only bit 6 is 1: set C and V.
+                         *  Status flags: N,V,Z,C
+                         */
+                        break;
+                    case 0x4B: //ALR #aa
+                        value = (byte)(this.A & this.readByte());
+                        if ((value & 0x01) != 0)
+                            this.P |= 0x01;
+                        else
+                            this.P &= 0xFE;
+                        value >>= 1;
+                        this.A = value;
+                        this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+
+                    break;
+                    case 0xAB: //LAX #nn
+                    this.A = this.readByte();
+                    this.X = this.A;
+                    if ((this.A & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                    if (this.A == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+
+                    break;
+                    case 0x0B:
+                    case 0x2B: //ANC #aa
+                        value = (byte)(this.A & this.readByte());
+                        if ((value & 0x80) != 0)
+                            this.P |= 0x81;
+                        else
+                            this.P &= 0x7E;
+                        if (value == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+
+                    break;
                     case 0x29: //AND #aa
                     this.A &= this.readByte();
                     goto AND;
@@ -407,7 +464,7 @@ namespace DirectXEmu
                 else
                     this.programCounter -= (ushort)(((byte)(~value)) + 1);
             }*/
-            break;
+                        break;
                     case 0xF0: //BEQ
             value = this.readByte();
             if ((this.P & 0x02) != 0)
@@ -1292,6 +1349,14 @@ break;
                     case 0x78: //SEI
 this.P |= 0x04;
 break;
+                    case 0x9C: //SHY aaaa,X
+//9C nn nn  ------  5  SHY nnnn,X ((1))          [nnnn+X] = Y AND H
+sum = this.absOffset(this.X);
+break;
+                    case 0x9E: //SHX aaaa,y
+//9E nn nn  ------  5  SHX nnnn,Y ((1))          [nnnn+Y] = X AND H
+sum = this.absOffset(this.Y);
+break;
                     case 0x07: //SLO aa
 sum = this.readByte();
 goto SLO;
@@ -1466,6 +1531,7 @@ else
     this.P &= 0xFD;
 break;
                     default:
+romInfo.AppendLine("Unkown opcode: " + opCode.ToString("X2") + " " + this.opcodes[opCode]);
 //throw new Exception("Unkown opcode: " + opCode.ToString("X2") + " " + this.opcodes[opCode]);
 break;
                 }
@@ -2753,6 +2819,8 @@ break;
             newState.readBuffer = this.readBuffer;
             newState.spriteZeroHit = this.spriteZeroHit;
             newState.spriteOverflow = this.spriteOverflow;
+            newState.mapperState = new MemoryStream();
+            romMapper.MapperStateSave(ref newState.mapperState);
             newState.isStored = true;
             return newState;
         }
@@ -2790,6 +2858,7 @@ break;
             this.readBuffer = oldState.readBuffer;
             this.spriteZeroHit = oldState.spriteZeroHit;
             this.spriteOverflow = oldState.spriteOverflow;
+            romMapper.MapperStateLoad(oldState.mapperState);
         }
         public void restart()
         {
@@ -3654,5 +3723,6 @@ break;
         public bool spriteZeroHit;
         public bool spriteOverflow;
         public bool isStored;
+        public MemoryStream mapperState;
     }
 }

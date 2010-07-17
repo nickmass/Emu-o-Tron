@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.IO;
 
 namespace DirectXEmu.mappers
 {
@@ -139,5 +140,28 @@ namespace DirectXEmu.mappers
 
         }
         public override void MapperScanline(int scanline, int vblank) { }
+        public override void MapperStateSave(ref MemoryStream buf)
+        {
+            BinaryWriter writer = new BinaryWriter(buf);
+            writer.Seek(0, SeekOrigin.Begin);
+            writer.Write(reg0);
+            writer.Write(reg1);
+            writer.Write(reg2);
+            writer.Write(reg3);
+            writer.Write(writeLatch);
+            writer.Write(regTmp);
+            writer.Flush();
+        }
+        public override void MapperStateLoad(MemoryStream buf)
+        {
+            BinaryReader reader = new BinaryReader(buf);
+            reader.BaseStream.Seek(0, SeekOrigin.Begin);
+            reg0 = reader.ReadByte();
+            reg1 = reader.ReadByte();
+            reg2 = reader.ReadByte();
+            reg3 = reader.ReadByte();
+            writeLatch = reader.ReadByte();
+            regTmp = reader.ReadByte();
+        }
     }
 }

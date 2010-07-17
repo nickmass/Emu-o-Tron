@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.IO;
 
 namespace DirectXEmu.mappers
 {
@@ -15,6 +16,7 @@ namespace DirectXEmu.mappers
         public abstract void MapperInit();
         public abstract void MapperWrite(ushort address, byte value);
         public abstract void MapperScanline(int scanline, int vblank);
-
+        public abstract void MapperStateSave(ref MemoryStream buf);
+        public abstract void MapperStateLoad(MemoryStream buf);
     }
 }
