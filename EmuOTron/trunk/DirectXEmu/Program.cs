@@ -172,7 +172,6 @@ namespace DirectXEmu
             timer.Tick += new EventHandler(timer_Tick);
             timer.Start();
 #if !DEBUG
-            this.logToolStripMenuItem.Dispose();
             this.openWithFXCEUToolStripMenuItem.Dispose();
             this.toolStripSeparator3.Dispose();
 #endif
@@ -190,7 +189,6 @@ namespace DirectXEmu
             timer.Tick += new EventHandler(timer_Tick);
             timer.Start();
 #if !DEBUG
-            this.logToolStripMenuItem.Dispose();
             this.openWithFXCEUToolStripMenuItem.Dispose();
             this.toolStripSeparator3.Dispose();
 #endif
@@ -853,9 +851,9 @@ namespace DirectXEmu
             cpu.Start(player1, player2, player1Zap, player2Zap, (this.frame % this.frameSkipper != 0));
 
             if(memoryViewerMem == 1)
-                memoryViewer.updateMemory(cpu.Memory);
+                memoryViewer.updateMemory(cpu.Memory, cpu.MirrorMap);
             else if (memoryViewerMem == 2)
-                memoryViewer.updateMemory(cpu.PPUMemory);
+                memoryViewer.updateMemory(cpu.PPUMemory, cpu.PPUMirrorMap);
 
 
             if (frameSkipper == 1)
@@ -1479,11 +1477,14 @@ namespace DirectXEmu
         }
         private void ShowLog()
         {
-            File.WriteAllText("log.txt", this.cpu.logBuilder.ToString());
-            Process log = new Process();
-            log.StartInfo.FileName = this.config["logReader"];
-            log.StartInfo.Arguments = "log.txt";
-            log.Start();
+            if (this.cpu != null)
+            {
+                File.WriteAllText("log.txt", this.cpu.logBuilder.ToString());
+                Process log = new Process();
+                log.StartInfo.FileName = this.config["logReader"];
+                log.StartInfo.Arguments = "log.txt";
+                log.Start();
+            }
         }
 
         private void loadPaletteToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1506,6 +1507,7 @@ namespace DirectXEmu
         private void enableLoggingToolStripMenuItem_Click(object sender, EventArgs e)
         {
             this.cpu.logging = !this.cpu.logging;
+            enableLoggingToolStripMenuItem.Checked = this.cpu.logging;
         }
 
         private void openLogToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1753,10 +1755,6 @@ namespace DirectXEmu
             this.displayToolStripMenuItem,
             this.keyBindingsToolStripMenuItem,
             this.gameGenieCodesToolStripMenuItem,
-            this.nameTablesToolStripMenuItem,
-            this.patternTablesToolStripMenuItem,
-            this.memoryViewerToolStripMenuItem,
-            this.pPUMemoryViewerToolStripMenuItem,
             this.soundToolStripMenuItem});
             this.optionsToolStripMenuItem.Name = "optionsToolStripMenuItem";
             this.optionsToolStripMenuItem.Size = new System.Drawing.Size(61, 20);
@@ -1961,10 +1959,14 @@ namespace DirectXEmu
             // 
             this.logToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.enableLoggingToolStripMenuItem,
-            this.openLogToolStripMenuItem});
+            this.openLogToolStripMenuItem,
+            this.nameTablesToolStripMenuItem,
+            this.patternTablesToolStripMenuItem,
+            this.memoryViewerToolStripMenuItem,
+            this.pPUMemoryViewerToolStripMenuItem});
             this.logToolStripMenuItem.Name = "logToolStripMenuItem";
             this.logToolStripMenuItem.Size = new System.Drawing.Size(39, 20);
-            this.logToolStripMenuItem.Text = "Log";
+            this.logToolStripMenuItem.Text = "Debug";
             // 
             // enableLoggingToolStripMenuItem
             // 
@@ -2383,13 +2385,13 @@ namespace DirectXEmu
             {
                 this.memoryViewer = new MemoryViewer();
                 this.memoryViewer.FormClosed += new FormClosedEventHandler(memoryViewer_FormClosed);
-                this.memoryViewer.SetMax(0x8000);
+                this.memoryViewer.SetMax(0x4000);
                 this.memoryViewerMem = 2;
                 this.memoryViewer.Show();
             }
             else
             {
-                this.memoryViewer.SetMax(0x8000);
+                this.memoryViewer.SetMax(0x4000);
                 this.memoryViewerMem = 2;
                 this.memoryViewer.Activate();
             }

@@ -14,25 +14,16 @@ namespace DirectXEmu
     class NESCore
     {
 
+        private ushort programCounter = 0x0;
         public MemoryStore Memory;
         public ushort[] MirrorMap = new ushort[0x10000];
         private bool emulationRunning = false;
-        private int RegA = 0;
-        private int RegX = 0;
-        private int RegY = 0;
-        private int RegS = 0xFD;
-        private int RegPC = 0;
-        private int FlagCarry = 0; //Bit 0 of P
-        private int FlagZero = 1; //backwards
-        private int FlagIRQ = 1;
-        private int FlagDecimal = 1;
-        private int FlagBreak = 1;
-        private int FlagNotUsed= 1;
-        private int FlagOverflow = 0;
-        private int FlagSign = 0; //Bit 7 of P
+        private byte A = 0;
+        private byte X = 0;
+        private byte Y = 0;
+        private byte S = 0xFD;
+        private byte P = 0x34;
         private int counter = 0;
-
-        private int invalidCount = 0;
 
         private mappers.Mapper romMapper;
 
@@ -63,7 +54,7 @@ namespace DirectXEmu
         private int nameTableOffset = 0;
 
         public StringBuilder logBuilder = new StringBuilder();
-        public bool logging = true;
+        public bool logging = false;
 
         public StringBuilder romInfo = new StringBuilder();
 
@@ -137,524 +128,1445 @@ namespace DirectXEmu
         public void Start()
         {
             this.emulationRunning = true;
-            int op;
-            int opInfo;
-            int opCycles;
-            int opCycleAdd;
-            int addressing;
-            int instruction;
-            int opAddr;
-            int addr = 0;
-            int temp;
-            int value;
+            byte value;
+            ushort sum;
+            byte opCode;
             while (this.emulationRunning)
             {
+                opCode = this.readByte();
+#if LogOpcodeStats
+                if (op < opcodeUsage.Length)
+                {
+                    opcodeUsage[op] = opCode;
+                    op++;
+                }
+                if (op == opcodeUsage.Length)
+                {
+                    op++;
+                    int[] opCounter = new int[0x100];
+                    for (int i = 0; i < opcodeUsage.Length; i++)
+                    {
+                        opCounter[opcodeUsage[i]]++;
+                    }
+                    string[] opSorted = new string[0x100];
+                    int place = 0;
+                    bool sorted = false;
+                    while (!sorted)
+                    {
+                        int topDog = 0;
+                        int topDogVal = -1;
+                        for (int i = 0; i < 0x100; i++)
+                        {
+                            if (opCounter[i] > topDogVal)
+                            {
+                                topDog = i;
+                                topDogVal = opCounter[i];
+                            }
+                        }
+                        if (topDogVal != -1)
+                        {
+                            opSorted[place] = topDog.ToString() + " " + this.opcodes[topDog] + " " + topDogVal.ToString() + " " + (topDogVal*1.0) / opcodeUsage.Length * 100 + "%";
+                            opCounter[topDog] = -1;
+                            place++;
+                        }
+                        else
+                            sorted = true;
+                    }
+                    File.WriteAllLines("opcoderesults.txt", opSorted);
+                }
+#endif
+                #region logging
                 if (this.logging)
                 {
+                    string data = "";
+                    string addresses = "";
+                    switch (addressingTypes[opCode])
+                    {
+                        case 0://null
+                            data = "        ";
+                            addresses = "                             ";
+                            break;
+                        case 1://#aa
+                            data = " " + this.readLogByte(this.programCounter).ToString("X2") + "     ";
+                            addresses = " #$" + this.readLogByte(this.programCounter).ToString("X2") + "                        ";
+                            break;
+                        case 2://A
+                            data = "        ";
+                            addresses = " A                           ";
+                            break;
+                        case 3://aa
+                            data = " " + this.readLogByte(this.programCounter).ToString("X2") + "     ";
+                            addresses = " $" + this.readLogByte(this.programCounter).ToString("X2") + " = " + this.readLogByte(this.readLogByte(this.programCounter)).ToString("X2") + "                    ";
+                            break;
+                        case 4://aa,X
+                            data = " " + this.readLogByte(this.programCounter).ToString("X2") + "     ";
+                            addresses = " $" + this.readLogByte(this.programCounter).ToString("X2") + ",X @ " + ((byte)(this.readLogByte(this.programCounter) + this.X)).ToString("X2") + " = " + this.readLogByte((byte)(this.readLogByte(this.programCounter) + this.X)).ToString("X2") + "             ";
+                            break;
+                        case 5://aa,Y
+                            data = " " + this.readLogByte(this.programCounter).ToString("X2") + "     ";
+                            addresses = " $" + this.readLogByte(this.programCounter).ToString("X2") + ",Y @ " + ((byte)(this.readLogByte(this.programCounter) + this.Y)).ToString("X2") + " = " + this.readLogByte((byte)(this.readLogByte(this.programCounter) + this.Y)).ToString("X2") + "             ";
+                            break;
+                        case 6://aaaa
+                            data = " " + this.readLogByte(this.programCounter).ToString("X2") + " " + this.readLogByte((ushort)(this.programCounter + 1)).ToString("X2") + "  ";
+                            addresses = " $" + this.readLogWord(this.programCounter).ToString("X4") + " = " + this.readLogByte(this.readLogWord(this.programCounter)).ToString("X2") + "                  ";
+                            break;
+                        case 7://aaaa,X
+                            data = " " + this.readLogByte(this.programCounter).ToString("X2") + " " + this.readLogByte((ushort)(this.programCounter + 1)).ToString("X2") + "  ";
+                            addresses = " $" + this.readLogWord(this.programCounter).ToString("X4") + ",X @ " + (this.readLogWord(this.programCounter) + this.X).ToString("X4") + " = " + this.readLogByte((ushort)(this.readLogWord(this.programCounter) + this.X)).ToString("X2") + "         ";
+                            break;
+                        case 8://aaaa,Y
+                            data = " " + this.readLogByte(this.programCounter).ToString("X2") + " " + this.readLogByte((ushort)(this.programCounter + 1)).ToString("X2") + "  ";
+                            addresses = " $" + this.readLogWord(this.programCounter).ToString("X4") + ",Y @ " + (this.readLogWord(this.programCounter) + this.Y).ToString("X4") + " = " + this.readLogByte((ushort)(this.readLogWord(this.programCounter) + this.Y)).ToString("X2") + "         ";
+                            break;
+                        case 9://(aa,X)
+                            data = " " + this.readLogByte(this.programCounter).ToString("X2") + "     ";
+                            addresses = " ($" + this.readLogByte(this.programCounter).ToString("X2") + ",X) @ " + ((byte)(this.readLogByte(this.programCounter) + (sbyte)this.X)).ToString("X2") + " = " + this.readLogWord(((byte)(this.readLogByte(this.programCounter) + (sbyte)this.X))).ToString("X4") + " = " + this.readLogByte(this.readLogWord(((byte)(this.readLogByte(this.programCounter) + (sbyte)this.X)))).ToString("X2") + "    ";
+                            break;
+                        case 10://(aa),Y
+                            data = " " + this.readLogByte(this.programCounter).ToString("X2") + "     ";
+                            addresses = " ($" + this.readLogByte(this.programCounter).ToString("X2") + "),Y = " + this.readLogWord(this.readLogByte(this.programCounter)).ToString("X4") + " @ " + (this.readLogWord(this.readLogByte(this.programCounter)) + this.Y).ToString("X4") + " = " + this.readLogByte((ushort)(this.readLogWord(this.readLogByte(this.programCounter)) + this.Y)).ToString("X2") + "  ";
+                            break;
+                        case 11://(aaaa) JMP
+                            data = " " + this.readLogByte(this.programCounter).ToString("X2") + " " + this.readLogByte((ushort)(this.programCounter + 1)).ToString("X2") + "  ";
+                            addresses = " ($" + this.readLogWord(this.programCounter).ToString("X4") + ") = " + this.readLogWord(this.readLogWord(this.programCounter)).ToString("X4") + "             ";
+                            break;
+                        case 12://Branch
+                            data = " " + this.readLogByte(this.programCounter).ToString("X2") + "     ";
+                            ushort tmp = (ushort)(this.programCounter + (sbyte)this.readLogByte(this.programCounter) + 1);
+                            addresses = " $" + tmp.ToString("X4") + "                       ";
+                            break;
+                        case 13://aaaa JMP
+                            data = " " + this.readLogByte(this.programCounter).ToString("X2") + " " + this.readLogByte((ushort)(this.programCounter + 1)).ToString("X2") + "  ";
+                            addresses = " $" + this.readLogWord(this.programCounter).ToString("X4") + "                       ";
+                            break;
 
+                    }
                     if (this.logBuilder.Length > 1024 * 1024 * 100)
-                        this.logBuilder.Remove(0, 1024 * 124 * 50);
-                    logBuilder.AppendLine(LogOp(RegPC));
+                        this.logBuilder.Remove(0, 1024 * 1024 * 50);
+                    this.logBuilder.Append((this.programCounter - 1).ToString("X4") + "  " +
+                        opCode.ToString("X2") + data + this.opcodes[opCode] + addresses + "A:" +
+                        this.A.ToString("X2") + " X:" + this.X.ToString("X2") + " Y:" +
+                        this.Y.ToString("X2") + " P:" + this.P.ToString("X2") + " SP:" +
+                        this.S.ToString("X2") + " CYC:" + (this.counter * 3).ToString().PadLeft(3, ' ') +
+                        " SL:" + (this.scanline).ToString().PadLeft(3, ' ') + "\r\n");
                 }
-                op = Read(RegPC);
-                opInfo = OpInfo.GetOps()[op];
-                opCycles = (opInfo >> 24) & 0xFF;
-                opCycleAdd = 0;
-                addressing = (opInfo >> 8) & 0xFF;
-                instruction = opInfo & 0xFF;
-                opAddr = RegPC;
-                RegPC += (opInfo >> 16) & 0xFF;
-                RegPC &= 0xFFFF;
+                #endregion
+                this.counter += this.cycles[opCode];
+                #region opcodes
+                switch (opCode)
+                {
+                    case 0x69: //ADC #aa
+                        value = this.readByte();
+                        goto ADC;
+                    case 0x65: //ADC aa
+                        value = this.readByte(this.readByte());
+                        goto ADC;
+                    case 0x75: //ADC aa,X
+                        value = this.readByte(this.zpOffset(this.X));
+                        goto ADC;
+                    case 0x6D: //ADC aaaa
+                        value = this.readByte(this.readWord());
+                        goto ADC;
+                    case 0x7D: //ADC aaaa,X
+                        value = this.readByte(this.absOffset(this.X));
+                        goto ADC;
+                    case 0x79: //ADC aaaa,Y
+                        value = this.readByte(this.absOffset(this.Y));
+                        goto ADC;
+                    case 0x61: //ADC (aa,X)
+                        value = this.readByte(this.indexedIndirect(this.X));
+                        goto ADC;
+                    case 0x71: //ADC (aa),Y
+                        value = this.readByte(this.indirectIndexed(this.Y));
+                    ADC:/*
+                        if (((this.A ^ value) & 0x80) != 0)
+                            this.P &= 0xBF;
+                        else
+                            this.P |= 0x40;
+                    sum = (ushort)(this.A + (this.P & 0x01) + value);
+                    if (sum > 0xFF)
+                    {
+                        this.P |= 0x01;
+                        if (((this.P & 0xBF) != 0) && (sum >= 0x180))
+                            this.P &= 0xBF;
+                    }
+                    else
+                    {
+                        this.P &= 0xFE;
+                        if (((this.P & 0xBF) != 0) && (sum < 0x80))
+                            this.P &= 0xBF;
+                    }
+                    this.A = (byte)sum;*/
+                        byte carry = (byte)(this.P & 0x01);
+                        if (adcCarry[value, this.A, carry])
+                            this.P |= 0x01;
+                        else
+                            this.P &= 0xFE;
+                        if (adcOverflow[value, this.A, carry])
+                            this.P |= 0x40;
+                        else
+                            this.P &= 0xBF;
+                        this.A = adcTable[value, this.A, carry];
+                        if ((this.A & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0xCB: //AXS #aa
+                        value = this.readByte();
+                        //CB nn     nzc---  2  AXS #nn          CMP+DEX  X=A AND X -nn  cy?
+                        break;
+                    case 0x6B: //ARR #aa
+                        value = this.readByte();
+                        /*
+                         *  AND byte with accumulator, then rotate one bit right in accu-
+                         *  mulator and check bit 5 and 6:
+                         *  If both bits are 1: set C, clear V.
+                         *  If both bits are 0: clear C and V.
+                         *  If only bit 5 is 1: set V, clear C.
+                         *  If only bit 6 is 1: set C and V.
+                         *  Status flags: N,V,Z,C
+                         */
+                        break;
+                    case 0x4B: //ALR #aa
+                        value = (byte)(this.A & this.readByte());
+                        if ((value & 0x01) != 0)
+                            this.P |= 0x01;
+                        else
+                            this.P &= 0xFE;
+                        value >>= 1;
+                        this.A = value;
+                        this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
 
-                #region newCPU
-                switch (addressing)
-                {
-                    case OpInfo.AddrNone:
                         break;
-                    case OpInfo.AddrAccumulator:
-                        addr = RegA;
-                        break;
-                    case OpInfo.AddrImmediate:
-                        addr = opAddr + 1;
-                        break;
-                    case OpInfo.AddrZeroPage:
-                        addr = Read(opAddr + 1);
-                        break;
-                    case OpInfo.AddrZeroPageX:
-                        addr = (Read(opAddr + 1) + RegX) & 0xFF;
-                        break;
-                    case OpInfo.AddrZeroPageY:
-                        addr = (Read(opAddr + 1) + RegY) & 0xFF;
-                        break;
-                    case OpInfo.AddrAbsolute:
-                        addr = ReadWord(opAddr + 1);
-                        break;
-                    case OpInfo.AddrAbsoluteX:
-                        addr = ReadWord(opAddr + 1);
-                        if ((addr & 0xFF00) != ((addr + RegX) & 0xFF00))
-                            opCycleAdd++;
-                        addr += RegX;
-                        break;
-                    case OpInfo.AddrAbsoluteY:
-                        addr = ReadWord(opAddr + 1);
-                        if ((addr & 0xFF00) != ((addr + RegY) & 0xFF00))
-                            opCycleAdd++;
-                        addr += RegY;
-                        break;
-                    case OpInfo.AddrIndirectAbs:
-                        addr = ReadWordWrap(ReadWord(opAddr + 1));
-                        break;
-                    case OpInfo.AddrRelative:
-                        addr = Read(opAddr + 1);
-                        if (addr < 0x80)
-                            addr += RegPC;
+                    case 0xAB: //LAX #nn
+                        this.A = this.readByte();
+                        this.X = this.A;
+                        if ((this.A & 0x80) != 0)
+                            this.P |= 0x80;
                         else
-                            addr += RegPC - 256;
-                        break;
-                    case OpInfo.AddrIndirectX:
-                        addr = Read(opAddr + 1);
-                        //if ((addr & 0xFF00) != ((addr + RegX) & 0xFF00))
-                        //    opCycleAdd++;
-                        addr += RegX;
-                        addr &= 0xFF;
-                        addr = Read(addr) + (Read((addr + 1) & 0xFF) << 8);
-                        break;
-                    case OpInfo.AddrIndirectY:
-                        addr = Read(opAddr + 1);
-                        addr = Read(addr) + (Read((addr + 1) & 0xFF) << 8);
-                        if ((addr & 0xFF00) != ((addr + RegY) & 0xFF00))
-                            opCycleAdd++;
-                        addr += RegY;
-                        break;
-                }
-                addr &= 0xFFFF;
-                switch (instruction)
-                {
-                    case OpInfo.InstrADC:
-                        value = Read(addr);
-                        temp = RegA + value + FlagCarry;
-                        FlagOverflow = ((!(((RegA ^ value) & 0x80) != 0) && (((RegA ^ temp) & 0x80)) != 0) ? 1 : 0);
-                        FlagCarry = temp > 0xFF ? 1 : 0;
-                        RegA = FlagZero = temp & 0xFF;
-                        FlagSign = RegA >> 7;
-                        opCycles += opCycleAdd;
-                        break;
-                    case OpInfo.InstrAND:
-                        RegA &= Read(addr);
-                        FlagZero = RegA;
-                        FlagSign = RegA >> 7;
-                        opCycles += opCycleAdd;
-                        break;
-                    case OpInfo.InstrASL:
-                        if (addressing == OpInfo.AddrAccumulator)
-                        {
-                            FlagCarry = (RegA >> 7) & 1;
-                            RegA = (RegA << 1) & 0xFF;
-                            FlagZero = RegA;
-                            FlagSign = RegA >> 7;
-                        }
+                            this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
                         else
-                        {
-                            value = Read(addr);
-                            FlagCarry = (value >> 7) & 1;
-                            value = (value << 1) & 0xFF;
-                            FlagZero = value;
-                            FlagSign = value >> 7;
-                            Write(addr, value);
-                        }
+                            this.P &= 0xFD;
+
                         break;
-                    case OpInfo.InstrBCC:
-                        if (FlagCarry == 0)
-                        {
-                            RegPC = addr;
-                            opCycles += opCycleAdd + 1;
-                        }
-                        break;
-                    case OpInfo.InstrBCS:
-                        if (FlagCarry != 0)
-                        {
-                            RegPC = addr;
-                            opCycles += opCycleAdd + 1;
-                        }
-                        break;
-                    case OpInfo.InstrBEQ:
-                        if (FlagZero == 0)
-                        {
-                            RegPC = addr;
-                            opCycles += opCycleAdd + 1;
-                        }
-                        break;
-                    case OpInfo.InstrBIT:
-                        value = Read(addr);
-                        FlagSign = (value & 0x80) >> 7;
-                        FlagOverflow = (value & 0x40) >> 6;
-                        FlagZero = value & RegA;
-                        break;
-                    case OpInfo.InstrBMI:
-                        if (FlagSign != 0)
-                        {
-                            RegPC = addr;
-                            opCycles += opCycleAdd + 1;
-                        }
-                        break;
-                    case OpInfo.InstrBNE:
-                        if (FlagZero != 0)
-                        {
-                            RegPC = addr;
-                            opCycles += opCycleAdd + 1;
-                        }
-                        break;
-                    case OpInfo.InstrBPL:
-                        if (FlagSign == 0)
-                        {
-                            RegPC = addr;
-                            opCycles += opCycleAdd + 1;
-                        }
-                        break;
-                    case OpInfo.InstrBRK:
-                        interruptBRK = true;
-                        break;
-                    case OpInfo.InstrBVC:
-                        if (FlagOverflow == 0)
-                        {
-                            RegPC = addr;
-                            opCycles += opCycleAdd + 1;
-                        }
-                        break;
-                    case OpInfo.InstrBVS:
-                        if (FlagOverflow != 0)
-                        {
-                            RegPC = addr;
-                            opCycles += opCycleAdd + 1;
-                        }
-                        break;
-                    case OpInfo.InstrCLC:
-                        FlagCarry = 0;
-                        break;
-                    case OpInfo.InstrCLD:
-                        FlagDecimal = 0;
-                        break;
-                    case OpInfo.InstrCLI:
-                        FlagIRQ = 0;
-                        break;
-                    case OpInfo.InstrCLV:
-                        FlagOverflow = 0;
-                        break;
-                    case OpInfo.InstrCMP:
-                        value = Read(addr);
-                        if (RegA >= value)
-                            FlagCarry = 1;
+                    case 0x0B:
+                    case 0x2B: //ANC #aa
+                        value = (byte)(this.A & this.readByte());
+                        if ((value & 0x80) != 0)
+                            this.P |= 0x81;
                         else
-                            FlagCarry = 0;
-                        if (RegA == value)
-                            FlagZero = 0;
+                            this.P &= 0x7E;
+                        if (value == 0)
+                            this.P |= 0x02;
                         else
-                            FlagZero = 1;
-                        FlagSign = ((RegA - value) >> 7) & 1;
-                        opCycles += opCycleAdd;
+                            this.P &= 0xFD;
+
                         break;
-                    case OpInfo.InstrCPX:
-                        value = Read(addr);
-                        if (RegX >= value)
-                            FlagCarry = 1;
+                    case 0x29: //AND #aa
+                        this.A &= this.readByte();
+                        goto AND;
+                    case 0x25: //AND aa
+                        this.A &= this.readByte(this.readByte());
+                        goto AND;
+                    case 0x35: //AND aa,X
+                        this.A &= this.readByte(this.zpOffset(this.X));
+                        goto AND;
+                    case 0x2D: //AND aaaa
+                        this.A &= this.readByte(this.readWord());
+                        goto AND;
+                    case 0x3D: //AND aaaa,X
+                        this.A &= this.readByte(this.absOffset(this.X));
+                        goto AND;
+                    case 0x39: //AND aaaa,Y
+                        this.A &= this.readByte(this.absOffset(this.Y));
+                        goto AND;
+                    case 0x21: //AND (aa,X)
+                        this.A &= this.readByte(this.indexedIndirect(this.X));
+                        goto AND;
+                    case 0x31: //AND (aa),Y
+                        this.A &= this.readByte(this.indirectIndexed(this.Y));
+                    AND:
+                        if ((this.A & 0x80) != 0)
+                            this.P |= 0x80;
                         else
-                            FlagCarry = 0;
-                        if (RegX == value)
-                            FlagZero = 0;
+                            this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
                         else
-                            FlagZero = 1;
-                        FlagSign = ((RegX - value) >> 7) & 1;
+                            this.P &= 0xFD;
                         break;
-                    case OpInfo.InstrCPY:
-                        value = Read(addr);
-                        if (RegY >= value)
-                            FlagCarry = 1;
+                    case 0x0A: //ASL A
+                        if ((this.A & 0x80) != 0)
+                            this.P |= 0x01;
                         else
-                            FlagCarry = 0;
-                        if (RegY == value)
-                            FlagZero = 0;
+                            this.P &= 0xFE;
+                        this.A <<= 1;
+                        if ((this.A & 0x80) != 0)
+                            this.P |= 0x80;
                         else
-                            FlagZero = 1;
-                        FlagSign = ((RegY - value) >> 7) & 1;
-                        break;
-                    case OpInfo.InstrDEC:
-                        value = Read(addr);
-                        value = FlagZero = (value - 1) & 0xFF;
-                        FlagSign = value >> 7;
-                        Write(addr, value);
-                        break;
-                    case OpInfo.InstrDEX:
-                        RegX = FlagZero = (RegX - 1) & 0xFF;
-                        FlagSign = RegX >> 7;
-                        break;
-                    case OpInfo.InstrDEY:
-                        RegY = FlagZero = (RegY - 1) & 0xFF;
-                        FlagSign = RegY >> 7;
-                        break;
-                    case OpInfo.InstrEOR:
-                        RegA ^= Read(addr);
-                        RegA = FlagZero = RegA & 0xFF;
-                        FlagSign = RegA >> 7;
-                        opCycles += opCycleAdd;
-                        break;
-                    case OpInfo.InstrINC:
-                        value = Read(addr);
-                        value = FlagZero = (value + 1) & 0xFF;
-                        FlagSign = value >> 7;
-                        Write(addr, value);
-                        break;
-                    case OpInfo.InstrINX:
-                        RegX = FlagZero = (RegX + 1) & 0xFF;
-                        FlagSign = RegX >> 7;
-                        break;
-                    case OpInfo.InstrINY:
-                        RegY = FlagZero = (RegY + 1) & 0xFF;
-                        FlagSign = RegY >> 7;
-                        break;
-                    case OpInfo.InstrJMP:
-                        RegPC = addr;
-                        break;
-                    case OpInfo.InstrJSR:
-                        PushWordStack(RegPC - 1);
-                        RegPC = addr;
-                        break;
-                    case OpInfo.InstrLDA:
-                        RegA = FlagZero = Read(addr);
-                        FlagSign = RegA >> 7;
-                        opCycles += opCycleAdd;
-                        break;
-                    case OpInfo.InstrLDX:
-                        RegX = FlagZero = Read(addr);
-                        FlagSign = RegX >> 7;
-                        opCycles += opCycleAdd;
-                        break;
-                    case OpInfo.InstrLDY:
-                        RegY = FlagZero = Read(addr);
-                        FlagSign = RegY >> 7;
-                        opCycles += opCycleAdd;
-                        break;
-                    case OpInfo.InstrLSR:
-                        if (addressing == OpInfo.AddrAccumulator)
-                        {
-                            FlagCarry = RegA & 1;
-                            RegA = RegA >> 1;
-                            FlagSign = 0;
-                            FlagZero = RegA;
-                        }
+                            this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
                         else
-                        {
-                            value = Read(addr);
-                            FlagCarry = value & 1;
-                            value = value >> 1;
-                            FlagSign = 0;
-                            FlagZero = value;
-                            Write(addr, value);
-                        }
+                            this.P &= 0xFD;
                         break;
-                    case OpInfo.InstrNOP:
+                    case 0x06: //ASL aa
+                        sum = this.readByte();
+                        goto ASL;
+                    case 0x16: //ASL aa,X
+                        sum = this.zpOffset(this.X);
+                        goto ASL;
+                    case 0x0E: //ASL aaaa
+                        sum = this.readWord();
+                        goto ASL;
+                    case 0x1E: //ASL aaaa,X
+                        sum = this.absOffset(this.X);
+                    ASL:
+                        value = this.readByte(sum);
+                        if ((value & 0x80) != 0)
+                            this.P |= 0x01;
+                        else
+                            this.P &= 0xFE;
+                        value <<= 1;
+                        if ((value & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (value == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        this.writeByte(sum, value);
                         break;
-                    case OpInfo.InstrORA:
-                        RegA = FlagZero = (RegA | Read(addr)) & 0xFF;
-                        FlagSign = RegA >> 7;
-                        opCycles += opCycleAdd;
+                    case 0x90: //BCC
+                        value = this.readByte();
+                        if ((this.P & 0x01) == 0)
+                            this.programCounter = (ushort)(this.programCounter + (sbyte)value);
                         break;
-                    case OpInfo.InstrPHA:
-                        PushByteStack(RegA);
-                        break;
-                    case OpInfo.InstrPHP:
-                        value = PToByte();
-                        value |= 0x30;
-                        PushByteStack(value);
-                        break;
-                    case OpInfo.InstrPLA:
-                        RegA = FlagZero = PopByteStack();
-                        FlagSign = RegA >> 7;
-                        break;
-                    case OpInfo.InstrPLP:
-                        value = PopByteStack();
-                        PFromByte(value);
-                        FlagBreak = 1;
-                        FlagNotUsed = 1;
-                        break;
-                    case OpInfo.InstrROL:
-                        if (addressing == OpInfo.AddrAccumulator)
-                        {
-                            if (FlagCarry != 0)
-                            {
-                                FlagCarry = RegA >> 7;
-                                RegA = ((RegA << 1) + 1) & 0xFF;
-                            }
+                    case 0xB0: //BCS
+                        value = this.readByte();
+                        if ((this.P & 0x01) != 0)
+                            this.programCounter = (ushort)(this.programCounter + (sbyte)value);
+                        /*{
+                            if (value < 0x80)
+                                this.programCounter += value;
                             else
-                            {
-                                FlagCarry = RegA >> 7;
-                                RegA = (RegA << 1) & 0xFF;
-                            }
-                            FlagSign = RegA >> 7;
-                            FlagZero = RegA;
+                                this.programCounter -= (ushort)(((byte)(~value)) + 1);
+                        }*/
+                        break;
+                    case 0xF0: //BEQ
+                        value = this.readByte();
+                        if ((this.P & 0x02) != 0)
+                            this.programCounter = (ushort)(this.programCounter + (sbyte)value);
+                        break;
+                    case 0x24: //BIT aa
+                        value = this.readByte(this.readByte());
+                        goto BIT;
+                    case 0x2C: //BIT aaaa
+                        value = this.readByte(this.readWord());
+                    BIT:
+                        if ((value & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if ((value & 0x40) != 0)
+                            this.P |= 0x40;
+                        else
+                            this.P &= 0xBF;
+                        if ((value & this.A) == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0x30: //BMI
+                        value = this.readByte();
+                        if ((this.P & 0x80) != 0)
+                            this.programCounter = (ushort)(this.programCounter + (sbyte)value);
+                        break;
+                    case 0xD0: //BNE
+                        value = this.readByte();
+                        if ((this.P & 0x02) == 0)
+                            this.programCounter = (ushort)(this.programCounter + (sbyte)value);
+                        break;
+                    case 0x10: //BPL
+                        value = this.readByte();
+                        if ((this.P & 0x80) == 0)
+                            this.programCounter = (ushort)(this.programCounter + (sbyte)value);
+                        break;
+                    case 0x00: //BRK
+                        this.interruptBRK = true;
+                        //this.emulationRunning = false;
+                        break;
+                    case 0x50: //BVC
+                        value = this.readByte();
+                        if ((this.P & 0x40) == 0)
+                            this.programCounter = (ushort)(this.programCounter + (sbyte)value);
+                        break;
+                    case 0x70: //BVS
+                        value = this.readByte();
+                        if ((this.P & 0x40) != 0)
+                            this.programCounter = (ushort)(this.programCounter + (sbyte)value);
+                        break;
+                    case 0x18: //CLC
+                        this.P &= 0xFE;
+                        break;
+                    case 0xD8: //CLD
+                        this.P &= 0xF7;
+                        break;
+                    case 0x58: //CLI
+                        this.P &= 0xFB;
+                        break;
+                    case 0xB8: //CLV
+                        this.P &= 0xBF;
+                        break;
+                    case 0xC9: //CMP #aa
+                        value = this.readByte();
+                        goto CMP;
+                    case 0xC5: //CMP aa
+                        value = this.readByte(this.readByte());
+                        goto CMP;
+                    case 0xD5: //CMP aa,X
+                        value = this.readByte(this.zpOffset(this.X));
+                        goto CMP;
+                    case 0xCD: //CMP aaaa
+                        value = this.readByte(this.readWord());
+                        goto CMP;
+                    case 0xDD: //CMP aaaa,X
+                        value = this.readByte(this.absOffset(this.X));
+                        goto CMP;
+                    case 0xD9: //CMP aaaa,Y
+                        value = this.readByte(this.absOffset(this.Y));
+                        goto CMP;
+                    case 0xC1: //CMP (aa,X)
+                        value = this.readByte(this.indexedIndirect(this.X));
+                        goto CMP;
+                    case 0xD1: //CMP (aa),Y
+                        value = this.readByte(this.indirectIndexed(this.Y));
+                    CMP:
+                        if (this.A >= value)
+                            this.P |= 0x01;
+                        else
+                            this.P &= 0xFE;
+                        sum = (ushort)(this.A - value);
+                        if (sum == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        if ((sum & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        break;
+                    case 0xE0: //CPX #aa
+                        value = this.readByte();
+                        goto CPX;
+                    case 0xE4: //CPX aa
+                        value = this.readByte(this.readByte());
+                        goto CPX;
+                    case 0xEC: //CPX aaaa
+                        value = this.readByte(this.readWord());
+                    CPX:
+                        if (this.X >= value)
+                            this.P |= 0x01;
+                        else
+                            this.P &= 0xFE;
+                        sum = (ushort)(this.X - value);
+                        if (sum == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        if ((sum & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        break;
+                    case 0xC0: //CPY #aa
+                        value = this.readByte();
+                        goto CPY;
+                    case 0xC4: //CPY aa
+                        value = this.readByte(this.readByte());
+                        goto CPY;
+                    case 0xCC: //CPY aaaa
+                        value = this.readByte(this.readWord());
+                    CPY:
+                        if (this.Y >= value)
+                            this.P |= 0x01;
+                        else
+                            this.P &= 0xFE;
+                        sum = (ushort)(this.Y - value);
+                        if (sum == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        if ((sum & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        break;
+                    case 0xC7: //DCP aa
+                        sum = this.readByte();
+                        goto DCP;
+                    case 0xD7: //DCP aa,X
+                        sum = zpOffset(this.X);
+                        goto DCP;
+                    case 0xCF: //DCP aaaa
+                        sum = this.readWord();
+                        goto DCP;
+                    case 0xDF: //DCP aaaa,X
+                        sum = this.absOffset(this.X);
+                        goto DCP;
+                    case 0xDB: //DCP aaaa,Y
+                        sum = this.absOffset(this.Y);
+                        goto DCP;
+                    case 0xC3: //DCP (aa,X)
+                        sum = this.indexedIndirect(this.X);
+                        goto DCP;
+                    case 0xD3: //DCP (aa),Y
+                        sum = this.indirectIndexed(this.Y);
+                    DCP:
+                        value = this.readByte(sum);
+                        value--;
+                        this.writeByte(sum, value);
+                        goto CMP;
+                    case 0xC6: //DEC aa
+                        sum = this.readByte();
+                        goto DEC;
+                    case 0xD6: //DEC aa,X
+                        sum = this.zpOffset(this.X);
+                        goto DEC;
+                    case 0xCE: //DEC aaaa
+                        sum = this.readWord();
+                        goto DEC;
+                    case 0xDE: //DEC aaaa,X
+                        sum = this.absOffset(this.X);
+                    DEC:
+                        value = this.readByte(sum);
+                        value--;
+                        if ((value & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (value == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        this.writeByte(sum, value);
+                        break;
+                    case 0xCA: //DEX
+                        this.X--;
+                        if ((this.X & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.X == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0x88: //DEY
+                        this.Y--;
+                        if ((this.Y & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.Y == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0x49: //EOR #aa
+                        this.A ^= this.readByte();
+                        goto EOR;
+                    case 0x45: //EOR aa
+                        this.A ^= this.readByte(this.readByte());
+                        goto EOR;
+                    case 0x55: //EOR aa,X
+                        this.A ^= this.readByte(this.zpOffset(this.X));
+                        goto EOR;
+                    case 0x4D: //EOR aaaa
+                        this.A ^= this.readByte(this.readWord());
+                        goto EOR;
+                    case 0x5D: //EOR aaaa,X
+                        this.A ^= this.readByte(this.absOffset(this.X));
+                        goto EOR;
+                    case 0x59: //EOR aaaa,Y
+                        this.A ^= this.readByte(this.absOffset(this.Y));
+                        goto EOR;
+                    case 0x41: //EOR (aa,X)
+                        this.A ^= this.readByte(this.indexedIndirect(this.X));
+                        goto EOR;
+                    case 0x51: //EOR (aa),Y
+                        this.A ^= this.readByte(this.indirectIndexed(this.Y));
+                    EOR:
+                        if ((this.A & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0xE6: //INC aa
+                        sum = this.readByte();
+                        goto INC;
+                    case 0xF6: //INC aa,X
+                        sum = this.zpOffset(this.X);
+                        goto INC;
+                    case 0xEE: //INC aaaa
+                        sum = this.readWord();
+                        goto INC;
+                    case 0xFE: //INC aaaa,X
+                        sum = this.absOffset(this.X);
+                    INC:
+                        value = this.readByte(sum);
+                        value++;
+                        if ((value & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (value == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        this.writeByte(sum, value);
+                        break;
+                    case 0xE8: //INX
+                        this.X++;
+                        if ((this.X & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.X == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0xC8: //INY
+                        this.Y++;
+                        if ((this.Y & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.Y == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0xE7: //ISC aa
+                        sum = this.readByte();
+                        goto ISC;
+                    case 0xF7: //ISC aa,X
+                        sum = this.zpOffset(this.X);
+                        goto ISC;
+                    case 0xEF: //ISC aaaa
+                        sum = this.readWord();
+                        goto ISC;
+                    case 0xFF: //ISC aaaa,X
+                        sum = this.absOffset(this.X);
+                        goto ISC;
+                    case 0xFB: //ISC aaaa,Y
+                        sum = this.absOffset(this.Y);
+                        goto ISC;
+                    case 0xE3: //ISC (aa,X)
+                        sum = this.indexedIndirect(this.X);
+                        goto ISC;
+                    case 0xF3: //ISC (aa),Y
+                        sum = this.indirectIndexed(this.Y);
+                    ISC:
+                        value = this.readByte(sum);
+                        value++;
+                        this.writeByte(sum, value);
+                        goto SBC;
+                    case 0x4C: //JMP aaaa
+                        this.programCounter = this.readWord();
+                        break;
+                    case 0x6C: //JMP (aaaa)
+                        this.programCounter = this.readWord(this.readWord());
+                        break;
+                    case 0x20: //JSR aaaa
+                        sum = this.readWord();
+                        this.pushWordStack((ushort)(this.programCounter - 1));
+                        this.programCounter = sum;
+                        break;
+                    case 0xA7: //LAX aa
+                        value = this.readByte(this.readByte());
+                        goto LAX;
+                    case 0xB7: //LAX aa,Y
+                        value = this.readByte(this.zpOffset(this.Y));
+                        goto LAX;
+                    case 0xAF: //LAX aaaa
+                        value = this.readByte(this.readWord());
+                        goto LAX;
+                    case 0xBF: //LAX aaaa,Y
+                        value = this.readByte(this.absOffset(this.Y));
+                        goto LAX;
+                    case 0xA3: //LAX (aa,X)
+                        value = this.readByte(this.indexedIndirect(this.X));
+                        goto LAX;
+                    case 0xB3: //LAX (aa),Y
+                        value = this.readByte(this.indirectIndexed(this.Y));
+                    LAX:
+                        this.A = value;
+                        this.X = value;
+                        if ((this.A & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0xA9: //LDA #aa
+                        this.A = this.readByte();
+                        goto LDA;
+                    case 0xA5: //LDA aa
+                        this.A = this.readByte(this.readByte());
+                        goto LDA;
+                    case 0xB5: //LDA aa,X
+                        this.A = this.readByte(this.zpOffset(this.X));
+                        goto LDA;
+                    case 0xAD: //LDA aaaa
+                        this.A = this.readByte(this.readWord());
+                        goto LDA;
+                    case 0xBD: //LDA aaaa,X
+                        this.A = this.readByte(this.absOffset(this.X));
+                        goto LDA;
+                    case 0xB9: //LDA aaaa,Y
+                        this.A = this.readByte(this.absOffset(this.Y));
+                        goto LDA;
+                    case 0xA1: //LDA (aa,X)
+                        this.A = this.readByte(this.indexedIndirect(this.X));
+                        goto LDA;
+                    case 0xB1: //LDA (aa),Y
+                        this.A = this.readByte(this.indirectIndexed(this.Y));
+                    LDA:
+                        if ((this.A & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0xA2: //LDX #aa
+                        this.X = this.readByte();
+                        goto LDX;
+                    case 0xA6: //LDX aa
+                        this.X = this.readByte(this.readByte());
+                        goto LDX;
+                    case 0xB6: //LDX aa,Y
+                        this.X = this.readByte(this.zpOffset(this.Y));
+                        goto LDX;
+                    case 0xAE: //LDX aaaa
+                        this.X = this.readByte(this.readWord());
+                        goto LDX;
+                    case 0xBE: //LDX aaaa,Y
+                        this.X = this.readByte(this.absOffset(this.Y));
+                    LDX:
+                        if ((this.X & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.X == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0xA0: //LDY #aa
+                        this.Y = this.readByte();
+                        goto LDY;
+                    case 0xA4: //LDY aa
+                        this.Y = this.readByte(this.readByte());
+                        goto LDY;
+                    case 0xB4: //LDY aa,X
+                        this.Y = this.readByte(this.zpOffset(this.X));
+                        goto LDY;
+                    case 0xAC: //LDY aaaa
+                        this.Y = this.readByte(this.readWord());
+                        goto LDY;
+                    case 0xBC: //LDY aaaa,X
+                        this.Y = this.readByte(this.absOffset(this.X));
+                    LDY:
+                        if ((this.Y & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.Y == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0x4A: //LSR A
+                        if ((this.A & 0x01) != 0)
+                            this.P |= 0x01;
+                        else
+                            this.P &= 0xFE;
+                        this.A >>= 1;
+                        this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0x46: //LSR aa
+                        sum = this.readByte();
+                        goto LSR;
+                    case 0x56: //LSR aa,X
+                        sum = this.zpOffset(this.X);
+                        goto LSR;
+                    case 0x4E: //LSR aaaa
+                        sum = this.readWord();
+                        goto LSR;
+                    case 0x5E: //LSR aaaa,X
+                        sum = this.absOffset(this.X);
+                    LSR:
+                        value = this.readByte(sum);
+                        if ((value & 0x01) != 0)
+                            this.P |= 0x01;
+                        else
+                            this.P &= 0xFE;
+                        value >>= 1;
+                        this.P &= 0x7F;
+                        if (value == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        this.writeByte(sum, value);
+                        break;
+                    case 0x04: //*NOP
+                    case 0x44:
+                    case 0x64:
+                    case 0x14:
+                    case 0x34:
+                    case 0x54:
+                    case 0x74:
+                    case 0xD4:
+                    case 0xF4:
+                    case 0x80:
+                    case 0x82:
+                    case 0x89:
+                    case 0xC2:
+                    case 0xE2:
+                        this.readByte();
+                        break;
+                    case 0x0C: //*NOP
+                    case 0x1C:
+                    case 0x3C:
+                    case 0x5C:
+                    case 0x7C:
+                    case 0xDC:
+                    case 0xFC:
+                        this.readWord();
+                        break;
+                    case 0xEA: //NOP
+                    case 0x1A:
+                    case 0x3A:
+                    case 0x5A:
+                    case 0x7A:
+                    case 0xDA:
+                    case 0xFA:
+                        break;
+                    case 0x09: //ORA #aa
+                        this.A |= this.readByte();
+                        goto ORA;
+                    case 0x05: //ORA aa
+                        this.A |= this.readByte(this.readByte());
+                        goto ORA;
+                    case 0x15: //ORA aa,X
+                        this.A |= this.readByte(this.zpOffset(this.X));
+                        goto ORA;
+                    case 0x0D: //ORA aaaa
+                        this.A |= this.readByte(this.readWord());
+                        goto ORA;
+                    case 0x1D: //ORA aaaa,X
+                        this.A |= this.readByte(this.absOffset(this.X));
+                        goto ORA;
+                    case 0x19: //ORA aaaa,Y
+                        this.A |= this.readByte(this.absOffset(this.Y));
+                        goto ORA;
+                    case 0x01: //ORA (aa,X)
+                        this.A |= this.readByte(this.indexedIndirect(this.X));
+                        goto ORA;
+                    case 0x11: //ORA (aa),Y
+                        this.A |= this.readByte(this.indirectIndexed(this.Y));
+                    ORA:
+                        if ((this.A & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0x48: //PHA
+                        this.pushByteStack(this.A);
+                        break;
+                    case 0x08: //PHP
+                        value = this.P;
+                        value |= 0x20;
+                        value |= 0x10;
+                        this.pushByteStack(value);
+                        break;
+                    case 0x68: //PLA
+                        this.A = this.popByteStack();
+                        if ((this.A & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0x28: //PLP
+                        this.P = this.popByteStack();
+                        this.P &= 0xEF;
+                        break;
+                    case 0x27: //RLA aa
+                        sum = this.readByte();
+                        goto RLA;
+                    case 0x37: //RLA aa,X
+                        sum = this.zpOffset(this.X);
+                        goto RLA;
+                    case 0x2F: //RLA aaaa
+                        sum = this.readWord();
+                        goto RLA;
+                    case 0x3F: //RLA aaaa,X
+                        sum = this.absOffset(this.X);
+                        goto RLA;
+                    case 0x3B: //RLA aaaa,Y
+                        sum = this.absOffset(this.Y);
+                        goto RLA;
+                    case 0x23: //RLA (aa,X)
+                        sum = this.indexedIndirect(this.X);
+                        goto RLA;
+                    case 0x33: //RLA (aa),Y
+                        sum = this.indirectIndexed(this.Y);
+                    RLA:
+                        value = this.readByte(sum);
+                        if ((this.P & 0x01) != 0)
+                        {
+                            if ((value & 0x80) != 0)
+                                this.P |= 0x01;
+                            else
+                                this.P &= 0xFE;
+                            value <<= 1;
+                            value |= 0x01;
                         }
                         else
                         {
-                            value = Read(addr);
-                            if (FlagCarry != 0)
-                            {
-                                FlagCarry = value >> 7;
-                                value = ((value << 1) + 1) & 0xFF;
-                            }
+                            if ((value & 0x80) != 0)
+                                this.P |= 0x01;
                             else
-                            {
-                                FlagCarry = value >> 7;
-                                value = (value << 1) & 0xFF;
-                            }
-                            FlagSign = value >> 7;
-                            FlagZero = value;
-                            Write(addr, value);
+                                this.P &= 0xFE;
+                            value <<= 1;
                         }
+                        this.writeByte(sum, value);
+                        this.A &= value;
+                        if ((this.A & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
                         break;
-                    case OpInfo.InstrROR:
-                        if (addressing == OpInfo.AddrAccumulator)
+                    case 0x2A: //ROL A
+                        if ((this.P & 0x01) != 0)
                         {
-                            if (FlagCarry != 0)
-                            {
-                                FlagCarry = RegA & 1;
-                                RegA = ((RegA >> 1) + 0x80) & 0xFF;
-                                FlagSign = 1;
-                            }
+                            if ((this.A & 0x80) != 0)
+                                this.P |= 0x01;
                             else
-                            {
-                                FlagCarry = RegA & 1;
-                                RegA = (RegA >> 1) & 0xFF;
-                                FlagSign = 0;
-                            }
-                            FlagZero = RegA;
+                                this.P &= 0xFE;
+                            this.A <<= 1;
+                            this.A |= 0x01;
                         }
                         else
                         {
-                            value = Read(addr);
-                            if (FlagCarry != 0)
-                            {
-                                FlagCarry = value & 1;
-                                value = ((value >> 1) + 0x80) & 0xFF;
-                                FlagSign = 1;
-                            }
+                            if ((this.A & 0x80) != 0)
+                                this.P |= 0x01;
                             else
-                            {
-                                FlagCarry = value & 1;
-                                value = (value >> 1) & 0xFF;
-                                FlagSign = 0;
-                            }
-                            FlagZero = value;
-                            Write(addr, value);
+                                this.P &= 0xFE;
+                            this.A <<= 1;
                         }
+                        if ((this.A & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
                         break;
-                    case OpInfo.InstrRTI:
-                        value = PopByteStack();
-                        PFromByte(value);
-                        FlagBreak = 1;
-                        FlagNotUsed = 1;
-                        RegPC = PopWordStack();
+                    case 0x26: //ROL aa
+                        sum = this.readByte();
+                        goto ROL;
+                    case 0x36: //ROL aa,X
+                        sum = this.zpOffset(this.X);
+                        goto ROL;
+                    case 0x2E: //ROL aaaa
+                        sum = this.readWord();
+                        goto ROL;
+                    case 0x3E: //ROL aaaa,X
+                        sum = this.absOffset(this.X);
+                    ROL:
+                        value = this.readByte(sum);
+                        if ((this.P & 0x01) != 0)
+                        {
+                            if ((value & 0x80) != 0)
+                                this.P |= 0x01;
+                            else
+                                this.P &= 0xFE;
+                            value <<= 1;
+                            value |= 0x01;
+                        }
+                        else
+                        {
+                            if ((value & 0x80) != 0)
+                                this.P |= 0x01;
+                            else
+                                this.P &= 0xFE;
+                            value <<= 1;
+                        }
+                        this.writeByte(sum, value);
+                        if ((value & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (value == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
                         break;
-                    case OpInfo.InstrRTS:
-                        RegPC = (PopWordStack() + 1) & 0xFFFF;
+                    case 0x6A: //ROR A
+                        if ((this.P & 0x01) != 0)
+                        {
+                            if ((this.A & 0x01) != 0)
+                                this.P |= 0x01;
+                            else
+                                this.P &= 0xFE;
+                            this.A >>= 1;
+                            this.A |= 0x80;
+                        }
+                        else
+                        {
+                            if ((this.A & 0x01) != 0)
+                                this.P |= 0x01;
+                            else
+                                this.P &= 0xFE;
+                            this.A >>= 1;
+                        }
+                        if ((this.A & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
                         break;
-                    case OpInfo.InstrSBC:
-                        value = Read(addr);
-                        temp = RegA - value - (1 - FlagCarry);
-                        FlagCarry = (temp < 0 ? 0 : 1);
-                        FlagOverflow = ((((RegA ^ temp) & 0x80) != 0 && ((RegA ^ Read(addr)) & 0x80) != 0) ? 1 : 0);
-                        RegA = FlagZero = (temp & 0xFF);
-                        FlagSign = RegA >> 7;
-                        opCycles += opCycleAdd;
+                    case 0x66: //ROR aa
+                        sum = this.readByte();
+                        goto ROR;
+                    case 0x76: //ROR aa,X
+                        sum = this.zpOffset(this.X);
+                        goto ROR;
+                    case 0x6E: //ROR aaaa
+                        sum = this.readWord();
+                        goto ROR;
+                    case 0x7E: //ROR aaaa,X
+                        sum = this.absOffset(this.X);
+                    ROR:
+                        value = this.readByte(sum);
+                        if ((this.P & 0x01) != 0)
+                        {
+                            if ((value & 0x01) != 0)
+                                this.P |= 0x01;
+                            else
+                                this.P &= 0xFE;
+                            value >>= 1;
+                            value |= 0x80;
+                        }
+                        else
+                        {
+                            if ((value & 0x01) != 0)
+                                this.P |= 0x01;
+                            else
+                                this.P &= 0xFE;
+                            value >>= 1;
+                        }
+                        this.writeByte(sum, value);
+                        if ((value & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (value == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
                         break;
-                    case OpInfo.InstrSEC:
-                        FlagCarry = 1;
+                    case 0x67: //RRA aa
+                        sum = this.readByte();
+                        goto RRA;
+                    case 0x77: //RRA aa,X
+                        sum = this.zpOffset(this.X);
+                        goto RRA;
+                    case 0x6F: //RRA aaaa
+                        sum = this.readWord();
+                        goto RRA;
+                    case 0x7F: //RRA aaaa,X
+                        sum = this.absOffset(this.X);
+                        goto RRA;
+                    case 0x7B: //RRA aaaa,Y
+                        sum = this.absOffset(this.Y);
+                        goto RRA;
+                    case 0x63: //RRA (aa,X)
+                        sum = this.indexedIndirect(this.X);
+                        goto RRA;
+                    case 0x73: //RRA (aa),Y
+                        sum = this.indirectIndexed(this.Y);
+                    RRA:
+                        value = this.readByte(sum);
+                        if ((this.P & 0x01) != 0)
+                        {
+                            if ((value & 0x01) != 0)
+                                this.P |= 0x01;
+                            else
+                                this.P &= 0xFE;
+                            value >>= 1;
+                            value |= 0x80;
+                        }
+                        else
+                        {
+                            if ((value & 0x01) != 0)
+                                this.P |= 0x01;
+                            else
+                                this.P &= 0xFE;
+                            value >>= 1;
+                        }
+                        this.writeByte(sum, value);
+                        goto ADC;
+                    case 0x40: //RTI
+                        this.P = this.popByteStack();
+                        this.programCounter = this.popWordStack();
                         break;
-                    case OpInfo.InstrSED:
-                        FlagDecimal = 1;
+                    case 0x60: //RTS
+                        this.programCounter = (ushort)(this.popWordStack() + 1);
                         break;
-                    case OpInfo.InstrSEI:
-                        FlagIRQ = 1;
+                    case 0x87: //SAX aa
+                        value = (byte)(this.A & this.X);
+                        this.writeByte(this.readByte(), value);
                         break;
-                    case OpInfo.InstrSTA:
-                        Write(addr, RegA);
+                    case 0x97: //SAX aa,Y
+                        value = (byte)(this.A & this.X);
+                        this.writeByte(this.zpOffset(this.Y), value);
                         break;
-                    case OpInfo.InstrSTX:
-                        Write(addr, RegX);
+                    case 0x8F: //SAX aaaa
+                        value = (byte)(this.A & this.X);
+                        this.writeByte(this.readWord(), value);
                         break;
-                    case OpInfo.InstrSTY:
-                        Write(addr, RegY);
+                    case 0x83: //SAX (aa,X)
+                        value = (byte)(this.A & this.X);
+                        this.writeByte(this.indexedIndirect(this.X), value);
                         break;
-                    case OpInfo.InstrTAX:
-                        RegX = FlagZero = RegA;
-                        FlagSign = RegX >> 7;
+                    case 0xEB: //SBC #aa
+                    case 0xE9: //SBC #aa
+                        value = this.readByte();
+                        goto SBC;
+                    case 0xE5: //SBC aa
+                        value = this.readByte(this.readByte());
+                        goto SBC;
+                    case 0xF5: //SBC aa,X
+                        value = this.readByte(this.zpOffset(this.X));
+                        goto SBC;
+                    case 0xED: //SBC aaaa
+                        value = this.readByte(this.readWord());
+                        goto SBC;
+                    case 0xFD: //SBC aaaa,X
+                        value = this.readByte(this.absOffset(this.X));
+                        goto SBC;
+                    case 0xF9: //SBC aaaa,Y
+                        value = this.readByte(this.absOffset(this.Y));
+                        goto SBC;
+                    case 0xE1: //SBC (aa,X)
+                        value = this.readByte(this.indexedIndirect(this.X));
+                        goto SBC;
+                    case 0xF1: //SBC (aa),Y
+                        value = this.readByte(this.indirectIndexed(this.Y));
+                    SBC:
+                        value ^= 0xFF;
+                        goto ADC;
+                    /*                
+             if (((this.A ^ value) & 0x80) == 0)
+                 this.P &= 0xBF;
+             else
+                 this.P |= 0x40;
+             sum = (ushort)(0xFF + this.A + (this.P & 0x01) - value);
+             if (sum <= 0xFF)
+             {
+                 this.P &= 0xFE;
+                 if (((this.P & 0xBF) != 0) && (sum < 0x80))
+                     this.P &= 0xBF;
+             }
+             else
+             {
+                 this.P |= 0x01;
+                 if (((this.P & 0xBF) != 0) && (sum >= 0x180))
+                     this.P &= 0xBF;
+             }
+             this.A = (byte)sum;
+             if ((this.A & 0x80) != 0)
+                 this.P |= 0x80;
+             else
+                 this.P &= 0x7F;
+             if (this.A == 0)
+                 this.P |= 0x02;
+             else
+                 this.P &= 0xFD;
+             break;*/
+                    case 0x38: // SEC
+                        this.P |= 0x01;
                         break;
-                    case OpInfo.InstrTAY:
-                        RegY = FlagZero = RegA;
-                        FlagSign = RegY >> 7;
+                    case 0xF8: // SED
+                        this.P |= 0x08;
                         break;
-                    case OpInfo.InstrTSX:
-                        RegX = FlagZero = RegS;
-                        FlagSign = RegX >> 7;
+                    case 0x78: //SEI
+                        this.P |= 0x04;
                         break;
-                    case OpInfo.InstrTXA:
-                        RegA = FlagZero = RegX;
-                        FlagSign = RegA >> 7;
+                    case 0x9C: //SHY aaaa,X
+                        //9C nn nn  ------  5  SHY nnnn,X ((1))          [nnnn+X] = Y AND H
+                        sum = this.absOffset(this.X);
                         break;
-                    case OpInfo.InstrTXS:
-                        RegS = RegX;
+                    case 0x9E: //SHX aaaa,y
+                        //9E nn nn  ------  5  SHX nnnn,Y ((1))          [nnnn+Y] = X AND H
+                        sum = this.absOffset(this.Y);
                         break;
-                    case OpInfo.InstrTYA:
-                        RegA = FlagZero = RegY;
-                        FlagSign = RegA >> 7;
+                    case 0x07: //SLO aa
+                        sum = this.readByte();
+                        goto SLO;
+                    case 0x17: //SLO aa,X
+                        sum = this.zpOffset(this.X);
+                        goto SLO;
+                    case 0x0F: //SLO aaaa
+                        sum = this.readWord();
+                        goto SLO;
+                    case 0x1F: //SLO aaaa,X
+                        sum = this.absOffset(this.X);
+                        goto SLO;
+                    case 0x1B: //SLO aaaa,Y
+                        sum = this.absOffset(this.Y);
+                        goto SLO;
+                    case 0x03: //SLO (aa,X)
+                        sum = this.indexedIndirect(this.X);
+                        goto SLO;
+                    case 0x13: //SLO (aa),Y
+                        sum = this.indirectIndexed(this.Y);
+                    SLO:
+                        value = this.readByte(sum);
+                        if ((value & 0x80) != 0)
+                            this.P |= 0x01;
+                        else
+                            this.P &= 0xFE;
+                        value <<= 1;
+                        this.writeByte(sum, value);
+                        this.A |= value;
+                        if ((this.A & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0x47: //SRE aa
+                        sum = this.readByte();
+                        goto SRE;
+                    case 0x57: //SRE aa,X
+                        sum = this.zpOffset(this.X);
+                        goto SRE;
+                    case 0x4F: //SRE aaaa
+                        sum = this.readWord();
+                        goto SRE;
+                    case 0x5F: //SRE aaaa,X
+                        sum = this.absOffset(this.X);
+                        goto SRE;
+                    case 0x5B: //SRE aaaa,Y
+                        sum = this.absOffset(this.Y);
+                        goto SRE;
+                    case 0x43: //SRE (aa,X)
+                        sum = this.indexedIndirect(this.X);
+                        goto SRE;
+                    case 0x53: //SRE (aa),Y
+                        sum = this.indirectIndexed(this.Y);
+                    SRE:
+                        value = this.readByte(sum);
+                        if ((value & 0x01) != 0)
+                            this.P |= 0x01;
+                        else
+                            this.P &= 0xFE;
+                        value >>= 1;
+                        this.writeByte(sum, value);
+                        this.A ^= value;
+                        if ((this.A & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0x85: //STA aa
+                        this.writeByte(this.readByte(), this.A);
+                        break;
+                    case 0x95: //STA aa,X
+                        this.writeByte(this.zpOffset(this.X), this.A);
+                        break;
+                    case 0x8D: //STA aaaa
+                        this.writeByte(this.readWord(), this.A);
+                        break;
+                    case 0x9D: //STA aaaa,X
+                        this.writeByte(this.absOffset(this.X), this.A);
+                        break;
+                    case 0x99: //STA aaaa,Y
+                        this.writeByte(this.absOffset(this.Y), this.A);
+                        break;
+                    case 0x81: //STA (aa,X)
+                        this.writeByte(this.indexedIndirect(this.X), this.A);
+                        break;
+                    case 0x91: //STA (aa),Y
+                        this.writeByte(this.indirectIndexed(this.Y), this.A);
+                        break;
+                    case 0x86: //STX aa
+                        this.writeByte(this.readByte(), this.X);
+                        break;
+                    case 0x96: //STX aa,Y
+                        this.writeByte(this.zpOffset(this.Y), this.X);
+                        break;
+                    case 0x8E: //STX aaaa
+                        this.writeByte(this.readWord(), this.X);
+                        break;
+                    case 0x84: //STY aa
+                        this.writeByte(this.readByte(), this.Y);
+                        break;
+                    case 0x94: //STY aa,X
+                        this.writeByte(this.zpOffset(this.X), this.Y);
+                        break;
+                    case 0x8C: //STY aaaa
+                        this.writeByte(this.readWord(), this.Y);
+                        break;
+                    case 0xAA: //TAX
+                        this.X = this.A;
+                        if ((this.X & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.X == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0xA8: //TAY
+                        this.Y = this.A;
+                        if ((this.Y & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.Y == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0xBA: //TSX
+                        this.X = this.S;
+                        if ((this.X & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.X == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0x8A: //TXA
+                        this.A = this.X;
+                        if ((this.A & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
+                        break;
+                    case 0x9A: //TXS
+                        this.S = this.X;
+                        break;
+                    case 0x98: //TYA
+                        this.A = this.Y;
+                        if ((this.A & 0x80) != 0)
+                            this.P |= 0x80;
+                        else
+                            this.P &= 0x7F;
+                        if (this.A == 0)
+                            this.P |= 0x02;
+                        else
+                            this.P &= 0xFD;
                         break;
                     default:
-                        romInfo.AppendLine("Illegal OP: " + OpInfo.GetOpNames()[OpInfo.GetOps()[op] & 0xFF] + " " + op.ToString("X2") + " Program Counter: " + RegPC.ToString("X4"));
-                        switch (instruction) //Illegal Ops
-                        {
-                            case OpInfo.InstrDummy:
-                                if (invalidCount < 10)
-                                {
-                                    romInfo.AppendLine("Missing OP: " + OpInfo.GetOpNames()[OpInfo.GetOps()[op] & 0xFF] + " " + op.ToString("X2") + " Program Counter: " + RegPC.ToString("X4"));
-                                    invalidCount++;
-                                }
-                                break;
-                        }
+                        romInfo.AppendLine("Unkown opcode: " + opCode.ToString("X2") + " " + this.opcodes[opCode]);
+                        //throw new Exception("Unkown opcode: " + opCode.ToString("X2") + " " + this.opcodes[opCode]);
                         break;
                 }
                 #endregion
-                this.counter += opCycles;
-                APU.AddCycles(opCycles);
+                APU.AddCycles(this.cycles[opCode]);
                 if (this.interruptBRK)
                 {
-                    PushWordStack((RegPC + 1) & 0xFFF);
-                    PushByteStack(PToByte() | 0x30);
-                    FlagIRQ = 1;
-                    RegPC = PeekWord(0xFFFE);
+                    this.pushWordStack((ushort)(this.programCounter + 1));
+                    this.pushByteStack((byte)(this.P | 0x30));
+                    this.P |= 0x04;//Was 0x14 CHANGED
+                    this.programCounter = this.readLogWord(0xFFFE);
                     this.interruptBRK = false;
                 }
                 if (this.interruptReset)
                 {
-                    PushWordStack(RegPC);
-                    PushByteStack(PToByte());
-                    FlagIRQ = 1;
-                    RegPC = PeekWord(0xFFFC);
+                    this.pushWordStack(this.programCounter);
+                    this.pushByteStack(this.P);
+                    this.P |= 0x04;
+                    this.programCounter = this.readLogWord(0xFFFC);
                     this.interruptReset = false;
                 }
                 else if (this.interruptNMI)
                 {
-                    PushWordStack(RegPC);
-                    FlagBreak = 0;
-                    PushByteStack(PToByte());
-                    FlagIRQ = 1;
-                    RegPC = PeekWord(0xFFFA);
+                    this.pushWordStack(this.programCounter);
+                    this.pushByteStack(this.P);
+                    this.P |= 0x04;
+                    this.programCounter = this.readLogWord(0xFFFA);
                     this.interruptNMI = false;
                 }
-                else if ((this.interruptIRQ || romMapper.interruptMapper || APU.frameIRQ || APU.dmcInterrupt) && FlagIRQ == 0)
+                else if ((this.interruptIRQ || romMapper.interruptMapper || APU.frameIRQ || APU.dmcInterrupt) && (this.P & 0x04) == 0)
                 {
-                    PushWordStack(RegPC);
-                    FlagBreak = 0;
-                    PushByteStack(PToByte());
-                    FlagIRQ = 1;
-                    RegPC = PeekWord(0xFFFE);
+                    this.pushWordStack(this.programCounter);
+                    this.pushByteStack(this.P);
+                    this.P |= 0x04;
+                    this.programCounter = this.readLogWord(0xFFFE);
                     this.interruptIRQ = false;
                 }
                 if (this.counter >= this.scanlineLengths[this.slCounter % 3])
@@ -763,7 +1675,7 @@ namespace DirectXEmu
             for (int i = 0; i < 16; i++)
                 this.romHash += romHashArray[i].ToString("X2");
             inputStream.Position = 0;
-            if(inputStream.ReadByte() != 'N' || inputStream.ReadByte() != 'E' || inputStream.ReadByte() != 'S' || inputStream.ReadByte() != 0x1A)
+            if (inputStream.ReadByte() != 'N' || inputStream.ReadByte() != 'E' || inputStream.ReadByte() != 'S' || inputStream.ReadByte() != 0x1A)
                 if (MessageBox.Show("File appears to be invalid. Attempt load anyway?", "Error", MessageBoxButtons.YesNo) == DialogResult.No)
                 {
                     inputStream.Close();
@@ -786,7 +1698,7 @@ namespace DirectXEmu
             int mapper = (lowMapper >> 4) + (highMapper & 0xF0);
             Memory = new MemoryStore(0x20 + (numprgrom * 0x10), false);
             Memory.swapOffset = 0x20;
-            if(numvrom > 0)
+            if (numvrom > 0)
                 PPUMemory = new MemoryStore(0x20 + (numvrom * 0x08), false);
             else
                 PPUMemory = new MemoryStore(0x20 + (4 * 0x08), false);
@@ -798,7 +1710,7 @@ namespace DirectXEmu
             romInfo.AppendLine("PRG-ROM: " + numprgrom.ToString() + " * 16KB");
             romInfo.AppendLine("CHR-ROM: " + numvrom.ToString() + " * 8KB");
             romInfo.AppendLine("Mirroring: " + (fourScreenMirroring ? "Four-screen" : (vertMirroring ? "Vertical" : "Horizontal")));
-            if(VS)
+            if (VS)
                 romInfo.AppendLine("VS Unisystem Game");
             if (this.sramPresent)
                 romInfo.AppendLine("SRAM Present");
@@ -973,14 +1885,18 @@ namespace DirectXEmu
             this.PPUMirror(0x0000, 0x4000, 0x4000, 1);
             this.CPUMirror(0x0000, 0x0800, 0x0800, 3);
             this.CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
-            RegPC = PeekWord(0xFFFC);//entry point
-            //RegPC = 0xC000;
-            for(int i = 0; i < 0x20; i++)
+            this.programCounter = this.readLogWord(0xFFFC);//entry point
+            for (int i = 0; i < 0x20; i++)
                 this.PalMemory[i] = 0x0F; //Sets the background to black on startup to prevent grey flashes, not exactly accurate but it looks nicer
         }
-        private byte Read(int address)
+        private byte readByte()
         {
-            address &= 0xFFFF;
+            byte nextByte = this.readByte(this.programCounter);
+            this.programCounter++;
+            return nextByte;
+        }
+        private byte readByte(ushort address)
+        {
             byte nextByte = this.Memory[this.MirrorMap[address]];
             if (this.MirrorMap[address] == 0x2002) //PPU Status register
             {
@@ -992,7 +1908,7 @@ namespace DirectXEmu
                 }
                 else
                 {
-                    this.Memory[0x2002] &= 0xDF; 
+                    this.Memory[0x2002] &= 0xDF;
                     nextByte &= 0xDF;
                 }
                 if (this.spriteZeroHit)
@@ -1176,153 +2092,32 @@ namespace DirectXEmu
             nextByte = APU.Read(nextByte, this.MirrorMap[address]);
             return nextByte;
         }
-        private int ReadWord(int address)
+        private ushort readWord()
         {
-            int highAddress = (address + 1) & 0xFFFF;
-            return (Read(address) + (Read(highAddress) << 8)) & 0xFFFF;
+            return (ushort)(this.readByte() + (this.readByte() << 8));
         }
-        private int ReadWordWrap(int address)
+        private ushort readWord(ushort address)
         {
-            int highAddress = (address & 0xFF00) + ((address + 1) & 0xFF);
-            return (Read(address) + (Read(highAddress) << 8)) & 0xFFFF;
+            byte highByte = (byte)(address >> 8);
+            byte lowByte = (byte)(address + 1);
+            ushort highAddress = (ushort)(lowByte + (highByte << 8));
+            return (ushort)(this.readByte(address) + (this.readByte(highAddress) << 8));
         }
-        private byte Peek(int address)
+        private byte readLogByte(ushort address)
         {
-            address = address & 0xFFFF;
             byte nextByte = this.Memory[address];
             return nextByte;
         }
-        private int PeekWord(int address)
+        private ushort readLogWord(ushort address)
         {
-            int highAddress = (address + 1) & 0xFFFF;
-            return (Peek(address) + (Peek(highAddress) << 8)) & 0xFFFF;
+            byte highByte = (byte)(address >> 8);
+            byte lowByte = (byte)(address + 1);
+            ushort highAddress = (ushort)(lowByte + (highByte << 8));
+            return (ushort)(this.readLogByte(address) + (this.readLogByte(highAddress) << 8));
         }
-        private int PeekWordWrap(int address)
+        private void writeByte(ushort address, byte value)
         {
-            int highAddress = (address & 0xFF00) + ((address + 1) & 0xFF);
-            return (Peek(address) + (Peek(highAddress) << 8)) & 0xFFFF;
-        }
-        private string LogOp(int address)
-        {
-            StringBuilder line = new StringBuilder();
-            int op = Peek(address);
-            int opInfo = OpInfo.GetOps()[op];
-            int size = (opInfo >> 16) & 0xFF;
-            int addressing = (opInfo >> 8) & 0xFF;
-            line.AppendFormat("{0}  ", address.ToString("X4"));
-            if (size == 0)
-                line.Append("          ");
-            else if (size == 1)
-                line.AppendFormat("{0}       ", Peek(address).ToString("X2"));
-            else if (size == 2)
-                line.AppendFormat("{0} {1}    ", Peek(address).ToString("X2"), Peek(address + 1).ToString("X2"));
-            else if (size == 3)
-                line.AppendFormat("{0} {1} {2} ", Peek(address).ToString("X2"), Peek(address + 1).ToString("X2"), Peek(address + 2).ToString("X2"));
-            line.Append(OpInfo.GetOpNames()[opInfo & 0xFF].PadLeft(4).PadRight(5));
-            //Should be 20 long at this point, addressing should be 28 long
-
-            int val1;
-            int val2;
-            int val3;
-            int val4;
-            switch (addressing)
-            {
-                case OpInfo.AddrNone:
-                    line.Append("                            ");
-                    break;
-                case OpInfo.AddrAccumulator:
-                    line.Append("A                           ");
-                    break;
-                case OpInfo.AddrImmediate:
-                    line.AppendFormat("#${0}                        ", Peek(address + 1).ToString("X2"));
-                    break;
-                case OpInfo.AddrZeroPage:
-                    line.AppendFormat("${0} = {1}                    ", Peek(address + 1).ToString("X2"), Peek(Peek(address + 1)).ToString("X2"));
-                    break;
-                case OpInfo.AddrZeroPageX:
-                    line.AppendFormat("${0},X @ {1} = {2}             ", Peek(address + 1).ToString("X2"), (Peek(address + 1) + RegX).ToString("X2"), Peek((Peek(address + 1) + RegX)).ToString("X2"));
-                    break;
-                case OpInfo.AddrZeroPageY:
-                    line.AppendFormat("${0},Y @ {1} = {2}             ", Peek(address + 1).ToString("X2"), (Peek(address + 1) + RegY).ToString("X2"), Peek((Peek(address + 1) + RegY)).ToString("X2"));
-                    break;
-                case OpInfo.AddrAbsolute:
-                    line.AppendFormat("${0}                       ", PeekWord(address + 1).ToString("X4"));
-                    break;
-                case OpInfo.AddrAbsoluteX:
-                    line.AppendFormat("${0},X @ {1} = {2}         ", PeekWord(address + 1).ToString("X4"), ((PeekWord(address + 1) + RegX) & 0xFFFF).ToString("X4"), Peek((PeekWord(address + 1) + RegX) & 0xFFFF).ToString("X2"));
-                    break;
-                case OpInfo.AddrAbsoluteY:
-                    line.AppendFormat("${0},Y @ {1} = {2}         ", PeekWord(address + 1).ToString("X4"), ((PeekWord(address + 1) + RegY) & 0xFFFF).ToString("X4"), Peek((PeekWord(address + 1) + RegY) & 0xFFFF).ToString("X2"));
-                    break;
-                case OpInfo.AddrIndirectAbs:
-                    line.AppendFormat("(${0}) = {1}              ", PeekWord(address + 1).ToString("X4"), PeekWordWrap(PeekWord(address + 1)).ToString("X4"));
-                    break;
-                case OpInfo.AddrRelative:
-                    int addr = Peek(address + 1);
-                    if (addr < 0x80)
-                        addr += (address + 1);
-                    else
-                        addr += (address + 1) - 256;
-                    line.AppendFormat("${0}                       ", addr.ToString("X4"));
-                    break;
-                case OpInfo.AddrIndirectX:
-                    addr = val1 = Peek(address + 1);
-                    addr += RegX;
-                    val2 = addr;
-                    addr &= 0xFF;
-                    addr = val3 = Peek(addr) + (Peek((addr + 1) & 0xFF) << 8);
-                    addr = val4 = Peek(addr);
-                    line.AppendFormat("(${0},X) @ {1} = {2} = {3}    ", val1.ToString("X2"), val2.ToString("X2"), val3.ToString("X4"), val4.ToString("X2"));
-                    break;
-                case OpInfo.AddrIndirectY:
-                    addr = val1 = Peek(address + 1);
-                    addr = val2 = Peek(addr) + (Peek((addr + 1) & 0xFF) << 8);
-                    addr += RegY;
-                    addr &= 0xFFFF;
-                    val3 = addr;
-                    addr = val4 = Peek(addr & 0xFFFF);
-                    line.AppendFormat("(${0}),Y = {1} @ {2} = {3}  ", val1.ToString("X2"), val2.ToString("X4"), val3.ToString("X4"), val4.ToString("X2"));
-                    break;
-            }
-            line.AppendFormat("A:{0} X:{1} Y:{2} P:", RegA.ToString("X2"), RegX.ToString("X2"), RegY.ToString("X2"));
-            if (FlagCarry != 0)
-                line.Append("C");
-            else
-                line.Append("c");
-            if (FlagZero == 0)
-                line.Append("Z");
-            else
-                line.Append("z");
-            if (FlagIRQ != 0)
-                line.Append("I");
-            else
-                line.Append("i");
-            if (FlagDecimal != 0)
-                line.Append("D");
-            else
-                line.Append("d");
-            if (FlagBreak != 0)
-                line.Append("B");
-            else
-                line.Append("b");
-            if (FlagNotUsed != 0)
-                line.Append("-");
-            else
-                line.Append("_");
-            if (FlagOverflow != 0)
-                line.Append("V");
-            else
-                line.Append("v");
-            if (FlagSign != 0)
-                line.Append("N");
-            else
-                line.Append("n");
-            line.AppendFormat(" S:{0} CYC:{1} SL:{2}", RegS.ToString("X2"), (counter * 3).ToString().PadLeft(3), slCounter.ToString().PadLeft(3));
-            return line.ToString();
-        }
-        private void Write(int address, int value)
-        {
-            romMapper.MapperWrite(MirrorMap[address], (byte)value);
+            romMapper.MapperWrite(MirrorMap[address], value);
             /*if (this.MirrorMap[address] == 0x2001) //Everynes doc says sprite memory is destroyed when rendering is disabled, didn't appear to increase accuracy, but only caused lad amount of blinking.
             {
                 if((value & 0x18) == 0)
@@ -1341,7 +2136,7 @@ namespace DirectXEmu
             else if (this.MirrorMap[address] == 0x2004) //Sprite Write
             {
                 byte sprAddress = this.Memory[this.MirrorMap[0x2003]];
-                this.SPRMemory[sprAddress] = (byte)value;
+                this.SPRMemory[sprAddress] = value;
                 sprAddress++;
                 this.Memory[0x2003] = sprAddress;
             }
@@ -1411,7 +2206,7 @@ namespace DirectXEmu
                 if ((loopyV & 0x3F00) == 0x3F00)
                     PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] = (byte)(value & 0x3F);
                 else if (!this.PPUReadOnly[this.PPUMirrorMap[loopyV & 0x3FFF]])
-                    this.PPUMemory[this.PPUMirrorMap[loopyV & 0x3FFF]] = (byte)value;
+                    this.PPUMemory[this.PPUMirrorMap[loopyV & 0x3FFF]] = value;
                 loopyV = (ushort)((loopyV + ((this.Memory[0x2000] & 0x04) != 0 ? 0x20 : 0x01)) & 0x7FFF);
             }
             else if (this.MirrorMap[address] == 0x4016)
@@ -1432,64 +2227,66 @@ namespace DirectXEmu
                         this.player2Read = 2;
                 }
             }
-            
-            APU.Write((byte)value, this.MirrorMap[address]);
+
+            APU.Write(value, this.MirrorMap[address]);
 
             if (this.MirrorMap[address] != 0x2002)
-                this.Memory[this.MirrorMap[address]] = (byte)value;
+                this.Memory[this.MirrorMap[address]] = value;
             ApplyGameGenie();
         }
-        private byte PToByte()
+        private ushort absOffset(ushort address, byte offset)
         {
-            byte value = 0;
-            if (FlagCarry != 0) value |= 0x01;
-            if (FlagZero == 0) value |= 0x02;
-            if (FlagIRQ != 0) value |= 0x04;
-            if (FlagDecimal != 0) value |= 0x08;
-            if (FlagBreak != 0) value |= 0x10;
-            if (FlagNotUsed != 0) value |= 0x10;
-            if (FlagOverflow != 0) value |= 0x40;
-            if (FlagSign != 0) value |= 0x80;
-            return value;
+            return (ushort)(address + offset);
         }
-        private void PFromByte(int p)
+        private ushort absOffset(byte offset)
         {
-            p &= 0xFF;
-            FlagCarry =     p & 1;
-            FlagZero =      ((p >> 1) & 1) == 0 ? 1 : 0;
-            FlagIRQ =       ((p >> 2) & 1);
-            FlagDecimal =   ((p >> 3) & 1);
-            FlagBreak =     ((p >> 4) & 1);
-            FlagNotUsed =   ((p >> 5) & 1);
-            FlagOverflow =  ((p >> 6) & 1);
-            FlagSign =      ((p >> 7) & 1);
+            return (ushort)(this.readWord() + offset);
         }
-        private void PushWordStack(int value)
+        private ushort zpOffset(byte address, byte offset)
         {
-            Write((ushort)(RegS + 0x0100), (byte)(value >> 8));
-            RegS--;
-            RegS &= 0xFF;
-            Write((ushort)(RegS + 0x0100), (byte)value);
-            RegS--;
-            RegS &= 0xFF;
+            return (byte)(address + (sbyte)offset);
         }
-        private int PopWordStack()
+        private ushort zpOffset(byte offset)
         {
-            RegS += 2;
-            RegS &= 0xFF;
-            return ReadWord((ushort)((RegS - 1) + 0x0100));
+            return (byte)(this.readByte() + (sbyte)offset);
         }
-        private void PushByteStack(int value)
+        private ushort indexedIndirect(byte address, byte offset)
         {
-            this.Write((ushort)(RegS + 0x0100), value);
-            RegS--;
-            RegS &= 0xFF;
+            return this.readWord((byte)this.zpOffset(address, offset));
         }
-        private byte PopByteStack()
+        private ushort indexedIndirect(byte offset)
         {
-            RegS++;
-            RegS &= 0xFF;
-            return Read((ushort)(RegS + 0x0100));
+            return this.readWord((byte)this.zpOffset(offset));
+        }
+        private ushort indirectIndexed(byte address, byte offset)
+        {
+            return (ushort)(this.readWord(address) + offset);
+        }
+        private ushort indirectIndexed(byte offset)
+        {
+            return (ushort)(this.readWord(this.readByte()) + offset);
+        }
+        private void pushWordStack(ushort address)
+        {
+            this.writeByte((ushort)(this.S + 0x0100), (byte)(address >> 8));
+            this.S--;
+            this.writeByte((ushort)(this.S + 0x0100), (byte)address);
+            this.S--;
+        }
+        private ushort popWordStack()
+        {
+            this.S += 2;
+            return this.readWord((ushort)((this.S - 1) + 0x0100));
+        }
+        private void pushByteStack(byte value)
+        {
+            this.writeByte((ushort)(this.S + 0x0100), value);
+            this.S--;
+        }
+        private byte popByteStack()
+        {
+            this.S++;
+            return this.readByte((ushort)(this.S + 0x0100));
         }
         private void SpriteZeroHit(int scanline)
         {
@@ -1500,7 +2297,7 @@ namespace DirectXEmu
                 if ((PPUCTRL & 0x20) == 0)
                     squareSprites = true;
                 byte yPos = (byte)(this.SPRMemory[0] + 1);
-                if((squareSprites && (yPos <= scanline && yPos + 8 > scanline)) || (!squareSprites &&  (yPos <= scanline && yPos + 16 > scanline)))
+                if ((squareSprites && (yPos <= scanline && yPos + 8 > scanline)) || (!squareSprites && (yPos <= scanline && yPos + 16 > scanline)))
                     this.scanlines[scanline] = ProcessScanline(scanline);
             }
         }
@@ -1534,7 +2331,7 @@ namespace DirectXEmu
 
                 if (squareSprites)//8x8 Sprites
                 {
-                    if((yPos <= scanline && yPos + 8 > scanline) && (xPos <= counter*3))//If sprite is on this scan line and rendered by now
+                    if ((yPos <= scanline && yPos + 8 > scanline) && (xPos <= counter * 3))//If sprite is on this scan line and rendered by now
                     {
                         for (byte spritePixel = 0; spritePixel < 8 && (xPos + spritePixel <= counter * 3) && (xPos + spritePixel < 256); spritePixel++)
                         {
@@ -1644,7 +2441,7 @@ namespace DirectXEmu
         {
             byte PPUCTRL = this.Memory[0x2000];
             byte PPUMASK = this.Memory[0x2001];
-            if((PPUMASK & 0x80)!= 0)
+            if ((PPUMASK & 0x80) != 0)
                 this.blueEmph[line] = true;
             else
                 this.blueEmph[line] = false;
@@ -1656,7 +2453,7 @@ namespace DirectXEmu
                 this.redEmph[line] = true;
             else
                 this.redEmph[line] = false;
-            
+
             byte[] scanline = new byte[256];
             bool[] zeroBackground = new bool[256];
             byte[] spriteLine = new byte[256];
@@ -1719,7 +2516,7 @@ namespace DirectXEmu
                         byte palColor = this.PalMemory[(attribute * 4) + color];
                         if (monochrome) //If monochrome bit set, have NOT testing in game.
                             palColor &= 0xF0;
-                        if(this.displayBG)
+                        if (this.displayBG)
                             scanline[column] = palColor;
                         else
                             scanline[column] = this.PalMemory[0x00];
@@ -1864,7 +2661,7 @@ namespace DirectXEmu
                 }
                 if (this.displaySprites)
                 {
-                    if(this.displayBG)
+                    if (this.displayBG)
                     {
                         for (int column = 0; column < 256; column++)
                         {
@@ -1889,17 +2686,17 @@ namespace DirectXEmu
             byte PPUCTRL = this.Memory[0x2000];
             byte PPUMASK = this.Memory[0x2001];
             byte[][,] nameTables = new byte[4][,];
-            for(int nameTable = 0; nameTable < 4; nameTable++)
+            for (int nameTable = 0; nameTable < 4; nameTable++)
             {
                 nameTables[nameTable] = new byte[256, 240];
-                for(int line = 0; line < 240; line++)
+                for (int line = 0; line < 240; line++)
                 {
                     ushort backgroundTable = 0;
                     if ((PPUCTRL & 0x10) != 0)
                         backgroundTable = 0x1000;
                     for (int column = 0; column < 256; column++)//For each pixel in scanline
                     {
-                        ushort nameTableOffset = (ushort)((nameTable*0x400) + 0x2000);
+                        ushort nameTableOffset = (ushort)((nameTable * 0x400) + 0x2000);
                         byte tileNumber = this.PPUMemory[this.PPUMirrorMap[nameTableOffset + ((line / 8) * 32) + (column / 8)]]; //These 3 lines are BONKERS and I highly doubt they will work
                         byte color = GetTilePixel(backgroundTable, tileNumber, (byte)(column % 8), (byte)(line % 8), false);
                         if (color == 0)
@@ -1957,7 +2754,7 @@ namespace DirectXEmu
                     ushort backgroundTable = (ushort)(patternTable * 0x1000);
                     for (int column = 0; column < 128; column++)//For each pixel in scanline
                     {
-                        byte tileNumber = (byte)(((line/8) * 16) + (column/8));
+                        byte tileNumber = (byte)(((line / 8) * 16) + (column / 8));
                         patternTables[patternTable][column, line] = GetTilePixel(backgroundTable, tileNumber, (byte)(column % 8), (byte)(line % 8), false);
                     }
                 }
@@ -1988,7 +2785,7 @@ namespace DirectXEmu
         public SaveState getState()
         {
             SaveState newState = new SaveState();
-            newState.stateProgramCounter = RegPC;
+            newState.stateProgramCounter = this.programCounter;
             newState.stateMemory = (byte[][])Memory.StoreBanks().Clone();
             newState.stateMemBanks = (bool[])Memory.saveBanks.Clone();
             newState.stateMemMap = (int[])Memory.memMap.Clone();
@@ -1996,11 +2793,11 @@ namespace DirectXEmu
             newState.statePPUBanks = (bool[])PPUMemory.saveBanks.Clone();
             newState.statePPUMap = (int[])PPUMemory.memMap.Clone();
             newState.statePalMemory = (byte[])this.PalMemory.Clone();
-            newState.stateA = RegA;
-            newState.stateX = RegX;
-            newState.stateY = RegY;
-            newState.stateS = RegS;
-            newState.stateP = PToByte();
+            newState.stateA = this.A;
+            newState.stateX = this.X;
+            newState.stateY = this.Y;
+            newState.stateS = this.S;
+            newState.stateP = this.P;
             newState.stateCounter = this.counter;
             newState.stateSlCounter = this.slCounter;
             newState.stateScanline = this.scanline;
@@ -2029,17 +2826,17 @@ namespace DirectXEmu
         }
         public void loadState(SaveState oldState)
         {
-            RegPC = oldState.stateProgramCounter;
+            this.programCounter = oldState.stateProgramCounter;
             this.Memory.LoadBanks((bool[])oldState.stateMemBanks.Clone(), (byte[][])oldState.stateMemory.Clone());
             this.Memory.memMap = (int[])oldState.stateMemMap.Clone();
             this.PPUMemory.LoadBanks((bool[])oldState.statePPUBanks.Clone(), (byte[][])oldState.statePPUMemory.Clone());
             this.PPUMemory.memMap = (int[])oldState.statePPUMap.Clone();
             this.PalMemory = (byte[])oldState.statePalMemory.Clone();
-            RegA = oldState.stateA;
-            RegX = oldState.stateX;
-            RegY = oldState.stateY;
-            RegS = oldState.stateS;
-            PFromByte(oldState.stateP);
+            this.A = oldState.stateA;
+            this.X = oldState.stateX;
+            this.Y = oldState.stateY;
+            this.S = oldState.stateS;
+            this.P = oldState.stateP;
             this.counter = oldState.stateCounter;
             this.slCounter = oldState.stateSlCounter;
             this.scanline = oldState.stateScanline;
@@ -2072,7 +2869,7 @@ namespace DirectXEmu
             for (int i = 0; i < this.gameGenieCodeNum; i++)
             {
                 if (this.gameGenieCodes[i].code.Length == 6)
-                    this.Memory.ForceValue(this.MirrorMap[this.gameGenieCodes[i].address + 0x8000],this.gameGenieCodes[i].value);
+                    this.Memory.ForceValue(this.MirrorMap[this.gameGenieCodes[i].address + 0x8000], this.gameGenieCodes[i].value);
                 else if (this.gameGenieCodes[i].code.Length == 8 && this.Memory[this.MirrorMap[this.gameGenieCodes[i].address] + 0x8000] == this.gameGenieCodes[i].check)
                     this.Memory.ForceValue(this.MirrorMap[this.gameGenieCodes[i].address + 0x8000], this.gameGenieCodes[i].value);
             }
@@ -2891,7 +3688,7 @@ namespace DirectXEmu
     [Serializable]
     struct SaveState
     {
-        public int stateProgramCounter;
+        public ushort stateProgramCounter;
         public byte[][] stateMemory;
         public bool[] stateMemBanks;
         public int[] stateMemMap;
@@ -2900,11 +3697,11 @@ namespace DirectXEmu
         public int[] statePPUMap;
         public byte[] stateSPRMemory;
         public byte[] statePalMemory;
-        public int stateA;
-        public int stateX;
-        public int stateY;
-        public int stateS;
-        public int stateP;
+        public byte stateA;
+        public byte stateX;
+        public byte stateY;
+        public byte stateS;
+        public byte stateP;
         public int stateCounter;
         public byte stateSlCounter;
         public int stateScanline;

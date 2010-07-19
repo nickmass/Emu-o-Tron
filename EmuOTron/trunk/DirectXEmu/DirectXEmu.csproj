@@ -139,6 +139,8 @@
       <DependentUpon>Keybind.cs</DependentUpon>
     </Compile>
     <Compile Include="Keybinds.cs" />
+    <Content Include="OldCPU.cs" />
+    <Compile Include="OpInfo.cs" />
     <Compile Include="SoundConfig.cs">
       <SubType>Form</SubType>
     </Compile>
