@@ -165,8 +165,7 @@ namespace DirectXEmu
                 opAddr = RegPC;
                 RegPC += (opInfo >> 16) & 0xFF;
                 RegPC &= 0xFFFF;
-
-                #region newCPU
+                #region CPU
                 switch (addressing)
                 {
                     case OpInfo.AddrNone:
@@ -217,11 +216,10 @@ namespace DirectXEmu
                         //    opCycleAdd++;
                         addr += RegX;
                         addr &= 0xFF;
-                        addr = Read(addr) + (Read((addr + 1) & 0xFF) << 8);
+                        addr = ReadWordWrap(addr);
                         break;
                     case OpInfo.AddrIndirectY:
-                        addr = Read(opAddr + 1);
-                        addr = Read(addr) + (Read((addr + 1) & 0xFF) << 8);
+                        addr = ReadWordWrap(Read(opAddr + 1));
                         if ((addr & 0xFF00) != ((addr + RegY) & 0xFF00))
                             opCycleAdd++;
                         addr += RegY;
@@ -610,6 +608,188 @@ namespace DirectXEmu
                         romInfo.AppendLine("Illegal OP: " + OpInfo.GetOpNames()[OpInfo.GetOps()[op] & 0xFF] + " " + op.ToString("X2") + " Program Counter: " + RegPC.ToString("X4"));
                         switch (instruction) //Illegal Ops
                         {
+                            case OpInfo.IllInstrALR:
+                                RegA &= Read(addr);
+                                FlagCarry = RegA & 1;
+                                RegA >>= 1;
+                                FlagSign = RegA >> 7;
+                                FlagZero = RegA;
+                                break;
+                            case OpInfo.IllInstrANC:
+                                RegA &= Read(addr);
+                                FlagSign = FlagCarry = RegA >> 7;
+                                FlagZero = RegA;
+                                break;
+                            case OpInfo.IllInstrARR:
+                                RegA &= Read(addr);
+                                if (FlagCarry != 0)
+                                {
+                                    FlagCarry = RegA & 1;
+                                    RegA = ((RegA >> 1) + 0x80) & 0xFF;
+                                    FlagSign = 1;
+                                }
+                                else
+                                {
+                                    FlagCarry = RegA & 1;
+                                    RegA = (RegA >> 1) & 0xFF;
+                                    FlagSign = 0;
+                                }
+                                FlagZero = RegA;
+                                if ((RegA & 0x40) != 0)
+                                {
+                                    if ((RegA & 0x20) != 0)
+                                    {
+                                        FlagCarry = 1;
+                                        FlagOverflow = 0;
+                                    }
+                                    else
+                                    {
+                                        FlagCarry = 1;
+                                        FlagOverflow = 1;
+                                    }
+                                }
+                                else
+                                {
+                                    if ((RegA & 0x20) != 0)
+                                    {
+                                        FlagCarry = 0;
+                                        FlagOverflow = 1;
+                                    }
+                                    else
+                                    {
+                                        FlagCarry = 0;
+                                        FlagOverflow = 0;
+                                    }
+                                }
+                                break;
+                            case OpInfo.IllInstrAXS:
+                                RegX &= RegA;
+                                value = Read(addr);
+                                temp = RegX - value;
+                                FlagCarry = (temp < 0 ? 0 : 1);
+                                RegX = FlagZero = (temp & 0xFF);
+                                FlagSign = RegX >> 7;
+                                break;
+                            case OpInfo.IllInstrDCP:
+                                value = Read(addr);
+                                value = FlagZero = (value - 1) & 0xFF;
+                                FlagSign = value >> 7;
+                                Write(addr, value);
+                                if (RegA >= value)
+                                    FlagCarry = 1;
+                                else
+                                    FlagCarry = 0;
+                                if (RegA == value)
+                                    FlagZero = 0;
+                                else
+                                    FlagZero = 1;
+                                FlagSign = ((RegA - value) >> 7) & 1;
+                                break;
+                            case OpInfo.IllInstrISC:
+                                value = Read(addr);
+                                value = FlagZero = (value + 1) & 0xFF;
+                                FlagSign = value >> 7;
+                                Write(addr, value);
+                                temp = RegA - value - (1 - FlagCarry);
+                                FlagCarry = (temp < 0 ? 0 : 1);
+                                FlagOverflow = ((((RegA ^ temp) & 0x80) != 0 && ((RegA ^ Read(addr)) & 0x80) != 0) ? 1 : 0);
+                                RegA = FlagZero = (temp & 0xFF);
+                                FlagSign = RegA >> 7;
+                                break;
+                            case OpInfo.IllInstrKIL:
+                                //SHOULD crash CPU, but Im going to treat it as a NOP.
+                                break;
+                            case OpInfo.IllInstrLAX:
+                                RegA = RegX = FlagZero = Read(addr);
+                                FlagSign = RegA >> 7;
+                                opCycles += opCycleAdd;
+                                break;
+                            case OpInfo.IllInstrNOP:
+                                if (addressing == OpInfo.AddrAbsoluteX)
+                                    opCycles += opCycleAdd;
+                                break;
+                            case OpInfo.IllInstrRLA:
+                                value = Read(addr);
+                                if (FlagCarry != 0)
+                                {
+                                    FlagCarry = value >> 7;
+                                    value = ((value << 1) + 1) & 0xFF;
+                                }
+                                else
+                                {
+                                    FlagCarry = value >> 7;
+                                    value = (value << 1) & 0xFF;
+                                }
+                                FlagSign = value >> 7;
+                                FlagZero = value;
+                                Write(addr, value);
+                                RegA &= value;
+                                FlagSign = RegA >> 7;
+                                FlagZero = RegA;
+                                break;
+                            case OpInfo.IllInstrRRA:
+                                value = Read(addr);
+                                if (FlagCarry != 0)
+                                {
+                                    FlagCarry = value & 1;
+                                    value = ((value >> 1) + 0x80) & 0xFF;
+                                    FlagSign = 1;
+                                }
+                                else
+                                {
+                                    FlagCarry = value & 1;
+                                    value = (value >> 1) & 0xFF;
+                                    FlagSign = 0;
+                                }
+                                FlagZero = value;
+                                Write(addr, value);
+                                temp = RegA + value + FlagCarry;
+                                FlagOverflow = ((!(((RegA ^ value) & 0x80) != 0) && (((RegA ^ temp) & 0x80)) != 0) ? 1 : 0);
+                                FlagCarry = temp > 0xFF ? 1 : 0;
+                                RegA = FlagZero = temp & 0xFF;
+                                FlagSign = RegA >> 7;
+                                break;
+                            case OpInfo.IllInstrSAX:
+                                Write(addr, (RegA & RegX) & 0xFF);
+                                break;
+                            case OpInfo.IllInstrSBC:
+                                value = Read(addr);
+                                temp = RegA - value - (1 - FlagCarry);
+                                FlagCarry = (temp < 0 ? 0 : 1);
+                                FlagOverflow = ((((RegA ^ temp) & 0x80) != 0 && ((RegA ^ Read(addr)) & 0x80) != 0) ? 1 : 0);
+                                RegA = FlagZero = (temp & 0xFF);
+                                FlagSign = RegA >> 7;
+                                break;
+                            case OpInfo.IllInstrSHX: //Not Working Correctly
+                                value = addr >> 8;
+                                Write(addr, ((RegX & value) + 1) & 0xFF);
+                                break;
+                            case OpInfo.IllInstrSHY: //Not Working Correctly
+                                value = addr >> 8;
+                                Write(addr, ((RegY & value) + 1) & 0xFF);
+                                break;
+                            case OpInfo.IllInstrSLO:
+                                value = Read(addr);
+                                FlagCarry = value >> 7;
+                                value = (value << 1) & 0xFF;
+                                FlagSign = value >> 7;
+                                FlagZero = value;
+                                Write(addr, value);
+                                RegA |= value;
+                                FlagSign = RegA >> 7;
+                                FlagZero = RegA;
+                                break;
+                            case OpInfo.IllInstrSRE:
+                                value = Read(addr);
+                                FlagCarry = value & 1;
+                                value = value >> 1;
+                                FlagSign = 0;
+                                FlagZero = value;
+                                Write(addr, value);
+                                RegA ^= value;
+                                FlagSign = RegA >> 7;
+                                FlagZero = RegA;
+                                break;
                             case OpInfo.InstrDummy:
                                 if (invalidCount < 10)
                                 {
@@ -687,9 +867,9 @@ namespace DirectXEmu
                     romMapper.MapperScanline(scanline, vblank);
 
                     this.scanline++;
-                    if (this.scanline >= 241)
+                    if (this.scanline >= 240)
                     {
-                        if (this.scanline == 241 && this.vblank == 0)
+                        if (this.scanline == 240 && this.vblank == 0)
                         {
                             //this.PPUAddrFlip = false;
                             this.Memory[0x2002] |= 0x80;
@@ -697,7 +877,7 @@ namespace DirectXEmu
                                 this.interruptNMI = true;
                         }
                         this.vblank++;
-                        if (this.vblank >= 20)
+                        if (this.vblank > 20)
                         {
                             this.spriteZeroHit = false;
                             this.spriteOverflow = false;
@@ -712,7 +892,9 @@ namespace DirectXEmu
             APU.Update();
             this.generateNameTables = false;
             this.generatePatternTables = false;
-        }/*
+        }
+
+        /*
         private void HorizontalIncrement()
         {
             loopyV = (ushort)((loopyV & 0x7FE0) | ((loopyV + 0x01) & 0x1F));
@@ -750,10 +932,6 @@ namespace DirectXEmu
                 this.flip[j] = i;
             for (int i = 0; i < 240; i++)
                 this.scanlines[i] = new byte[256];
-            this.loadCycles();
-            this.loadOpcodes();
-            this.loadAddressingTypes();
-            this.TableADC();
             this.filePath = input;
             this.fileName = Path.GetFileNameWithoutExtension(filePath);
             FileStream inputStream = File.OpenRead(input);
@@ -2089,804 +2267,6 @@ namespace DirectXEmu
             for (int i = 0x0; i < 0x2000; i++)
                 this.Memory[i + 0x6000] = sram[i];
         }
-        private byte[, ,] adcTable = new byte[0x100, 0x100, 0x2]; //Memory, A, Carry 0 - 1
-        private bool[, ,] adcCarry = new bool[0x100, 0x100, 0x2];
-        private bool[, ,] adcOverflow = new bool[0x100, 0x100, 0x2];
-        public void TableADC()
-        {
-            for (int a = 0; a < 0x100; a++)
-            {
-                for (int m = 0; m < 0x100; m++)
-                {
-                    for (int c = 0; c < 0x2; c++)
-                    {
-                        int adc = a + m + c;
-                        adcTable[a, m, c] = (byte)(adc & 0xFF);
-                        adcCarry[a, m, c] = (adc > 0xFF);
-                        adcOverflow[a, m, c] = (((a ^ adc) & (m ^ adc) & 0x80) != 0);
-                    }
-                }
-            }
-        }
-        #region Arrays
-        private void loadCycles()
-        {
-            this.cycles[0xA8] = 2;
-            this.cycles[0xAA] = 2;
-            this.cycles[0xBA] = 2;
-            this.cycles[0x98] = 2;
-            this.cycles[0x8A] = 2;
-            this.cycles[0x9A] = 2;
-            this.cycles[0xA9] = 2;
-            this.cycles[0xA5] = 3;
-            this.cycles[0xB5] = 4;
-            this.cycles[0xAD] = 4;
-            this.cycles[0xBD] = 4;//*
-            this.cycles[0xB9] = 2;//*
-            this.cycles[0xA1] = 6;
-            this.cycles[0xB1] = 5;//*
-            this.cycles[0xA2] = 2;
-            this.cycles[0xA6] = 3;
-            this.cycles[0xB6] = 4;
-            this.cycles[0xAE] = 4;
-            this.cycles[0xBE] = 4;//*
-            this.cycles[0xA0] = 2;
-            this.cycles[0xA4] = 3;
-            this.cycles[0xB4] = 4;
-            this.cycles[0xAC] = 4;
-            this.cycles[0xBC] = 4;//*
-            this.cycles[0x85] = 3;
-            this.cycles[0x95] = 4;
-            this.cycles[0x8D] = 4;
-            this.cycles[0x9D] = 5;
-            this.cycles[0x99] = 5;
-            this.cycles[0x81] = 6;
-            this.cycles[0x91] = 6;
-            this.cycles[0x86] = 3;
-            this.cycles[0x96] = 4;
-            this.cycles[0x8E] = 4;
-            this.cycles[0x84] = 3;
-            this.cycles[0x94] = 4;
-            this.cycles[0x8C] = 4;
-            this.cycles[0x48] = 3;
-            this.cycles[0x08] = 3;
-            this.cycles[0x68] = 4;
-            this.cycles[0x28] = 4;
-            this.cycles[0x69] = 2;
-            this.cycles[0x65] = 3;
-            this.cycles[0x75] = 4;
-            this.cycles[0x6D] = 4;
-            this.cycles[0x7D] = 4;//*
-            this.cycles[0x79] = 4;//*
-            this.cycles[0x61] = 6;
-            this.cycles[0x71] = 5;//*
-            this.cycles[0xE9] = 2;
-            this.cycles[0xE5] = 3;
-            this.cycles[0xF5] = 4;
-            this.cycles[0xED] = 4;
-            this.cycles[0xFD] = 4;//*
-            this.cycles[0xF9] = 4;//*
-            this.cycles[0xE1] = 6;
-            this.cycles[0xF1] = 5;//*
-            this.cycles[0x29] = 2;
-            this.cycles[0x25] = 3;
-            this.cycles[0x35] = 4;
-            this.cycles[0x2D] = 4;
-            this.cycles[0x3D] = 4;//*
-            this.cycles[0x39] = 4;//*
-            this.cycles[0x21] = 6;
-            this.cycles[0x31] = 5;//*
-            this.cycles[0x49] = 2;
-            this.cycles[0x45] = 3;
-            this.cycles[0x55] = 4;
-            this.cycles[0x4D] = 4;
-            this.cycles[0x5D] = 4;//*
-            this.cycles[0x59] = 4;//*
-            this.cycles[0x41] = 6;
-            this.cycles[0x51] = 5;//*
-            this.cycles[0x09] = 2;
-            this.cycles[0x05] = 3;
-            this.cycles[0x15] = 4;
-            this.cycles[0x0D] = 4;
-            this.cycles[0x1D] = 4;//*
-            this.cycles[0x19] = 4;//*
-            this.cycles[0x01] = 6;
-            this.cycles[0x11] = 5;//*
-            this.cycles[0xC9] = 2;
-            this.cycles[0xC5] = 3;
-            this.cycles[0xD5] = 4;
-            this.cycles[0xCD] = 4;
-            this.cycles[0xDD] = 4;//*
-            this.cycles[0xD9] = 4;//*
-            this.cycles[0xC1] = 6;
-            this.cycles[0xD1] = 5;//*
-            this.cycles[0xE0] = 2;
-            this.cycles[0xE4] = 3;
-            this.cycles[0xEC] = 4;
-            this.cycles[0xC0] = 2;
-            this.cycles[0xC4] = 3;
-            this.cycles[0xCC] = 4;
-            this.cycles[0x24] = 3;
-            this.cycles[0x2C] = 4;
-            this.cycles[0xE6] = 5;
-            this.cycles[0xF6] = 6;
-            this.cycles[0xEE] = 6;
-            this.cycles[0xFE] = 7;
-            this.cycles[0xE8] = 2;
-            this.cycles[0xC8] = 2;
-            this.cycles[0xC6] = 5;
-            this.cycles[0xD6] = 6;
-            this.cycles[0xCE] = 6;
-            this.cycles[0xDE] = 7;
-            this.cycles[0xCA] = 2;
-            this.cycles[0x88] = 2;
-            this.cycles[0x0A] = 2;
-            this.cycles[0x06] = 5;
-            this.cycles[0x16] = 6;
-            this.cycles[0x0E] = 6;
-            this.cycles[0x1E] = 7;
-            this.cycles[0x4A] = 2;
-            this.cycles[0x46] = 5;
-            this.cycles[0x56] = 6;
-            this.cycles[0x4E] = 6;
-            this.cycles[0x5E] = 7;
-            this.cycles[0x2A] = 2;
-            this.cycles[0x26] = 5;
-            this.cycles[0x36] = 6;
-            this.cycles[0x2E] = 6;
-            this.cycles[0x3E] = 7;
-            this.cycles[0x6A] = 2;
-            this.cycles[0x66] = 5;
-            this.cycles[0x76] = 6;
-            this.cycles[0x6E] = 6;
-            this.cycles[0x7E] = 7;
-            this.cycles[0x4C] = 3;
-            this.cycles[0x6C] = 5;
-            this.cycles[0x20] = 6;
-            this.cycles[0x40] = 6;
-            this.cycles[0x60] = 6;
-            this.cycles[0x10] = 2;//**
-            this.cycles[0x30] = 2;//**
-            this.cycles[0x50] = 2;//**
-            this.cycles[0x70] = 2;//**
-            this.cycles[0x90] = 2;//**
-            this.cycles[0xB0] = 2;//**
-            this.cycles[0xD0] = 2;//**
-            this.cycles[0xF0] = 2;//**
-            this.cycles[0x00] = 7;
-            this.cycles[0x18] = 2;
-            this.cycles[0x58] = 2;
-            this.cycles[0xD8] = 2;
-            this.cycles[0xB8] = 2;
-            this.cycles[0x38] = 2;
-            this.cycles[0x78] = 2;
-            this.cycles[0xF8] = 2;
-            this.cycles[0xEA] = 2;
-            this.cycles[0x87] = 3;
-            this.cycles[0x97] = 4;
-            this.cycles[0x8F] = 4;
-            this.cycles[0x83] = 6;
-            this.cycles[0xA7] = 3;
-            this.cycles[0xB7] = 4;
-            this.cycles[0xAF] = 4;
-            this.cycles[0xBF] = 4;//*
-            this.cycles[0xA3] = 6;
-            this.cycles[0xB3] = 5;//*
-            this.cycles[0x07] = 5;
-            this.cycles[0x17] = 6;
-            this.cycles[0x03] = 8;
-            this.cycles[0x13] = 8;
-            this.cycles[0x0F] = 6;
-            this.cycles[0x1F] = 7;
-            this.cycles[0x1B] = 7;
-            this.cycles[0x27] = 5;
-            this.cycles[0x37] = 6;
-            this.cycles[0x23] = 8;
-            this.cycles[0x33] = 8;
-            this.cycles[0x2F] = 6;
-            this.cycles[0x3F] = 7;
-            this.cycles[0x3B] = 7;
-            this.cycles[0x47] = 5;
-            this.cycles[0x57] = 6;
-            this.cycles[0x43] = 8;
-            this.cycles[0x53] = 8;
-            this.cycles[0x4F] = 6;
-            this.cycles[0x5F] = 7;
-            this.cycles[0x5B] = 7;
-            this.cycles[0x67] = 5;
-            this.cycles[0x77] = 6;
-            this.cycles[0x63] = 8;
-            this.cycles[0x73] = 8;
-            this.cycles[0x6F] = 6;
-            this.cycles[0x7F] = 7;
-            this.cycles[0x7B] = 7;
-            this.cycles[0xC7] = 5;
-            this.cycles[0xD7] = 6;
-            this.cycles[0xC3] = 8;
-            this.cycles[0xD3] = 8;
-            this.cycles[0xCF] = 6;
-            this.cycles[0xDF] = 7;
-            this.cycles[0xDB] = 7;
-            this.cycles[0xE7] = 5;
-            this.cycles[0xF7] = 6;
-            this.cycles[0xE3] = 8;
-            this.cycles[0xF3] = 8;
-            this.cycles[0xEF] = 6;
-            this.cycles[0xFF] = 7;
-            this.cycles[0xFB] = 7;
-            this.cycles[0x0B] = 2;
-            this.cycles[0x2B] = 2;
-            this.cycles[0x4B] = 2;
-            this.cycles[0x6B] = 2;
-            this.cycles[0x8B] = 2;
-            this.cycles[0xAB] = 2;
-            this.cycles[0xCB] = 2;
-            this.cycles[0xEB] = 2;
-            this.cycles[0x93] = 6;
-            this.cycles[0x9F] = 5;
-            this.cycles[0x9C] = 5;
-            this.cycles[0x9E] = 5;
-            this.cycles[0x9B] = 5;
-            this.cycles[0xBB] = 4;//*
-            this.cycles[0x1A] = 2;
-            this.cycles[0x3A] = 2;
-            this.cycles[0x5A] = 2;
-            this.cycles[0x7A] = 2;
-            this.cycles[0xDA] = 2;
-            this.cycles[0xFA] = 2;
-            this.cycles[0x80] = 2;
-            this.cycles[0x82] = 2;
-            this.cycles[0x89] = 2;
-            this.cycles[0xC2] = 2;
-            this.cycles[0xE2] = 2;
-            this.cycles[0x04] = 3;
-            this.cycles[0x44] = 3;
-            this.cycles[0x64] = 3;
-            this.cycles[0x14] = 4;
-            this.cycles[0x34] = 4;
-            this.cycles[0x54] = 4;
-            this.cycles[0x74] = 4;
-            this.cycles[0xD4] = 4;
-            this.cycles[0xF4] = 4;
-            this.cycles[0x0C] = 4;
-            this.cycles[0x1C] = 4;//*
-            this.cycles[0x3C] = 4;//*
-            this.cycles[0x5C] = 4;//*
-            this.cycles[0x7C] = 4;//*
-            this.cycles[0xDC] = 4;//*
-            this.cycles[0xFC] = 4;//*
-            this.cycles[0x02] = 0;
-            this.cycles[0x12] = 0;
-            this.cycles[0x22] = 0;
-            this.cycles[0x32] = 0;
-            this.cycles[0x42] = 0;
-            this.cycles[0x52] = 0;
-            this.cycles[0x62] = 0;
-            this.cycles[0x72] = 0;
-            this.cycles[0x92] = 0;
-            this.cycles[0xB2] = 0;
-            this.cycles[0xD2] = 0;
-            this.cycles[0xF2] = 0;
-        }
-        private void loadOpcodes()
-        {
-            this.opcodes[0xA8] = "TAY";
-            this.opcodes[0xAA] = "TAX";
-            this.opcodes[0xBA] = "TSX";
-            this.opcodes[0x98] = "TYA";
-            this.opcodes[0x8A] = "TXA";
-            this.opcodes[0x9A] = "TXS";
-            this.opcodes[0xA9] = "LDA";
-            this.opcodes[0xA5] = "LDA";
-            this.opcodes[0xB5] = "LDA";
-            this.opcodes[0xAD] = "LDA";
-            this.opcodes[0xBD] = "LDA";
-            this.opcodes[0xB9] = "LDA";
-            this.opcodes[0xA1] = "LDA";
-            this.opcodes[0xB1] = "LDA";
-            this.opcodes[0xA2] = "LDX";
-            this.opcodes[0xA6] = "LDX";
-            this.opcodes[0xB6] = "LDX";
-            this.opcodes[0xAE] = "LDX";
-            this.opcodes[0xBE] = "LDX";
-            this.opcodes[0xA0] = "LDY";
-            this.opcodes[0xA4] = "LDY";
-            this.opcodes[0xB4] = "LDY";
-            this.opcodes[0xAC] = "LDY";
-            this.opcodes[0xBC] = "LDY";
-            this.opcodes[0x85] = "STA";
-            this.opcodes[0x95] = "STA";
-            this.opcodes[0x8D] = "STA";
-            this.opcodes[0x9D] = "STA";
-            this.opcodes[0x99] = "STA";
-            this.opcodes[0x81] = "STA";
-            this.opcodes[0x91] = "STA";
-            this.opcodes[0x86] = "STX";
-            this.opcodes[0x96] = "STX";
-            this.opcodes[0x8E] = "STX";
-            this.opcodes[0x84] = "STY";
-            this.opcodes[0x94] = "STY";
-            this.opcodes[0x8C] = "STY";
-            this.opcodes[0x48] = "PHA";
-            this.opcodes[0x08] = "PHP";
-            this.opcodes[0x68] = "PLA";
-            this.opcodes[0x28] = "PLP";
-            this.opcodes[0x69] = "ADC";
-            this.opcodes[0x65] = "ADC";
-            this.opcodes[0x75] = "ADC";
-            this.opcodes[0x6D] = "ADC";
-            this.opcodes[0x7D] = "ADC";
-            this.opcodes[0x79] = "ADC";
-            this.opcodes[0x61] = "ADC";
-            this.opcodes[0x71] = "ADC";
-            this.opcodes[0xE9] = "SBC";
-            this.opcodes[0xE5] = "SBC";
-            this.opcodes[0xF5] = "SBC";
-            this.opcodes[0xED] = "SBC";
-            this.opcodes[0xFD] = "SBC";
-            this.opcodes[0xF9] = "SBC";
-            this.opcodes[0xE1] = "SBC";
-            this.opcodes[0xF1] = "SBC";
-            this.opcodes[0x29] = "AND";
-            this.opcodes[0x25] = "AND";
-            this.opcodes[0x35] = "AND";
-            this.opcodes[0x2D] = "AND";
-            this.opcodes[0x3D] = "AND";
-            this.opcodes[0x39] = "AND";
-            this.opcodes[0x21] = "AND";
-            this.opcodes[0x31] = "AND";
-            this.opcodes[0x49] = "EOR";
-            this.opcodes[0x45] = "EOR";
-            this.opcodes[0x55] = "EOR";
-            this.opcodes[0x4D] = "EOR";
-            this.opcodes[0x5D] = "EOR";
-            this.opcodes[0x59] = "EOR";
-            this.opcodes[0x41] = "EOR";
-            this.opcodes[0x51] = "EOR";
-            this.opcodes[0x09] = "ORA";
-            this.opcodes[0x05] = "ORA";
-            this.opcodes[0x15] = "ORA";
-            this.opcodes[0x0D] = "ORA";
-            this.opcodes[0x1D] = "ORA";
-            this.opcodes[0x19] = "ORA";
-            this.opcodes[0x01] = "ORA";
-            this.opcodes[0x11] = "ORA";
-            this.opcodes[0xC9] = "CMP";
-            this.opcodes[0xC5] = "CMP";
-            this.opcodes[0xD5] = "CMP";
-            this.opcodes[0xCD] = "CMP";
-            this.opcodes[0xDD] = "CMP";
-            this.opcodes[0xD9] = "CMP";
-            this.opcodes[0xC1] = "CMP";
-            this.opcodes[0xD1] = "CMP";
-            this.opcodes[0xE0] = "CPX";
-            this.opcodes[0xE4] = "CPX";
-            this.opcodes[0xEC] = "CPX";
-            this.opcodes[0xC0] = "CPY";
-            this.opcodes[0xC4] = "CPY";
-            this.opcodes[0xCC] = "CPY";
-            this.opcodes[0x24] = "BIT";
-            this.opcodes[0x2C] = "BIT";
-            this.opcodes[0xE6] = "INC";
-            this.opcodes[0xF6] = "INC";
-            this.opcodes[0xEE] = "INC";
-            this.opcodes[0xFE] = "INC";
-            this.opcodes[0xE8] = "INX";
-            this.opcodes[0xC8] = "INY";
-            this.opcodes[0xC6] = "DEC";
-            this.opcodes[0xD6] = "DEC";
-            this.opcodes[0xCE] = "DEC";
-            this.opcodes[0xDE] = "DEC";
-            this.opcodes[0xCA] = "DEX";
-            this.opcodes[0x88] = "DEY";
-            this.opcodes[0x0A] = "ASL";
-            this.opcodes[0x06] = "ASL";
-            this.opcodes[0x16] = "ASL";
-            this.opcodes[0x0E] = "ASL";
-            this.opcodes[0x1E] = "ASL";
-            this.opcodes[0x4A] = "LSR";
-            this.opcodes[0x46] = "LSR";
-            this.opcodes[0x56] = "LSR";
-            this.opcodes[0x4E] = "LSR";
-            this.opcodes[0x5E] = "LSR";
-            this.opcodes[0x2A] = "ROL";
-            this.opcodes[0x26] = "ROL";
-            this.opcodes[0x36] = "ROL";
-            this.opcodes[0x2E] = "ROL";
-            this.opcodes[0x3E] = "ROL";
-            this.opcodes[0x6A] = "ROR";
-            this.opcodes[0x66] = "ROR";
-            this.opcodes[0x76] = "ROR";
-            this.opcodes[0x6E] = "ROR";
-            this.opcodes[0x7E] = "ROR";
-            this.opcodes[0x4C] = "JMP";
-            this.opcodes[0x6C] = "JMP";
-            this.opcodes[0x20] = "JSR";
-            this.opcodes[0x40] = "RTI";
-            this.opcodes[0x60] = "RTS";
-            this.opcodes[0x10] = "BPL";
-            this.opcodes[0x30] = "BMI";
-            this.opcodes[0x50] = "BVC";
-            this.opcodes[0x70] = "BVS";
-            this.opcodes[0x90] = "BCC";
-            this.opcodes[0xB0] = "BCS";
-            this.opcodes[0xD0] = "BNE";
-            this.opcodes[0xF0] = "BEQ";
-            this.opcodes[0x00] = "BRK";
-            this.opcodes[0x18] = "CLC";
-            this.opcodes[0x58] = "CLI";
-            this.opcodes[0xD8] = "CLD";
-            this.opcodes[0xB8] = "CLV";
-            this.opcodes[0x38] = "SEC";
-            this.opcodes[0x78] = "SEI";
-            this.opcodes[0xF8] = "SED";
-            this.opcodes[0xEA] = "NOP";
-            this.opcodes[0x87] = "SAX";
-            this.opcodes[0x97] = "SAX";
-            this.opcodes[0x8F] = "SAX";
-            this.opcodes[0x83] = "SAX";
-            this.opcodes[0xA7] = "LAX";
-            this.opcodes[0xB7] = "LAX";
-            this.opcodes[0xAF] = "LAX";
-            this.opcodes[0xBF] = "LAX";
-            this.opcodes[0xA3] = "LAX";
-            this.opcodes[0xB3] = "LAX";
-            this.opcodes[0x07] = "SLO";
-            this.opcodes[0x17] = "SLO";
-            this.opcodes[0x03] = "SLO";
-            this.opcodes[0x13] = "SLO";
-            this.opcodes[0x0F] = "SLO";
-            this.opcodes[0x1F] = "SLO";
-            this.opcodes[0x1B] = "SLO";
-            this.opcodes[0x27] = "RLA";
-            this.opcodes[0x37] = "RLA";
-            this.opcodes[0x23] = "RLA";
-            this.opcodes[0x33] = "RLA";
-            this.opcodes[0x2F] = "RLA";
-            this.opcodes[0x3F] = "RLA";
-            this.opcodes[0x3B] = "RLA";
-            this.opcodes[0x47] = "SRE";
-            this.opcodes[0x57] = "SRE";
-            this.opcodes[0x43] = "SRE";
-            this.opcodes[0x53] = "SRE";
-            this.opcodes[0x4F] = "SRE";
-            this.opcodes[0x5F] = "SRE";
-            this.opcodes[0x5B] = "SRE";
-            this.opcodes[0x67] = "RRA";
-            this.opcodes[0x77] = "RRA";
-            this.opcodes[0x63] = "RRA";
-            this.opcodes[0x73] = "RRA";
-            this.opcodes[0x6F] = "RRA";
-            this.opcodes[0x7F] = "RRA";
-            this.opcodes[0x7B] = "RRA";
-            this.opcodes[0xC7] = "DCP";
-            this.opcodes[0xD7] = "DCP";
-            this.opcodes[0xC3] = "DCP";
-            this.opcodes[0xD3] = "DCP";
-            this.opcodes[0xCF] = "DCP";
-            this.opcodes[0xDF] = "DCP";
-            this.opcodes[0xDB] = "DCP";
-            this.opcodes[0xE7] = "ISC";
-            this.opcodes[0xF7] = "ISC";
-            this.opcodes[0xE3] = "ISC";
-            this.opcodes[0xF3] = "ISC";
-            this.opcodes[0xEF] = "ISC";
-            this.opcodes[0xFF] = "ISC";
-            this.opcodes[0xFB] = "ISC";
-            this.opcodes[0x0B] = "ANC";
-            this.opcodes[0x2B] = "ANC";
-            this.opcodes[0x4B] = "ALR";
-            this.opcodes[0x6B] = "ARR";
-            this.opcodes[0x8B] = "XAA";
-            this.opcodes[0xAB] = "LAX";
-            this.opcodes[0xCB] = "AXS";
-            this.opcodes[0xEB] = "SBC";
-            this.opcodes[0x93] = "AHX";
-            this.opcodes[0x9F] = "AHX";
-            this.opcodes[0x9C] = "SHY";
-            this.opcodes[0x9E] = "SHX";
-            this.opcodes[0x9B] = "TAS";
-            this.opcodes[0xBB] = "LAS";
-            this.opcodes[0x1A] = "NOP";
-            this.opcodes[0x3A] = "NOP";
-            this.opcodes[0x5A] = "NOP";
-            this.opcodes[0x7A] = "NOP";
-            this.opcodes[0xDA] = "NOP";
-            this.opcodes[0xFA] = "NOP";
-            this.opcodes[0x80] = "NOP";
-            this.opcodes[0x82] = "NOP";
-            this.opcodes[0x89] = "NOP";
-            this.opcodes[0xC2] = "NOP";
-            this.opcodes[0xE2] = "NOP";
-            this.opcodes[0x04] = "NOP";
-            this.opcodes[0x44] = "NOP";
-            this.opcodes[0x64] = "NOP";
-            this.opcodes[0x14] = "NOP";
-            this.opcodes[0x34] = "NOP";
-            this.opcodes[0x54] = "NOP";
-            this.opcodes[0x74] = "NOP";
-            this.opcodes[0xD4] = "NOP";
-            this.opcodes[0xF4] = "NOP";
-            this.opcodes[0x0C] = "NOP";
-            this.opcodes[0x1C] = "NOP";
-            this.opcodes[0x3C] = "NOP";
-            this.opcodes[0x5C] = "NOP";
-            this.opcodes[0x7C] = "NOP";
-            this.opcodes[0xDC] = "NOP";
-            this.opcodes[0xFC] = "NOP";
-            this.opcodes[0x02] = "KIL";
-            this.opcodes[0x12] = "KIL";
-            this.opcodes[0x22] = "KIL";
-            this.opcodes[0x32] = "KIL";
-            this.opcodes[0x42] = "KIL";
-            this.opcodes[0x52] = "KIL";
-            this.opcodes[0x62] = "KIL";
-            this.opcodes[0x72] = "KIL";
-            this.opcodes[0x92] = "KIL";
-            this.opcodes[0xB2] = "KIL";
-            this.opcodes[0xD2] = "KIL";
-            this.opcodes[0xF2] = "KIL";
-        }
-        private void loadAddressingTypes()
-        {
-            this.addressingTypes[0xA8] = 0;
-            this.addressingTypes[0xAA] = 0;
-            this.addressingTypes[0xBA] = 0;
-            this.addressingTypes[0x98] = 0;
-            this.addressingTypes[0x8A] = 0;
-            this.addressingTypes[0x9A] = 0;
-            this.addressingTypes[0xA9] = 1;
-            this.addressingTypes[0xA5] = 3;
-            this.addressingTypes[0xB5] = 4;
-            this.addressingTypes[0xAD] = 6;
-            this.addressingTypes[0xBD] = 7;
-            this.addressingTypes[0xB9] = 8;
-            this.addressingTypes[0xA1] = 9;
-            this.addressingTypes[0xB1] = 10;
-            this.addressingTypes[0xA2] = 1;
-            this.addressingTypes[0xA6] = 3;
-            this.addressingTypes[0xB6] = 5;
-            this.addressingTypes[0xAE] = 6;
-            this.addressingTypes[0xBE] = 8;
-            this.addressingTypes[0xA0] = 1;
-            this.addressingTypes[0xA4] = 3;
-            this.addressingTypes[0xB4] = 4;
-            this.addressingTypes[0xAC] = 6;
-            this.addressingTypes[0xBC] = 7;
-            this.addressingTypes[0x85] = 3;
-            this.addressingTypes[0x95] = 4;
-            this.addressingTypes[0x8D] = 6;
-            this.addressingTypes[0x9D] = 7;
-            this.addressingTypes[0x99] = 8;
-            this.addressingTypes[0x81] = 9;
-            this.addressingTypes[0x91] = 10;
-            this.addressingTypes[0x86] = 3;
-            this.addressingTypes[0x96] = 5;
-            this.addressingTypes[0x8E] = 6;
-            this.addressingTypes[0x84] = 3;
-            this.addressingTypes[0x94] = 4;
-            this.addressingTypes[0x8C] = 6;
-            this.addressingTypes[0x48] = 0;
-            this.addressingTypes[0x08] = 0;
-            this.addressingTypes[0x68] = 0;
-            this.addressingTypes[0x28] = 0;
-            this.addressingTypes[0x69] = 1;
-            this.addressingTypes[0x65] = 3;
-            this.addressingTypes[0x75] = 4;
-            this.addressingTypes[0x6D] = 6;
-            this.addressingTypes[0x7D] = 7;
-            this.addressingTypes[0x79] = 8;
-            this.addressingTypes[0x61] = 9;
-            this.addressingTypes[0x71] = 10;
-            this.addressingTypes[0xE9] = 1;
-            this.addressingTypes[0xE5] = 3;
-            this.addressingTypes[0xF5] = 4;
-            this.addressingTypes[0xED] = 6;
-            this.addressingTypes[0xFD] = 7;
-            this.addressingTypes[0xF9] = 8;
-            this.addressingTypes[0xE1] = 9;
-            this.addressingTypes[0xF1] = 10;
-            this.addressingTypes[0x29] = 1;
-            this.addressingTypes[0x25] = 3;
-            this.addressingTypes[0x35] = 4;
-            this.addressingTypes[0x2D] = 6;
-            this.addressingTypes[0x3D] = 7;
-            this.addressingTypes[0x39] = 8;
-            this.addressingTypes[0x21] = 9;
-            this.addressingTypes[0x31] = 10;
-            this.addressingTypes[0x49] = 1;
-            this.addressingTypes[0x45] = 3;
-            this.addressingTypes[0x55] = 4;
-            this.addressingTypes[0x4D] = 6;
-            this.addressingTypes[0x5D] = 7;
-            this.addressingTypes[0x59] = 8;
-            this.addressingTypes[0x41] = 9;
-            this.addressingTypes[0x51] = 10;
-            this.addressingTypes[0x09] = 1;
-            this.addressingTypes[0x05] = 3;
-            this.addressingTypes[0x15] = 4;
-            this.addressingTypes[0x0D] = 6;
-            this.addressingTypes[0x1D] = 7;
-            this.addressingTypes[0x19] = 8;
-            this.addressingTypes[0x01] = 9;
-            this.addressingTypes[0x11] = 10;
-            this.addressingTypes[0xC9] = 1;
-            this.addressingTypes[0xC5] = 3;
-            this.addressingTypes[0xD5] = 4;
-            this.addressingTypes[0xCD] = 6;
-            this.addressingTypes[0xDD] = 7;
-            this.addressingTypes[0xD9] = 8;
-            this.addressingTypes[0xC1] = 9;
-            this.addressingTypes[0xD1] = 10;
-            this.addressingTypes[0xE0] = 1;
-            this.addressingTypes[0xE4] = 3;
-            this.addressingTypes[0xEC] = 6;
-            this.addressingTypes[0xC0] = 1;
-            this.addressingTypes[0xC4] = 3;
-            this.addressingTypes[0xCC] = 6;
-            this.addressingTypes[0x24] = 3;
-            this.addressingTypes[0x2C] = 6;
-            this.addressingTypes[0xE6] = 3;
-            this.addressingTypes[0xF6] = 4;
-            this.addressingTypes[0xEE] = 6;
-            this.addressingTypes[0xFE] = 7;
-            this.addressingTypes[0xE8] = 0;
-            this.addressingTypes[0xC8] = 0;
-            this.addressingTypes[0xC6] = 3;
-            this.addressingTypes[0xD6] = 4;
-            this.addressingTypes[0xCE] = 6;
-            this.addressingTypes[0xDE] = 7;
-            this.addressingTypes[0xCA] = 0;
-            this.addressingTypes[0x88] = 0;
-            this.addressingTypes[0x0A] = 2;
-            this.addressingTypes[0x06] = 3;
-            this.addressingTypes[0x16] = 4;
-            this.addressingTypes[0x0E] = 6;
-            this.addressingTypes[0x1E] = 7;
-            this.addressingTypes[0x4A] = 2;
-            this.addressingTypes[0x46] = 3;
-            this.addressingTypes[0x56] = 4;
-            this.addressingTypes[0x4E] = 6;
-            this.addressingTypes[0x5E] = 7;
-            this.addressingTypes[0x2A] = 2;
-            this.addressingTypes[0x26] = 3;
-            this.addressingTypes[0x36] = 4;
-            this.addressingTypes[0x2E] = 6;
-            this.addressingTypes[0x3E] = 7;
-            this.addressingTypes[0x6A] = 2;
-            this.addressingTypes[0x66] = 3;
-            this.addressingTypes[0x76] = 4;
-            this.addressingTypes[0x6E] = 6;
-            this.addressingTypes[0x7E] = 7;
-            this.addressingTypes[0x4C] = 13;
-            this.addressingTypes[0x6C] = 11;
-            this.addressingTypes[0x20] = 13;
-            this.addressingTypes[0x40] = 0;
-            this.addressingTypes[0x60] = 0;
-            this.addressingTypes[0x10] = 12;
-            this.addressingTypes[0x30] = 12;
-            this.addressingTypes[0x50] = 12;
-            this.addressingTypes[0x70] = 12;
-            this.addressingTypes[0x90] = 12;
-            this.addressingTypes[0xB0] = 12;
-            this.addressingTypes[0xD0] = 12;
-            this.addressingTypes[0xF0] = 12;
-            this.addressingTypes[0x00] = 0;
-            this.addressingTypes[0x18] = 0;
-            this.addressingTypes[0x58] = 0;
-            this.addressingTypes[0xD8] = 0;
-            this.addressingTypes[0xB8] = 0;
-            this.addressingTypes[0x38] = 0;
-            this.addressingTypes[0x78] = 0;
-            this.addressingTypes[0xF8] = 0;
-            this.addressingTypes[0xEA] = 0;
-            this.addressingTypes[0x87] = 3;
-            this.addressingTypes[0x97] = 5;
-            this.addressingTypes[0x8F] = 6;
-            this.addressingTypes[0x83] = 9;
-            this.addressingTypes[0xA7] = 3;
-            this.addressingTypes[0xB7] = 5;
-            this.addressingTypes[0xAF] = 6;
-            this.addressingTypes[0xBF] = 7;
-            this.addressingTypes[0xA3] = 9;
-            this.addressingTypes[0xB3] = 10;
-            this.addressingTypes[0x07] = 3;
-            this.addressingTypes[0x17] = 4;
-            this.addressingTypes[0x03] = 9;
-            this.addressingTypes[0x13] = 10;
-            this.addressingTypes[0x0F] = 6;
-            this.addressingTypes[0x1F] = 7;
-            this.addressingTypes[0x1B] = 8;
-            this.addressingTypes[0x27] = 3;
-            this.addressingTypes[0x37] = 4;
-            this.addressingTypes[0x23] = 9;
-            this.addressingTypes[0x33] = 10;
-            this.addressingTypes[0x2F] = 6;
-            this.addressingTypes[0x3F] = 7;
-            this.addressingTypes[0x3B] = 8;
-            this.addressingTypes[0x47] = 3;
-            this.addressingTypes[0x57] = 4;
-            this.addressingTypes[0x43] = 9;
-            this.addressingTypes[0x53] = 10;
-            this.addressingTypes[0x4F] = 6;
-            this.addressingTypes[0x5F] = 7;
-            this.addressingTypes[0x5B] = 8;
-            this.addressingTypes[0x67] = 3;
-            this.addressingTypes[0x77] = 4;
-            this.addressingTypes[0x63] = 9;
-            this.addressingTypes[0x73] = 10;
-            this.addressingTypes[0x6F] = 6;
-            this.addressingTypes[0x7F] = 7;
-            this.addressingTypes[0x7B] = 8;
-            this.addressingTypes[0xC7] = 3;
-            this.addressingTypes[0xD7] = 4;
-            this.addressingTypes[0xC3] = 9;
-            this.addressingTypes[0xD3] = 10;
-            this.addressingTypes[0xCF] = 6;
-            this.addressingTypes[0xDF] = 7;
-            this.addressingTypes[0xDB] = 8;
-            this.addressingTypes[0xE7] = 3;
-            this.addressingTypes[0xF7] = 4;
-            this.addressingTypes[0xE3] = 9;
-            this.addressingTypes[0xF3] = 10;
-            this.addressingTypes[0xEF] = 6;
-            this.addressingTypes[0xFF] = 7;
-            this.addressingTypes[0xFB] = 8;
-            this.addressingTypes[0x0B] = 1;
-            this.addressingTypes[0x2B] = 1;
-            this.addressingTypes[0x4B] = 1;
-            this.addressingTypes[0x6B] = 1;
-            this.addressingTypes[0x8B] = 1;
-            this.addressingTypes[0xAB] = 1;
-            this.addressingTypes[0xCB] = 1;
-            this.addressingTypes[0xEB] = 1;
-            this.addressingTypes[0x93] = 10;
-            this.addressingTypes[0x9F] = 8;
-            this.addressingTypes[0x9C] = 7;
-            this.addressingTypes[0x9E] = 8;
-            this.addressingTypes[0x9B] = 8;
-            this.addressingTypes[0xBB] = 8;
-            this.addressingTypes[0x1A] = 0;
-            this.addressingTypes[0x3A] = 0;
-            this.addressingTypes[0x5A] = 0;
-            this.addressingTypes[0x7A] = 0;
-            this.addressingTypes[0xDA] = 0;
-            this.addressingTypes[0xFA] = 0;
-            this.addressingTypes[0x80] = 1;
-            this.addressingTypes[0x82] = 1;
-            this.addressingTypes[0x89] = 1;
-            this.addressingTypes[0xC2] = 1;
-            this.addressingTypes[0xE2] = 1;
-            this.addressingTypes[0x04] = 3;
-            this.addressingTypes[0x44] = 3;
-            this.addressingTypes[0x64] = 3;
-            this.addressingTypes[0x14] = 4;
-            this.addressingTypes[0x34] = 4;
-            this.addressingTypes[0x54] = 4;
-            this.addressingTypes[0x74] = 4;
-            this.addressingTypes[0xD4] = 4;
-            this.addressingTypes[0xF4] = 4;
-            this.addressingTypes[0x0C] = 6;
-            this.addressingTypes[0x1C] = 7;
-            this.addressingTypes[0x3C] = 7;
-            this.addressingTypes[0x5C] = 7;
-            this.addressingTypes[0x7C] = 7;
-            this.addressingTypes[0xDC] = 7;
-            this.addressingTypes[0xFC] = 7;
-            this.addressingTypes[0x02] = 0;
-            this.addressingTypes[0x12] = 0;
-            this.addressingTypes[0x22] = 0;
-            this.addressingTypes[0x32] = 0;
-            this.addressingTypes[0x42] = 0;
-            this.addressingTypes[0x52] = 0;
-            this.addressingTypes[0x62] = 0;
-            this.addressingTypes[0x72] = 0;
-            this.addressingTypes[0x92] = 0;
-            this.addressingTypes[0xB2] = 0;
-            this.addressingTypes[0xD2] = 0;
-            this.addressingTypes[0xF2] = 0;
-        }
-        #endregion
     }
     [Serializable]
     struct SaveState

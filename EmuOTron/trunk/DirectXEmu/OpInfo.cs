@@ -311,7 +311,7 @@ namespace DirectXEmu
             SetOp(0xA7, IllInstrLAX, AddrZeroPage, 2, 3);
             SetOp(0xB7, IllInstrLAX, AddrZeroPageY, 2, 4);
             SetOp(0xAF, IllInstrLAX, AddrAbsolute, 3, 4);
-            SetOp(0xBF, IllInstrLAX, AddrAbsoluteX, 3, 4);
+            SetOp(0xBF, IllInstrLAX, AddrAbsoluteY, 3, 4);
             SetOp(0xA3, IllInstrLAX, AddrIndirectX, 2, 6);
             SetOp(0xB3, IllInstrLAX, AddrIndirectY, 2, 5);
 
