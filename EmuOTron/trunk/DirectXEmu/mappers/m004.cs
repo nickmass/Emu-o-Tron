@@ -273,17 +273,19 @@ namespace DirectXEmu.mappers
         }
         public override void MapperScanline(int scanline, int vblank)
         {
-            if (((Memory[0x2000] & 0x18) != 0) && vblank == 0)
+            bool wasNotZero = (irqCounter != 0);
+            if (irqCounter == 0 || irqReload)
             {
-                bool wasNotZero = (irqCounter != 0);
-                if (irqCounter == 0 || irqReload)
-                    irqCounter = irqLatch;
-                else
-                    irqCounter--;
-                if (irqCounter == 0 && wasNotZero && irqEnable)
+                irqCounter = irqLatch;
+                if (irqLatch == 0 && irqEnable)
                     interruptMapper = true;
-                irqReload = false;
             }
+            else
+                irqCounter--;
+            if (irqCounter == 0 && wasNotZero && irqEnable)
+                interruptMapper = true;
+            if (irqLatch != 0)
+                irqReload = false;
         }
         public override void MapperStateSave(ref MemoryStream buf)
         {

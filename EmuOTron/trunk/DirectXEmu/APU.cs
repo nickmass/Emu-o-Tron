@@ -5,7 +5,7 @@ using System.Text;
 using System.Windows.Forms;
 namespace DirectXEmu
 {
-    class APU
+    public class APU
     {
         public int CPUClock = 1789773; //NTSC
                              //1662607 PAL
@@ -351,6 +351,24 @@ namespace DirectXEmu
                 frameIRQInhibit = (value & 0x40) != 0;
                 if (frameIRQInhibit)
                     frameIRQ = false;
+                lastCycleClock = cycles;
+                frameCounter = 0;
+                if (!mode)
+                {
+                    Pulse1Length();
+                    Pulse1Sweep();
+                    Pulse2Length();
+                    Pulse2Sweep();
+                    NoiseLength();
+                    TriangleLength();
+                    if (!frameIRQInhibit)
+                        frameIRQ = true;
+                }
+                Pulse1Envelope();
+                Pulse2Envelope();
+                NoiseEnvelope();
+                TriangleLinear();
+
             }
         }
         public void ResetBuffer()

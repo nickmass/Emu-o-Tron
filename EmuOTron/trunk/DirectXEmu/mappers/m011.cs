@@ -5,9 +5,9 @@ using System.Text;
 
 namespace DirectXEmu.mappers
 {
-    class m007 : Mapper
+    class m011 : Mapper
     {
-        public m007(MemoryStore Memory, MemoryStore PPUMemory, int numPRGRom, int numVRom)
+        public m011(MemoryStore Memory, MemoryStore PPUMemory, int numPRGRom, int numVRom)
         {
             this.numPRGRom = numPRGRom;
             this.numVRom = numVRom;
@@ -17,20 +17,16 @@ namespace DirectXEmu.mappers
         public override void MapperInit()
         {
             Memory.Swap32kROM(0x8000, 0);
-            PPUMemory.Swap8kRAM(0, 0);
-            PPUMemory.ScreenOneMirroring();
+            PPUMemory.Swap8kROM(0, 0);
         }
         public override void MapperWrite(ushort address, byte value)
         {
             if (address >= 0x8000)
             {
-                //if (Memory[address] == value) Should have bus conflicts on most carts, but this kills marble maddness and doesnt seem to fix anything else, will have to wait for when board types are in.
+                if (Memory[address] == value)
                 {
-                    Memory.Swap32kROM(0x8000, (value & 0x07) % (numPRGRom / 2));
-                    if ((value & 0x10) == 0)
-                        PPUMemory.ScreenOneMirroring();
-                    else
-                        PPUMemory.ScreenTwoMirroring();
+                    Memory.Swap32kROM(0x8000, (value & 0x03) % (numPRGRom / 2));
+                    PPUMemory.Swap8kROM(0, ((value >> 4) & 0x0F) % numVRom);
                 }
             }
         }

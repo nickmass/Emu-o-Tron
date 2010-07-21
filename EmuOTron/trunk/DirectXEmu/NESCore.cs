@@ -11,7 +11,7 @@ using System.Xml;
 
 namespace DirectXEmu
 {
-    class NESCore
+    public class NESCore
     {
 
         public MemoryStore Memory;
@@ -37,7 +37,6 @@ namespace DirectXEmu
         private mappers.Mapper romMapper;
 
         private bool interruptReset = false;
-        private bool interruptIRQ = false;
         private bool interruptNMI = false;
         private bool interruptBRK = false;
 
@@ -63,7 +62,7 @@ namespace DirectXEmu
         private int nameTableOffset = 0;
 
         public StringBuilder logBuilder = new StringBuilder();
-        public bool logging = true;
+        public bool logging = false;
 
         public StringBuilder romInfo = new StringBuilder();
 
@@ -153,7 +152,7 @@ namespace DirectXEmu
                 {
 
                     if (this.logBuilder.Length > 1024 * 1024 * 100)
-                        this.logBuilder.Remove(0, 1024 * 124 * 50);
+                        this.logBuilder.Remove(0, 1024 * 512 * 95);
                     logBuilder.AppendLine(LogOp(RegPC));
                 }
                 op = Read(RegPC);
@@ -760,13 +759,15 @@ namespace DirectXEmu
                                 RegA = FlagZero = (temp & 0xFF);
                                 FlagSign = RegA >> 7;
                                 break;
-                            case OpInfo.IllInstrSHX: //Not Working Correctly
-                                value = addr >> 8;
-                                Write(addr, ((RegX & value) + 1) & 0xFF);
+                            case OpInfo.IllInstrSHX: //Passes Tests but may be wrong in some minute detail
+                                value = (RegX & ((addr >> 8) + 1)) & 0xFF;
+                                if((RegY + Read(opAddr + 1)) <= 0xFF)
+                                    Write(addr, value);
                                 break;
-                            case OpInfo.IllInstrSHY: //Not Working Correctly
-                                value = addr >> 8;
-                                Write(addr, ((RegY & value) + 1) & 0xFF);
+                            case OpInfo.IllInstrSHY: //Passes Tests but may be wrong in some minute detail
+                                value = (RegY & ((addr >> 8) + 1)) & 0xFF;
+                                if((RegX + Read(opAddr + 1)) <= 0xFF)
+                                    Write(addr, value);
                                 break;
                             case OpInfo.IllInstrSLO:
                                 value = Read(addr);
@@ -828,14 +829,13 @@ namespace DirectXEmu
                     RegPC = PeekWord(0xFFFA);
                     this.interruptNMI = false;
                 }
-                else if ((this.interruptIRQ || romMapper.interruptMapper || APU.frameIRQ || APU.dmcInterrupt) && FlagIRQ == 0)
+                else if ((romMapper.interruptMapper || APU.frameIRQ || APU.dmcInterrupt) && FlagIRQ == 0)
                 {
                     PushWordStack(RegPC);
                     FlagBreak = 0;
                     PushByteStack(PToByte());
                     FlagIRQ = 1;
                     RegPC = PeekWord(0xFFFE);
-                    this.interruptIRQ = false;
                 }
                 if (this.counter >= this.scanlineLengths[this.slCounter % 3])
                 {
@@ -864,7 +864,8 @@ namespace DirectXEmu
                         this.patternTables = this.GeneratePatternTables();
                     }
 
-                    romMapper.MapperScanline(scanline, vblank);
+                    if (((Memory[0x2000] & 0x18) != 0) && vblank == 0)
+                        romMapper.MapperScanline(scanline, vblank);
 
                     this.scanline++;
                     if (this.scanline >= 240)
@@ -1121,6 +1122,9 @@ namespace DirectXEmu
                 case 7: //AOROM
                     romMapper = new mappers.m007(Memory, PPUMemory, numprgrom, numvrom);
                     break;
+                case 11: //Color Dreams
+                    romMapper = new mappers.m011(Memory, PPUMemory, numprgrom, numvrom);
+                    break;
                 case 34: //BNROM and NINA-001
                     romMapper = new mappers.m034(Memory, PPUMemory, numprgrom, numvrom);
                     break;
@@ -1152,7 +1156,6 @@ namespace DirectXEmu
             this.CPUMirror(0x0000, 0x0800, 0x0800, 3);
             this.CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
             RegPC = PeekWord(0xFFFC);//entry point
-            //RegPC = 0xC000;
             for(int i = 0; i < 0x20; i++)
                 this.PalMemory[i] = 0x0F; //Sets the background to black on startup to prevent grey flashes, not exactly accurate but it looks nicer
         }
@@ -1418,13 +1421,16 @@ namespace DirectXEmu
                     line.AppendFormat("${0} = {1}                    ", Peek(address + 1).ToString("X2"), Peek(Peek(address + 1)).ToString("X2"));
                     break;
                 case OpInfo.AddrZeroPageX:
-                    line.AppendFormat("${0},X @ {1} = {2}             ", Peek(address + 1).ToString("X2"), (Peek(address + 1) + RegX).ToString("X2"), Peek((Peek(address + 1) + RegX)).ToString("X2"));
+                    line.AppendFormat("${0},X @ {1} = {2}             ", Peek(address + 1).ToString("X2"), ((Peek(address + 1) + RegX) & 0xFF).ToString("X2"), Peek((Peek(address + 1) + RegX) & 0xFF).ToString("X2"));
                     break;
                 case OpInfo.AddrZeroPageY:
-                    line.AppendFormat("${0},Y @ {1} = {2}             ", Peek(address + 1).ToString("X2"), (Peek(address + 1) + RegY).ToString("X2"), Peek((Peek(address + 1) + RegY)).ToString("X2"));
+                    line.AppendFormat("${0},Y @ {1} = {2}             ", Peek(address + 1).ToString("X2"), ((Peek(address + 1) + RegY) & 0xFF).ToString("X2"), Peek((Peek(address + 1) + RegY) & 0xFF).ToString("X2"));
                     break;
                 case OpInfo.AddrAbsolute:
-                    line.AppendFormat("${0}                       ", PeekWord(address + 1).ToString("X4"));
+                    if(op == 0x4C || op == 0x20)
+                        line.AppendFormat("${0}                       ", PeekWord(address + 1).ToString("X4"));
+                    else
+                        line.AppendFormat("${0} = {1}                  ", PeekWord(address + 1).ToString("X4"), Peek(PeekWord(address + 1)).ToString("X2"));
                     break;
                 case OpInfo.AddrAbsoluteX:
                     line.AppendFormat("${0},X @ {1} = {2}         ", PeekWord(address + 1).ToString("X4"), ((PeekWord(address + 1) + RegX) & 0xFFFF).ToString("X4"), Peek((PeekWord(address + 1) + RegX) & 0xFFFF).ToString("X2"));
@@ -1570,7 +1576,10 @@ namespace DirectXEmu
                     this.vertOffset = (this.vertOffset & 0x3F) | ((value & 3) << 6);
                     if (vertOffset > 240)
                         vertOffset -= 240;
+                    int oldA12 = ((loopyT >> 12) & 1);
                     loopyT = (ushort)((loopyT & 0x00FF) | ((value & 0x3F) << 8));
+                    if (oldA12 == 0 && oldA12 != ((loopyT >> 12) & 1))
+                        romMapper.MapperScanline(scanline, vblank);
                 }
                 this.PPUAddrFlip = !this.PPUAddrFlip;
             }
@@ -2185,7 +2194,6 @@ namespace DirectXEmu
             newState.stateVblank = this.vblank;
             newState.stateSPRMemory = (byte[])this.SPRMemory.Clone();
             newState.stateInterruptReset = this.interruptReset;
-            newState.stateInterruptIRQ = this.interruptIRQ;
             newState.stateInterruptNMI = this.interruptNMI;
             newState.stateInterruptMapper = romMapper.interruptMapper;
             newState.vertOffset = this.vertOffset;
@@ -2224,7 +2232,6 @@ namespace DirectXEmu
             this.vblank = oldState.stateVblank;
             this.SPRMemory = (byte[])oldState.stateSPRMemory.Clone();
             this.interruptReset = oldState.stateInterruptReset;
-            this.interruptIRQ = oldState.stateInterruptIRQ;
             this.interruptNMI = oldState.stateInterruptNMI;
             romMapper.interruptMapper = oldState.stateInterruptMapper;
             this.vertOffset = oldState.vertOffset;
@@ -2269,7 +2276,7 @@ namespace DirectXEmu
         }
     }
     [Serializable]
-    struct SaveState
+    public struct SaveState
     {
         public int stateProgramCounter;
         public byte[][] stateMemory;

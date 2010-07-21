@@ -99,6 +99,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="APU.cs" />
+    <Compile Include="Console.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Console.Designer.cs">
+      <DependentUpon>Console.cs</DependentUpon>
+    </Compile>
     <Compile Include="CRC32.cs" />
     <Compile Include="Fill.cs" />
     <Compile Include="mappers\m000.cs" />
@@ -107,6 +113,7 @@
     <Compile Include="mappers\m003.cs" />
     <Compile Include="mappers\m004.cs" />
     <Compile Include="mappers\m007.cs" />
+    <Compile Include="mappers\m011.cs" />
     <Compile Include="mappers\m034.cs" />
     <Compile Include="mappers\m070.cs" />
     <Compile Include="mappers\m071.cs" />
@@ -318,6 +325,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="ArchiveViewer.resx">
       <DependentUpon>ArchiveViewer.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Console.resx">
+      <DependentUpon>Console.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="GameGenieWindow.resx">
       <DependentUpon>GameGenieWindow.cs</DependentUpon>
