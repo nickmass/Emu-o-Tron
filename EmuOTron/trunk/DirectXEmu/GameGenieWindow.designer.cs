@@ -33,14 +33,16 @@
             this.btnAdd = new System.Windows.Forms.Button();
             this.btnRemove = new System.Windows.Forms.Button();
             this.txtCode = new System.Windows.Forms.TextBox();
+            this.txtAddress = new System.Windows.Forms.TextBox();
+            this.txtValue = new System.Windows.Forms.TextBox();
             this.SuspendLayout();
             // 
             // lstCodes
             // 
             this.lstCodes.FormattingEnabled = true;
-            this.lstCodes.Location = new System.Drawing.Point(12, 41);
+            this.lstCodes.Location = new System.Drawing.Point(12, 67);
             this.lstCodes.Name = "lstCodes";
-            this.lstCodes.Size = new System.Drawing.Size(259, 212);
+            this.lstCodes.Size = new System.Drawing.Size(259, 186);
             this.lstCodes.TabIndex = 0;
             // 
             // btnAdd
@@ -71,11 +73,29 @@
             this.txtCode.TabIndex = 3;
             this.txtCode.TextChanged += new System.EventHandler(this.txtCode_TextChanged);
             // 
+            // txtAddress
+            // 
+            this.txtAddress.Location = new System.Drawing.Point(12, 41);
+            this.txtAddress.Name = "txtAddress";
+            this.txtAddress.Size = new System.Drawing.Size(153, 20);
+            this.txtAddress.TabIndex = 4;
+            this.txtAddress.TextChanged += new System.EventHandler(this.txtValue_TextChanged);
+            // 
+            // txtValue
+            // 
+            this.txtValue.Location = new System.Drawing.Point(171, 41);
+            this.txtValue.Name = "txtValue";
+            this.txtValue.Size = new System.Drawing.Size(100, 20);
+            this.txtValue.TabIndex = 5;
+            this.txtValue.TextChanged += new System.EventHandler(this.txtValue_TextChanged);
+            // 
             // GameGenieWindow
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(284, 262);
+            this.Controls.Add(this.txtValue);
+            this.Controls.Add(this.txtAddress);
             this.Controls.Add(this.txtCode);
             this.Controls.Add(this.btnRemove);
             this.Controls.Add(this.btnAdd);
@@ -98,5 +118,7 @@
         private System.Windows.Forms.Button btnAdd;
         private System.Windows.Forms.Button btnRemove;
         private System.Windows.Forms.TextBox txtCode;
+        private System.Windows.Forms.TextBox txtAddress;
+        private System.Windows.Forms.TextBox txtValue;
     }
 }

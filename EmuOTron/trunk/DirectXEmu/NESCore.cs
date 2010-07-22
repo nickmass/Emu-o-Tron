@@ -2256,7 +2256,9 @@ namespace DirectXEmu
         {
             for (int i = 0; i < this.gameGenieCodeNum; i++)
             {
-                if (this.gameGenieCodes[i].code.Length == 6)
+                if (this.gameGenieCodes[i].code == "DUMMY")
+                    this.Memory.ForceValue(this.MirrorMap[this.gameGenieCodes[i].address], this.gameGenieCodes[i].value);
+                else if (this.gameGenieCodes[i].code.Length == 6)
                     this.Memory.ForceValue(this.MirrorMap[this.gameGenieCodes[i].address + 0x8000],this.gameGenieCodes[i].value);
                 else if (this.gameGenieCodes[i].code.Length == 8 && this.Memory[this.MirrorMap[this.gameGenieCodes[i].address] + 0x8000] == this.gameGenieCodes[i].check)
                     this.Memory.ForceValue(this.MirrorMap[this.gameGenieCodes[i].address + 0x8000], this.gameGenieCodes[i].value);
