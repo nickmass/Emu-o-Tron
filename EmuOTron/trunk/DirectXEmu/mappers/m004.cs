@@ -74,10 +74,7 @@ namespace DirectXEmu.mappers
                     }
                     else if (address >= 0xA000) //PRG RAM protect
                     {
-                        if ((value & 0xBF) != 0)
-                            Memory.SetReadOnly(0x6000, 8, true);
-                        else
-                            Memory.SetReadOnly(0x6000, 8, false);
+                        Memory.SetReadOnly(0x6000, 8, (value & 0x40) != 0);
                     }
                     else //Bank data
                     {

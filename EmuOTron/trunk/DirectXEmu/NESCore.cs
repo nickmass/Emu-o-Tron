@@ -40,10 +40,6 @@ namespace DirectXEmu
         private bool interruptNMI = false;
         private bool interruptBRK = false;
 
-        private int[] cycles = new int[0x100];
-        private string[] opcodes = new string[0x100];
-        private int[] addressingTypes = new int[0x100];
-
         private int[] scanlineLengths = { 113, 113, 114 };
         private byte slCounter = 0;
         private int scanline = 241;
@@ -148,11 +144,11 @@ namespace DirectXEmu
             int value;
             while (this.emulationRunning)
             {
-                if (this.logging)
+                if (logging)
                 {
 
-                    if (this.logBuilder.Length > 1024 * 1024 * 100)
-                        this.logBuilder.Remove(0, 1024 * 512 * 95);
+                    if (logBuilder.Length > 1024 * 1024 * 100)
+                        logBuilder.Remove(0, 1024 * 512 * 95);
                     logBuilder.AppendLine(LogOp(RegPC));
                 }
                 op = Read(RegPC);
@@ -804,15 +800,15 @@ namespace DirectXEmu
                 #endregion
                 this.counter += opCycles;
                 APU.AddCycles(opCycles);
-                if (this.interruptBRK)
+                if (interruptBRK)
                 {
-                    PushWordStack((RegPC + 1) & 0xFFF);
+                    PushWordStack((RegPC + 1) & 0xFFFF);
                     PushByteStack(PToByte() | 0x30);
                     FlagIRQ = 1;
                     RegPC = PeekWord(0xFFFE);
                     this.interruptBRK = false;
                 }
-                if (this.interruptReset)
+                if (interruptReset)
                 {
                     PushWordStack(RegPC);
                     PushByteStack(PToByte());
@@ -820,7 +816,7 @@ namespace DirectXEmu
                     RegPC = PeekWord(0xFFFC);
                     this.interruptReset = false;
                 }
-                else if (this.interruptNMI)
+                else if (interruptNMI)
                 {
                     PushWordStack(RegPC);
                     FlagBreak = 0;
@@ -1452,8 +1448,8 @@ namespace DirectXEmu
                 case OpInfo.AddrIndirectX:
                     addr = val1 = Peek(address + 1);
                     addr += RegX;
-                    val2 = addr;
                     addr &= 0xFF;
+                    val2 = addr;
                     addr = val3 = Peek(addr) + (Peek((addr + 1) & 0xFF) << 8);
                     addr = val4 = Peek(addr);
                     line.AppendFormat("(${0},X) @ {1} = {2} = {3}    ", val1.ToString("X2"), val2.ToString("X2"), val3.ToString("X4"), val4.ToString("X2"));
@@ -1501,7 +1497,7 @@ namespace DirectXEmu
                 line.Append("N");
             else
                 line.Append("n");
-            line.AppendFormat(" S:{0} CYC:{1} SL:{2}", RegS.ToString("X2"), (counter * 3).ToString().PadLeft(3), slCounter.ToString().PadLeft(3));
+            line.AppendFormat(" S:{0} CYC:{1} SL:{2}", RegS.ToString("X2"), (counter * 3).ToString().PadLeft(3), scanline.ToString().PadLeft(3));
             return line.ToString();
         }
         private void Write(int address, int value)
@@ -1542,11 +1538,7 @@ namespace DirectXEmu
                         this.nextVertOffset = 240 - value;
                     else
                         this.nextVertOffset = value;*/
-                    if (value >= 240)
-                        this.vertOffset = 240 - value;
-                    else
-                        this.vertOffset = value;
-
+                    this.vertOffset = value;
                     loopyT = (ushort)((loopyT & 0x0C1F) | ((value & 0x07) << 12) | ((value & 0xF8) << 2));
                 }
                 else //1st Write
@@ -1564,8 +1556,6 @@ namespace DirectXEmu
                 {
                     this.vertOffset = (this.vertOffset & 0xC7) | ((value & 0xE0) >> 2);
                     this.horzOffset = (this.horzOffset & 0x07) | ((value & 0x1F) << 3);
-                    if (vertOffset > 240)
-                        vertOffset -= 240;
                     loopyT = (ushort)((loopyT & 0xFF00) | value);
                     loopyV = loopyT;
                 }
@@ -1574,8 +1564,6 @@ namespace DirectXEmu
                     this.nameTableOffset = (byte)((value & 0xC) >> 2); //TO-DO: this is wrong but I don't think it will effect many games other then fixing mario
                     this.vertOffset = (this.vertOffset & 0xF8) | ((value & 0x30) >> 4);
                     this.vertOffset = (this.vertOffset & 0x3F) | ((value & 3) << 6);
-                    if (vertOffset > 240)
-                        vertOffset -= 240;
                     int oldA12 = ((loopyT >> 12) & 1);
                     loopyT = (ushort)((loopyT & 0x00FF) | ((value & 0x3F) << 8));
                     if (oldA12 == 0 && oldA12 != ((loopyT >> 12) & 1))

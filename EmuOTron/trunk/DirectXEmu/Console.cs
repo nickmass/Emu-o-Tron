@@ -39,7 +39,7 @@ namespace DirectXEmu
     {
         public CompareType type;
         public int address;
-        public int crc;
+        public uint crc;
         public int value;
         public ComparisonOperator op;
     }
@@ -121,7 +121,7 @@ namespace DirectXEmu
                             test.type = TestType.noinput;
                             while (xmlReader.MoveToNextAttribute())
                                 if (xmlReader.Name == "frame")
-                                    test.frame = Convert.ToInt32(xmlReader.Value);
+                                    test.frame = IntParse(xmlReader.Value);
                         }
                         if (xmlReader.NodeType == XmlNodeType.Element && xmlReader.Name == "compare")
                         {
@@ -145,7 +145,7 @@ namespace DirectXEmu
                                     while (xmlReader.MoveToNextAttribute())
                                     {
                                         if (xmlReader.Name == "crc")
-                                            compare.crc = Convert.ToInt32(xmlReader.Value);
+                                            compare.crc = (uint)IntParse(xmlReader.Value);
                                         if (xmlReader.Name == "comparison")
                                         {
                                             if (xmlReader.Value == "equal")
@@ -214,15 +214,32 @@ namespace DirectXEmu
                 output.Append(@"\cf1" + test.name + ": ");
                 testCore = new NESCore(Path.Combine(testSuite.basepath, test.file), "");
                 int frame = 0;
-                while (frame++ != test.frame && !close)
+                if (test.type == TestType.movie)
                 {
-                    testCore.Start(new Controller(), new Controller(), new Zapper(), new Zapper(), false);
-                    testCore.APU.ResetBuffer();
+                    StreamReader fm2 = File.OpenText(Path.Combine(testSuite.basepath, test.movie));
+                    Controller player1 = new Controller();
+                    Controller player2 = new Controller();
+                    bool movieEnd = Fm2Reader(fm2, ref player1, ref player2);
+                    while (!close && !movieEnd)
+                    {
+                        testCore.Start(player1, player2, new Zapper(), new Zapper(), false);
+                        testCore.APU.ResetBuffer();
+                        movieEnd = Fm2Reader(fm2, ref player1, ref player2);
+                    }
+
+                }
+                else if(test.type == TestType.noinput)
+                {
+                    while (frame++ != test.frame && !close)
+                    {
+                        testCore.Start(new Controller(), new Controller(), new Zapper(), new Zapper(), false);
+                        testCore.APU.ResetBuffer();
+                    }
                 }
                 foreach (ComparisonGroup compares in test.comparisonGroups)
                 {
                     bool pass = true;
-                    int result = 0;
+                    uint result = 0;
                     //output.Append(compares.name + ": ");
                     foreach (Comparison compare in compares.comparisons)
                     {
@@ -230,6 +247,7 @@ namespace DirectXEmu
                         {
                             switch (compare.op)
                             {
+                                default:
                                 case ComparisonOperator.equal:
                                     if (testCore.Memory[compare.address] != compare.value)
                                         pass = false;
@@ -254,7 +272,31 @@ namespace DirectXEmu
                         }
                         else if (compare.type == CompareType.screenshot)
                         {
-
+                            uint CRC = GetScreenCRC(testCore.scanlines);
+                            switch (compare.op)
+                            {
+                                default:
+                                case ComparisonOperator.equal:
+                                    if (compare.crc != CRC)
+                                        pass = false;
+                                    result = CRC;
+                                    break;
+                                case ComparisonOperator.notequal:
+                                    if (compare.crc == CRC)
+                                        pass = false;
+                                    result = CRC;
+                                    break;
+                                case ComparisonOperator.lessthan:
+                                    if (compare.crc >= CRC)
+                                        pass = false;
+                                    result = CRC;
+                                    break;
+                                case ComparisonOperator.greaterthan:
+                                    if (compare.crc <= CRC)
+                                        pass = false;
+                                    result = CRC;
+                                    break;
+                            }
                         }
                     }
                     if (pass)
@@ -265,6 +307,7 @@ namespace DirectXEmu
             }
             output.Append(@"\cf1Tests Complete\par");
             running = false;
+            finalDraw = true;
         }
         public int IntParse(string str)
         {
@@ -273,13 +316,55 @@ namespace DirectXEmu
             else
                 return int.Parse(str);
         }
-
+        public uint GetScreenCRC(byte[][] scanlines)
+        {
+            uint crc = 0xFFFFFFFF;
+            for (int y = 0; y < 240; y++)
+                for (int x = 0; x < 256; x++)
+                    crc = CRC32.crc32_adjust(crc, scanlines[y][x]);
+            crc ^= 0xFFFFFFFF;
+            return crc;
+        }
+        bool finalDraw;
         private void timer1_Tick(object sender, EventArgs e)
         {
-            txtOutput.Rtf = output.ToString() + "}";
-
+            if (running || finalDraw)
+            {
+                txtOutput.Rtf = output.ToString() + "}";
+                txtOutput.SelectionStart = txtOutput.TextLength;
+                txtOutput.ScrollToCaret();
+                finalDraw = false;
+            }
         }
 
+        private bool Fm2Reader(StreamReader fm2File, ref Controller player1, ref Controller player2)
+        {
+            String line = " ";
+            while (line[0] != '|')
+            {
+                line = fm2File.ReadLine();
+                if(fm2File.EndOfStream)
+                    return fm2File.EndOfStream;
+            }
+            player1.right = line[3] != '.';
+            player1.left = line[4] != '.';
+            player1.down = line[5] != '.';
+            player1.up = line[6] != '.';
+            player1.start = line[7] != '.';
+            player1.select = line[8] != '.';
+            player1.b = line[9] != '.';
+            player1.a = line[10] != '.';
+            player2.right = line[12] != '.';
+            player2.left = line[13] != '.';
+            player2.down = line[14] != '.';
+            player2.up = line[15] != '.';
+            player2.start = line[16] != '.';
+            player2.select = line[17] != '.';
+            player2.b = line[18] != '.';
+            player2.a = line[19] != '.';
+            return fm2File.EndOfStream;
+
+        }
         private void Console_FormClosing(object sender, FormClosingEventArgs e)
         {
             close = true;

@@ -13,7 +13,7 @@ namespace DirectXEmu
 
         public bool mute = true;
 
-
+        public int frameBuffer = 1;
         public int sampleRate = 44100;
         public int sampleRateDivider = 1;
 
@@ -136,8 +136,8 @@ namespace DirectXEmu
 
         public APU(MemoryStore Memory)
         {
-            output = new float[CPUClock / divider];
-            outBytes = new byte[CPUClock / divider * 4];
+            output = new float[(CPUClock / divider) * frameBuffer];
+            outBytes = new byte[(CPUClock / divider * 4) * frameBuffer];
             this.Memory = Memory;
             for (int i = 0; i < 32; i++)
                 pulseTable[i] = ((95.52f / (8128.0f / i + 100f)));

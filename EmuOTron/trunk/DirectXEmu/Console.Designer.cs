@@ -84,6 +84,7 @@
             this.txtOutput.Font = new System.Drawing.Font("Consolas", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.txtOutput.Location = new System.Drawing.Point(0, 24);
             this.txtOutput.Name = "txtOutput";
+            this.txtOutput.ReadOnly = true;
             this.txtOutput.Size = new System.Drawing.Size(600, 288);
             this.txtOutput.TabIndex = 1;
             this.txtOutput.Text = "";

@@ -87,6 +87,7 @@ namespace DirectXEmu
             defaults["displaySprites"] = "1";
             defaults["sound"] = "1";
             defaults["volume"] = "100";
+            defaults["showDebug"] = "0";
 #if DEBUG
             defaults["romPath2"] = @"C:\Games\Emulators\Roms\NES";
             defaults["romPath3"] = @"C:\Games\Emulators\Roms\MapperNes";
@@ -94,6 +95,7 @@ namespace DirectXEmu
             defaults["romPath5"] = "";
             defaults["logReader"] = @"C:\Program Files\Vim\vim72\gvim.exe";
             defaults["previewEmu"] = @"C:\Games\Emulators\FCEUX-2.1.1\fceux.exe";
+            defaults["showDebug"] = "1";
 #endif
 
             return defaults;

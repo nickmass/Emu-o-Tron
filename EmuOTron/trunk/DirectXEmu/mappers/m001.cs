@@ -38,7 +38,7 @@ namespace DirectXEmu.mappers
                 {
                     writeLatch = 0;
                     reg0 |= 0x0C;
-                    Memory.Swap16kROM(0xC000, numPRGRom - 1);
+                    RegZeroChange();
                 }
                 else if (writeLatch != 4)
                 {
@@ -51,25 +51,7 @@ namespace DirectXEmu.mappers
                     reg3 = regTmp;
                     regTmp = 0;
                     writeLatch = 0;
-                    if ((reg0 & 0x8) != 0) // Switch 16kb
-                    {
-                        if ((reg0 & 0x4) != 0) // Switch at $8000
-                        {
-                            Memory.Swap16kROM(0x8000, reg3 % numPRGRom);
-                            Memory.Swap16kROM(0xC000, numPRGRom - 1);
-                        }
-                        else // Switch at $c000
-                        {
-                            Memory.Swap16kROM(0x8000, 0);
-                            Memory.Swap16kROM(0xC000, reg3 % numPRGRom);
-                        }
-                    }
-                    else //switch 32kb
-                    {
-                        Memory.Swap16kROM(0x8000, (reg3 & 0xFE) % numPRGRom); //32k swap maybe works here, I have my doubts
-                        Memory.Swap16kROM(0xC000, ((reg3 & 0xFE) + 1) % numPRGRom);
-                    }
-
+                    PrgRegChange();
                 }
                 else if (address >= 0xC000) // Chr Reg 1
                 {
@@ -77,13 +59,7 @@ namespace DirectXEmu.mappers
                     reg2 = regTmp;
                     regTmp = 0;
                     writeLatch = 0;
-                    if ((reg0 & 0x10) != 0)
-                    {
-                        if (numVRom == 0)
-                            PPUMemory.Swap4kRAM(0x1000, reg2);
-                        else
-                            PPUMemory.Swap4kROM(0x1000, reg2 % (numVRom * 2));
-                    }
+                    ChrRegOneChange();
                 }
                 else if (address >= 0xA000) //Chr Reg 0
                 {
@@ -91,26 +67,7 @@ namespace DirectXEmu.mappers
                     reg1 = regTmp;
                     regTmp = 0;
                     writeLatch = 0;
-                    if ((reg0 & 0x10) == 0)
-                    {
-                        if (numVRom == 0)
-                        {
-                            PPUMemory.Swap4kRAM(0x0000, reg1 & 1);
-                            PPUMemory.Swap4kRAM(0x1000, (reg1 & 1) + 1);
-                        }
-                        else
-                        {
-                            PPUMemory.Swap4kROM(0x0000, (reg1 & 1) % (numVRom * 2));
-                            PPUMemory.Swap4kROM(0x1000, ((reg1 & 1) + 1) % (numVRom * 2));
-                        }
-                    }
-                    else
-                    {
-                        if (numVRom == 0)
-                            PPUMemory.Swap4kRAM(0x0000, reg1);
-                        else
-                            PPUMemory.Swap4kROM(0x0000, reg1 % (numVRom * 2));
-                    }
+                    ChrRegZeroChange();
                 }
                 else //Control Reg
                 {
@@ -118,26 +75,78 @@ namespace DirectXEmu.mappers
                     reg0 = regTmp;
                     regTmp = 0;
                     writeLatch = 0;
+                    RegZeroChange();
                     if ((reg0 & 3) == 0)
-                    {
                         PPUMemory.ScreenOneMirroring();
-                    }
                     else if ((reg0 & 3) == 1)
-                    {
                         PPUMemory.ScreenTwoMirroring();
-                    }
                     else if ((reg0 & 3) == 2)
-                    {
                         PPUMemory.VerticalMirroring();
-                    }
                     else if ((reg0 & 3) == 3)
-                    {
                         PPUMemory.HorizontalMirroring();
-                    }
-
                 }
             }
 
+        }
+        private void PrgRegChange()
+        {
+            if ((reg0 & 0x8) != 0) // Switch 16kb
+            {
+                if ((reg0 & 0x4) != 0) // Switch at $8000
+                {
+                    Memory.Swap16kROM(0x8000, reg3 % numPRGRom);
+                    Memory.Swap16kROM(0xC000, numPRGRom - 1);
+                }
+                else // Switch at $c000
+                {
+                    Memory.Swap16kROM(0x8000, 0);
+                    Memory.Swap16kROM(0xC000, reg3 % numPRGRom);
+                }
+            }
+            else //switch 32kb
+            {
+                Memory.Swap16kROM(0x8000, (reg3 & 0xFE) % numPRGRom); //32k swap maybe works here, I have my doubts
+                Memory.Swap16kROM(0xC000, ((reg3 & 0xFE) + 1) % numPRGRom);
+            }
+        }
+        private void ChrRegOneChange()
+        {
+            if ((reg0 & 0x10) != 0)
+            {
+                if (numVRom == 0)
+                    PPUMemory.Swap4kRAM(0x1000, reg2);
+                else
+                    PPUMemory.Swap4kROM(0x1000, reg2 % (numVRom * 2));
+            }
+        }
+        private void ChrRegZeroChange()
+        {
+            if ((reg0 & 0x10) == 0)
+            {
+                if (numVRom == 0)
+                {
+                    PPUMemory.Swap4kRAM(0x0000, reg1 & 1);
+                    PPUMemory.Swap4kRAM(0x1000, (reg1 & 1) + 1);
+                }
+                else
+                {
+                    PPUMemory.Swap4kROM(0x0000, (reg1 & 1) % (numVRom * 2));
+                    PPUMemory.Swap4kROM(0x1000, ((reg1 & 1) + 1) % (numVRom * 2));
+                }
+            }
+            else
+            {
+                if (numVRom == 0)
+                    PPUMemory.Swap4kRAM(0x0000, reg1);
+                else
+                    PPUMemory.Swap4kROM(0x0000, reg1 % (numVRom * 2));
+            }
+        }
+        private void RegZeroChange()
+        {
+            PrgRegChange();
+            ChrRegZeroChange();
+            ChrRegOneChange();
         }
         public override void MapperScanline(int scanline, int vblank) { }
         public override void MapperStateSave(ref MemoryStream buf)

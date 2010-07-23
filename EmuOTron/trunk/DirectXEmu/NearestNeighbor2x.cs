@@ -40,9 +40,10 @@ namespace DirectXEmu
             BitmapData resizeBMD = resizedBitmap.LockBits(new Rectangle(0, 0, resizedBitmap.Width, resizedBitmap.Height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
             int* origPixels = (int*)origBMD.Scan0;
             int* resizePixels = (int*)resizeBMD.Scan0;
+            int halfX = x / 2;
             for (int imgY = 0; imgY < y; imgY++)
                 for (int imgX = 0; imgX < x; imgX++)
-                    resizePixels[(imgY * x) + imgX] = origPixels[(imgY/2 * x /2) + imgX/2];
+                     resizePixels[(imgY * x) + imgX] = origPixels[(imgY/2 * halfX) + imgX/2];
             orig.UnlockBits(origBMD);
             resizedBitmap.UnlockBits(resizeBMD);
             return resizedBitmap;

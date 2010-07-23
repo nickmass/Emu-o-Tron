@@ -218,12 +218,14 @@ namespace DirectXEmu
                 {
                     Thread.Sleep(16);
                 }
-                if (this.frame++ % this.frameSkipper == 0 && state != SystemState.SystemPause)
+                if (state != SystemState.SystemPause && this.frame++ % this.frameSkipper == 0)
                 {
-                    this.Render(); // Keep rendering until the program terminates
-                    UpdateFramerate();
                     if (state != SystemState.Paused)
                         this.messageDuration--;
+                    else
+                        this.frame--;
+                    this.Render(); // Keep rendering until the program terminates
+                    UpdateFramerate();
                 }
             }
         }
@@ -837,7 +839,6 @@ namespace DirectXEmu
             }
 
 
-            Point curPoint = LocateMouse();
 
             /*if (player2Zap.triggerPulled)
             {
@@ -845,10 +846,14 @@ namespace DirectXEmu
                 frameBuffer.SetPixel(screenPoint.X, screenPoint.Y, Color.Magenta);
                 frameBuffer.Save(frame.ToString() + ".png", ImageFormat.Png);
             }*/
-            player2Zap.triggerPulled = dMouse.GetCurrentState().IsPressed(0) && (curPoint.X != 0 || curPoint.Y != 0);
-            player2Zap.lightDetected = colorChart[0][cpu.scanlines[curPoint.Y][curPoint.X]].GetBrightness() >= 0.95;
-            zapStatLight = player2Zap.lightDetected;
-            zapStatTrig = player2Zap.triggerPulled;
+            if (player2Zap.connected)
+            {
+                Point curPoint = LocateMouse();
+                player2Zap.triggerPulled = dMouse.GetCurrentState().IsPressed(0) && (curPoint.X != 0 || curPoint.Y != 0);
+                player2Zap.lightDetected = colorChart[0][cpu.scanlines[curPoint.Y][curPoint.X]].GetBrightness() >= 0.95;
+                zapStatLight = player2Zap.lightDetected;
+                zapStatTrig = player2Zap.triggerPulled;
+            }
             cpu.Start(player1, player2, player1Zap, player2Zap, (this.frame % this.frameSkipper != 0));
 
             if(memoryViewerMem == 1)
@@ -857,47 +862,50 @@ namespace DirectXEmu
                 memoryViewer.updateMemory(cpu.PPUMemory, cpu.PPUMirrorMap);
 
 
-            if (frameSkipper == 1)
+            if (frame % cpu.APU.frameBuffer == 0)
             {
-                if (wavRecord)
+                if (frameSkipper == 1)
                 {
-                    wavFile.Write(cpu.APU.outBytes, 0, cpu.APU.outputPtr * 4);
-                    wavSamples += cpu.APU.outputPtr;
-                    //wavSamples += WriteToWav(cpu.APU.output, cpu.APU.outputPtr, audioFormat.SamplesPerSecond);
-                }
-                if (rewinding)
-                {
-                    byte[] tmp = new byte[4];
-                    for (int i = 0; i < cpu.APU.outputPtr; i++)
+                    if (wavRecord)
                     {
-                        int reverseIndex = cpu.APU.outputPtr - i;
-                        tmp[0] = cpu.APU.outBytes[(i * 4)];
-                        tmp[1] = cpu.APU.outBytes[(i * 4) + 1];
-                        tmp[2] = cpu.APU.outBytes[(i * 4) + 2];
-                        tmp[3] = cpu.APU.outBytes[(i * 4) + 3];
-                        cpu.APU.outBytes[(i * 4)] = cpu.APU.outBytes[(reverseIndex * 4)];
-                        cpu.APU.outBytes[(i * 4) + 1] = cpu.APU.outBytes[(reverseIndex * 4) + 1];
-                        cpu.APU.outBytes[(i * 4) + 2] = cpu.APU.outBytes[(reverseIndex * 4) + 2];
-                        cpu.APU.outBytes[(i * 4) + 3] = cpu.APU.outBytes[(reverseIndex * 4) + 3];
-                        cpu.APU.outBytes[(reverseIndex * 4)] = tmp[0];
-                        cpu.APU.outBytes[(reverseIndex * 4) + 1] = tmp[1];
-                        cpu.APU.outBytes[(reverseIndex * 4) + 2] = tmp[2];
-                        cpu.APU.outBytes[(reverseIndex * 4) + 3] = tmp[3];
+                        wavFile.Write(cpu.APU.outBytes, 0, cpu.APU.outputPtr * 4);
+                        wavSamples += cpu.APU.outputPtr;
+                        //wavSamples += WriteToWav(cpu.APU.output, cpu.APU.outputPtr, audioFormat.SamplesPerSecond);
                     }
+                    if (rewinding)
+                    {
+                        byte[] tmp = new byte[4];
+                        for (int i = 0; i < cpu.APU.outputPtr; i++)
+                        {
+                            int reverseIndex = cpu.APU.outputPtr - i;
+                            tmp[0] = cpu.APU.outBytes[(i * 4)];
+                            tmp[1] = cpu.APU.outBytes[(i * 4) + 1];
+                            tmp[2] = cpu.APU.outBytes[(i * 4) + 2];
+                            tmp[3] = cpu.APU.outBytes[(i * 4) + 3];
+                            cpu.APU.outBytes[(i * 4)] = cpu.APU.outBytes[(reverseIndex * 4)];
+                            cpu.APU.outBytes[(i * 4) + 1] = cpu.APU.outBytes[(reverseIndex * 4) + 1];
+                            cpu.APU.outBytes[(i * 4) + 2] = cpu.APU.outBytes[(reverseIndex * 4) + 2];
+                            cpu.APU.outBytes[(i * 4) + 3] = cpu.APU.outBytes[(reverseIndex * 4) + 3];
+                            cpu.APU.outBytes[(reverseIndex * 4)] = tmp[0];
+                            cpu.APU.outBytes[(reverseIndex * 4) + 1] = tmp[1];
+                            cpu.APU.outBytes[(reverseIndex * 4) + 2] = tmp[2];
+                            cpu.APU.outBytes[(reverseIndex * 4) + 3] = tmp[3];
+                        }
+                    }
+                    cpu.APU.volume = volume;
+                    audioBuffer.AudioData.SetLength(0);
+                    audioBuffer.AudioData.Write(cpu.APU.outBytes, 0, cpu.APU.outputPtr * 4);
+                    audioBuffer.AudioData.Position = 0;
+                    audioBuffer.AudioBytes = cpu.APU.outputPtr * 4;
+                    audioBuffer.Flags = BufferFlags.None;
+                    while (sVoice.State.BuffersQueued > 1) //Keep this set as 1 or prepare for clicking
+                        Thread.Sleep(1);
+                    sVoice.SubmitSourceBuffer(audioBuffer);
                 }
-                cpu.APU.volume = volume;
-                audioBuffer.AudioData.SetLength(0);
-                audioBuffer.AudioData.Write(cpu.APU.outBytes, 0, cpu.APU.outputPtr * 4);
-                audioBuffer.AudioData.Position = 0;
-                audioBuffer.AudioBytes = cpu.APU.outputPtr * 4;
-                audioBuffer.Flags = BufferFlags.None;
-                while (sVoice.State.BuffersQueued > 1) //Keep this set as 1 or prepare for clicking
-                    Thread.Sleep(1);
-                sVoice.SubmitSourceBuffer(audioBuffer);
+                cpu.APU.ResetBuffer();
+                levels = cpu.APU.levels;
+                cpu.APU.levels = new SoundLevels();
             }
-            cpu.APU.ResetBuffer();
-            levels = cpu.APU.levels;
-            cpu.APU.levels = new SoundLevels();
             if (this.generatePatternTables && this.frame % this.patternTableUpdate == 0)
             {
                 this.patternTablePreview.UpdatePatternTables(cpu.patternTables, cpu.patternTablesPalette);
@@ -930,6 +938,7 @@ namespace DirectXEmu
                     }
                 }
                 frameBuffer.UnlockBits(frameBMD);
+                //frameBuffer.Save(,ImageCodecInfo.GetImageEncoders()[1]..
                 //frameBuffer.SetPixel(curPoint.X, curPoint.Y, Color.Magenta);
                 /*if (zapStatLight)
                     frameBuffer.SetPixel(2, 2, Color.Orange);
@@ -937,6 +946,16 @@ namespace DirectXEmu
                     frameBuffer.SetPixel(4, 4, Color.Teal);
                 frameBuffer.Save(frame.ToString() + ".png", ImageFormat.Png);*/
             }
+        }
+        uint CRC;
+        public uint GetScreenCRC(byte[][] scanlines)
+        {
+            uint crc = 0xFFFFFFFF;
+            for (int y = 0; y < 240; y++)
+                for (int x = 0; x < 256; x++)
+                    crc = CRC32.crc32_adjust(crc, scanlines[y][x]);
+            crc ^= 0xFFFFFFFF;
+            return crc;
         }
         private Point LocateMouse()
         {
@@ -1065,7 +1084,16 @@ namespace DirectXEmu
                 if (this.messageDuration > 0)
                     DrawString(this.message, 4, 4);
                 if (this.showFPS)
-                    DrawString(lastFrameRate.ToString(), this.surfaceControl.Width - ((charSize*lastFrameRate.ToString().Length)+4), 4);
+                    DrawString(lastFrameRate.ToString(), this.surfaceControl.Width - ((charSize * lastFrameRate.ToString().Length) + 4), 4);
+                if (config["showDebug"] == "1")
+                {
+                    DrawString(frame.ToString(), this.surfaceControl.Width - ((charSize * frame.ToString().Length) + 4), 24);
+                    if (cpu != null)
+                    {
+                        CRC = GetScreenCRC(cpu.scanlines);
+                        DrawString(CRC.ToString("X8"), this.surfaceControl.Width - ((charSize * CRC.ToString("X8").Length) + 4), 44);
+                    }
+                }
                 if(this.showInput)
                 {
                     string inputString = "";
@@ -1379,75 +1407,32 @@ namespace DirectXEmu
             FCEXU.StartInfo.Arguments = "\"" + this.romPath + "\"";
             FCEXU.Start();
         }
-        private void Fm2Reader()
+        private bool Fm2Reader()
         {
             String line = " ";
             while (line[0] != '|')
+            {
                 line = fm2File.ReadLine();
-            if (line[3] != '.')
-                this.player1.right = true;
-            else
-                this.player1.right = false;
-            if (line[4] != '.')
-                this.player1.left = true;
-            else
-                this.player1.left = false;
-            if (line[5] != '.')
-                this.player1.down = true;
-            else
-                this.player1.down = false;
-            if (line[6] != '.')
-                this.player1.up = true;
-            else
-                this.player1.up = false;
-            if (line[7] != '.')
-                this.player1.start = true;
-            else
-                this.player1.start = false;
-            if (line[8] != '.')
-                this.player1.select = true;
-            else
-                this.player1.select = false;
-            if (line[9] != '.')
-                this.player1.b = true;
-            else
-                this.player1.b = false;
-            if (line[10] != '.')
-                this.player1.a = true;
-            else
-                this.player1.a = false;
-            if (line[12] != '.')
-                this.player2.right = true;
-            else
-                this.player2.right = false;
-            if (line[13] != '.')
-                this.player2.left = true;
-            else
-                this.player2.left = false;
-            if (line[14] != '.')
-                this.player2.down = true;
-            else
-                this.player2.down = false;
-            if (line[15] != '.')
-                this.player2.up = true;
-            else
-                this.player2.up = false;
-            if (line[16] != '.')
-                this.player2.start = true;
-            else
-                this.player2.start = false;
-            if (line[17] != '.')
-                this.player2.select = true;
-            else
-                this.player2.select = false;
-            if (line[18] != '.')
-                this.player2.b = true;
-            else
-                this.player2.b = false;
-            if (line[19] != '.')
-                this.player2.a = true;
-            else
-                this.player2.a = false;
+                if (fm2File.EndOfStream)
+                    return fm2File.EndOfStream;
+            }
+            player1.right = line[3] != '.';
+            player1.left = line[4] != '.';
+            player1.down = line[5] != '.';
+            player1.up = line[6] != '.';
+            player1.start = line[7] != '.';
+            player1.select = line[8] != '.';
+            player1.b = line[9] != '.';
+            player1.a = line[10] != '.';
+            player2.right = line[12] != '.';
+            player2.left = line[13] != '.';
+            player2.down = line[14] != '.';
+            player2.up = line[15] != '.';
+            player2.start = line[16] != '.';
+            player2.select = line[17] != '.';
+            player2.b = line[18] != '.';
+            player2.a = line[19] != '.';
+            return fm2File.EndOfStream;
 
         }
 
@@ -2325,6 +2310,7 @@ namespace DirectXEmu
             //filter.OneOverQ = 1.0f;
             //sVoice.FilterParameters = filter;
             sVoice.Start();
+            this.frame = 0;
             this.cpu.logging = logState;
             this.cpu.displayBG = (config["displayBG"] == "1");
             this.cpu.displaySprites = (config["displaySprites"] == "1");
