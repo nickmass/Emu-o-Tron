@@ -113,6 +113,7 @@
     <Compile Include="mappers\m003.cs" />
     <Compile Include="mappers\m004.cs" />
     <Compile Include="mappers\m007.cs" />
+    <Compile Include="mappers\m009.cs" />
     <Compile Include="mappers\m011.cs" />
     <Compile Include="mappers\m034.cs" />
     <Compile Include="mappers\m070.cs" />
@@ -148,6 +149,7 @@
     <Compile Include="Keybinds.cs" />
     <Content Include="OldCPU.cs" />
     <Compile Include="OpInfo.cs" />
+    <Compile Include="PPU.cs" />
     <Compile Include="SoundConfig.cs">
       <SubType>Form</SubType>
     </Compile>

@@ -143,27 +143,45 @@ namespace DirectXEmu
                 pulseTable[i] = ((95.52f / (8128.0f / i + 100f)));
             for (int i = 0; i < 204; i++)
                 tndTable[i] = ((163.67f / (24329.0f / i + 100f)));
+             Write(00, 0x4000); //Start-up values
+             Write(00, 0x4001);
+             Write(00, 0x4002);
+             Write(00, 0x4003);
+             Write(00, 0x4004);
+             Write(00, 0x4005);
+             Write(00, 0x4006);
+             Write(00, 0x4007);
+             Write(00, 0x4008);
+             Write(00, 0x4009);
+             Write(00, 0x400A);
+             Write(00, 0x400B);
+             Write(00, 0x400C);
+             Write(00, 0x400D);
+             Write(00, 0x400E);
+             Write(00, 0x400F);
+             Write(00, 0x4015);
+             Write(00, 0x4017);
         }
         public byte Read(byte value, ushort address)
         {
             byte nextByte = value;
             if (address == 0x4015)//Length Counter enable and status
             {
-                value = 0;
+                nextByte = 0;
                 if (pulse1LengthCounter != 0)
-                    value |= 0x1;
+                    nextByte |= 0x1;
                 if (pulse2LengthCounter != 0)
-                    value |= 0x2;
+                    nextByte |= 0x2;
                 if (triangleLengthCounter != 0)
-                    value |= 0x4;
+                    nextByte |= 0x4;
                 if (noiseLengthCounter != 0)
-                    value |= 0x8;
+                    nextByte |= 0x8;
                 if (dmcBytesRemaining != 0)
-                    value |= 0x10;
+                    nextByte |= 0x10;
                 if (frameIRQ)
-                    value |= 0x40;
+                    nextByte |= 0x40;
                 if (dmcInterrupt)
-                    value |= 0x80;
+                    nextByte |= 0x80;
                 frameIRQ = false;
             }
             return nextByte;

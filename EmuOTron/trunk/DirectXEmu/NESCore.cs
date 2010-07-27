@@ -49,7 +49,6 @@ namespace DirectXEmu
 
         public MemoryStore PPUMemory;
         public ushort[] PPUMirrorMap = new ushort[0x8000];
-        private bool[] PPUReadOnly = new bool[0x8000];
         private byte[] SPRMemory = new byte[0x100];
         private byte[] PalMemory = new byte[0x20];
 
@@ -86,7 +85,7 @@ namespace DirectXEmu
         public byte[][] patternTablesPalette;
         public byte[][,] patternTables;
 
-        private bool spriteZeroHit = false;
+        public bool spriteZeroHit = false;
         private bool spriteOverflow = false;
 
         private int[] flip = new int[8];
@@ -1118,6 +1117,9 @@ namespace DirectXEmu
                 case 7: //AOROM
                     romMapper = new mappers.m007(Memory, PPUMemory, numprgrom, numvrom);
                     break;
+                case 9: //MMC2
+                    romMapper = new mappers.m009(Memory, PPUMemory, numprgrom, numvrom);
+                    break;
                 case 11: //Color Dreams
                     romMapper = new mappers.m011(Memory, PPUMemory, numprgrom, numvrom);
                     break;
@@ -1500,6 +1502,10 @@ namespace DirectXEmu
             line.AppendFormat(" S:{0} CYC:{1} SL:{2}", RegS.ToString("X2"), (counter * 3).ToString().PadLeft(3), scanline.ToString().PadLeft(3));
             return line.ToString();
         }
+        public void AddCycles(int value)
+        {
+            counter += value;
+        }
         private void Write(int address, int value)
         {
             romMapper.MapperWrite(MirrorMap[address], (byte)value);
@@ -1527,7 +1533,8 @@ namespace DirectXEmu
             }
             else if (this.MirrorMap[address] == 0x2000)
             {
-                loopyT = (ushort)((loopyT & 0x0C00) | (value << 10));
+                loopyT = (ushort)((loopyT & 0xF3FF) | ((value & 3) << 10));
+                //loopyT = (ushort)((loopyT & 0x0C00) | (value << 10));
                 this.nameTableOffset = value & 0x03;
             }
             else if (this.MirrorMap[address] == 0x2005) //PPUScroll
@@ -1585,7 +1592,7 @@ namespace DirectXEmu
                     this.PPUAddr += 32;*/
                 if ((loopyV & 0x3F00) == 0x3F00)
                     PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] = (byte)(value & 0x3F);
-                else if (!this.PPUReadOnly[this.PPUMirrorMap[loopyV & 0x3FFF]])
+                else
                     this.PPUMemory[this.PPUMirrorMap[loopyV & 0x3FFF]] = (byte)value;
                 loopyV = (ushort)((loopyV + ((this.Memory[0x2000] & 0x04) != 0 ? 0x20 : 0x01)) & 0x7FFF);
             }
@@ -1678,130 +1685,6 @@ namespace DirectXEmu
                 if((squareSprites && (yPos <= scanline && yPos + 8 > scanline)) || (!squareSprites &&  (yPos <= scanline && yPos + 16 > scanline)))
                     this.scanlines[scanline] = ProcessScanline(scanline);
             }
-        }
-        private bool SpriteZeroHit(int scanline, int counter)
-        {
-            if (spriteZeroHit)
-                return true;
-            byte PPUCTRL = this.Memory[0x2000];
-            byte PPUMASK = this.Memory[0x2001];
-            if ((PPUMASK & 0x08) != 0 && (PPUMASK & 0x10) != 0) //If rendering enabled
-            {
-                bool squareSprites = false;
-                ushort spriteTable = 0;
-                if ((PPUCTRL & 0x20) == 0)
-                {
-                    squareSprites = true;
-                    if ((PPUCTRL & 0x08) != 0)
-                        spriteTable = 0x1000;
-                }
-                byte yPos = (byte)(this.SPRMemory[0] + 1);
-                byte tileNum = this.SPRMemory[1];
-                byte attr = this.SPRMemory[2];
-                byte xPos = this.SPRMemory[3];
-                byte palette = (byte)(attr & 0x03);
-
-
-                ushort backgroundTable = 0;
-                if ((PPUCTRL & 0x10) != 0)
-                    backgroundTable = 0x1000;
-                ushort nameTableOrigin = (ushort)(((this.nameTableOffset) * 0x400) + 0x2000);
-
-                if (squareSprites)//8x8 Sprites
-                {
-                    if((yPos <= scanline && yPos + 8 > scanline) && (xPos <= counter*3))//If sprite is on this scan line and rendered by now
-                    {
-                        for (byte spritePixel = 0; spritePixel < 8 && (xPos + spritePixel <= counter * 3) && (xPos + spritePixel < 256); spritePixel++)
-                        {
-                            ushort nameTableOffset = nameTableOrigin;
-                            int pointY = yPos + scanline + vertOffset;
-                            int pointX = spritePixel + xPos + horzOffset;
-                            if (pointY >= 240) //If pixel is off the edge of origin nametable, move to next table
-                            {
-                                if (nameTableOrigin == 0x2000 || nameTableOrigin == 0x2400)
-                                    nameTableOffset += 0x800;
-                                else
-                                    nameTableOffset -= 0x800;
-                                pointY -= 240;
-                            }
-                            if (pointX >= 256)
-                            {
-                                if (nameTableOrigin == 0x2000 || nameTableOrigin == 0x2800)
-                                    nameTableOffset += 0x400;
-                                else
-                                    nameTableOffset -= 0x400;
-                                pointX -= 256;
-                            }
-                            byte bgTileNumber = this.PPUMemory[this.PPUMirrorMap[nameTableOffset + ((pointY / 8) * 32) + (pointX / 8)]];
-                            byte backColor = GetTilePixel(backgroundTable, bgTileNumber, (byte)(pointX % 8), (byte)(pointY % 8), false);
-                            if (spritePixel + xPos < 255 && xPos > 0 && scanline + yPos < 240 && backColor != 0)
-                            {
-                                int vertFlip = 0;
-                                if ((attr & 0x80) != 0)
-                                    vertFlip = this.flip[(scanline - yPos) % 8];
-                                byte color = GetTilePixel(spriteTable, tileNum, spritePixel, (byte)(scanline - yPos + vertFlip), (attr & 0x40) != 0);
-                                if (color != 0)
-                                    return true;
-                            }
-                        }
-                    }
-                }
-                else //8x16 Limit
-                {
-                    if ((yPos <= scanline && yPos + 16 > scanline) && (xPos <= counter * 3))//If sprite is on this scan line and rendered by now
-                    {
-                        if ((tileNum & 0x01) != 0)
-                            spriteTable = 0x1000;
-                        else
-                            spriteTable = 0x0;
-                        tileNum &= 0xFE;
-                        for (byte spritePixel = 0; spritePixel < 8 && xPos + spritePixel <= counter * 3 && (xPos + spritePixel < 256); spritePixel++)
-                        {
-                            ushort nameTableOffset = nameTableOrigin;
-                            int pointY = yPos + scanline + vertOffset;
-                            int pointX = spritePixel + xPos + horzOffset;
-                            if (pointY >= 240) //If pixel is off the edge of origin nametable, move to next table
-                            {
-                                if (nameTableOrigin == 0x2000 || nameTableOrigin == 0x2400)
-                                    nameTableOffset += 0x800;
-                                else
-                                    nameTableOffset -= 0x800;
-                                pointY -= 240;
-                            }
-                            if (pointX >= 256)
-                            {
-                                if (nameTableOrigin == 0x2000 || nameTableOrigin == 0x2800)
-                                    nameTableOffset += 0x400;
-                                else
-                                    nameTableOffset -= 0x400;
-                                pointX -= 256;
-                            }
-                            byte bgTileNumber = this.PPUMemory[this.PPUMirrorMap[nameTableOffset + ((pointY / 8) * 32) + (pointX / 8)]];
-                            byte backColor = GetTilePixel(backgroundTable, bgTileNumber, (byte)(pointX % 8), (byte)(pointY % 8), false);
-                            if (spritePixel + xPos < 255 && xPos > 0 && scanline + yPos < 240 && backColor != 0)
-                            {
-                                int vertFlip = 0;
-                                if ((attr & 0x80) != 0)
-                                    vertFlip = this.flip[(scanline - yPos) % 8];
-                                byte color;
-                                if ((attr & 0x80) != 0) //If vertical flipped
-                                    if (scanline - yPos < 8)
-                                        color = GetTilePixel(spriteTable, (byte)(tileNum + 1), spritePixel, (byte)(((scanline - yPos) % 8) + vertFlip), (attr & 0x40) != 0); //Need mod 8 here because tile can be 16 px tall
-                                    else
-                                        color = GetTilePixel(spriteTable, tileNum, spritePixel, (byte)(((scanline - yPos) % 8) + vertFlip), (attr & 0x40) != 0);
-                                else
-                                    if (scanline - yPos < 8)
-                                        color = GetTilePixel(spriteTable, tileNum, spritePixel, (byte)(((scanline - yPos) % 8)), (attr & 0x40) != 0);
-                                    else
-                                        color = GetTilePixel(spriteTable, (byte)(tileNum + 1), spritePixel, (byte)(((scanline - yPos) % 8)), (attr & 0x40) != 0);
-                                if (color != 0)
-                                    return true;
-                            }
-                        }
-                    }
-                }
-            }
-            return false;
         }
         private void CPUMirror(ushort address, ushort mirrorAddress, ushort length, int repeat)
         {

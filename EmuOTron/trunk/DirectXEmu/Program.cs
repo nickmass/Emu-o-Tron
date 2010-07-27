@@ -1299,6 +1299,15 @@ namespace DirectXEmu
                     ToggleFullScreen();
                 }
             }
+#if DEBUG
+            else if (e.KeyCode == Keys.H)
+            {
+                if (cpu != null)
+                {
+                    cpu.spriteZeroHit = !cpu.spriteZeroHit;
+                }
+            }
+#endif
             else if (e.KeyValue == 18) //This sucks dick too but I'm not sure how best to do it
             {
                 if (fullScreen)
