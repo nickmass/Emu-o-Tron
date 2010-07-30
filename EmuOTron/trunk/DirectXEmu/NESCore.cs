@@ -1681,7 +1681,7 @@ namespace DirectXEmu
                 bool squareSprites = false;
                 if ((PPUCTRL & 0x20) == 0)
                     squareSprites = true;
-                byte yPos = (byte)(this.SPRMemory[0] + 1);
+                int yPos = this.SPRMemory[0] + 1;
                 if((squareSprites && (yPos <= scanline && yPos + 8 > scanline)) || (!squareSprites &&  (yPos <= scanline && yPos + 16 > scanline)))
                     this.scanlines[scanline] = ProcessScanline(scanline);
             }
@@ -1817,7 +1817,7 @@ namespace DirectXEmu
                 }
                 for (int sprite = 0; sprite < 64; sprite++)
                 {
-                    byte yPos = (byte)(this.SPRMemory[sprite * 4] + 1);
+                    int yPos = this.SPRMemory[sprite * 4] + 1;
                     byte tileNum = this.SPRMemory[(sprite * 4) + 1];
                     byte attr = this.SPRMemory[(sprite * 4) + 2];
                     byte xPos = this.SPRMemory[(sprite * 4) + 3];
