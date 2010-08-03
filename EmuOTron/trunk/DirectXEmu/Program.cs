@@ -37,6 +37,7 @@ namespace DirectXEmu
         public bool b;
         public AutoFire aTurbo;
         public AutoFire bTurbo;
+        public Zapper zapper;
     }
     public struct Zapper
     {
@@ -72,8 +73,6 @@ namespace DirectXEmu
         Thread thread;
         Controller player1;
         Controller player2;
-        Zapper player1Zap;
-        Zapper player2Zap;
         Color[][] colorChart = new Color[0x8][];
         public int frame = 0;
         public int frameSkipper = 1;
@@ -846,15 +845,15 @@ namespace DirectXEmu
                 frameBuffer.SetPixel(screenPoint.X, screenPoint.Y, Color.Magenta);
                 frameBuffer.Save(frame.ToString() + ".png", ImageFormat.Png);
             }*/
-            if (player2Zap.connected)
+            if (player2.zapper.connected)
             {
                 Point curPoint = LocateMouse();
-                player2Zap.triggerPulled = dMouse.GetCurrentState().IsPressed(0) && (curPoint.X != 0 || curPoint.Y != 0);
-                player2Zap.lightDetected = colorChart[0][cpu.scanlines[curPoint.Y][curPoint.X]].GetBrightness() >= 0.95;
-                zapStatLight = player2Zap.lightDetected;
-                zapStatTrig = player2Zap.triggerPulled;
+                player2.zapper.triggerPulled = dMouse.GetCurrentState().IsPressed(0) && (curPoint.X != 0 || curPoint.Y != 0);
+                player2.zapper.lightDetected = colorChart[0][cpu.scanlines[curPoint.Y][curPoint.X]].GetBrightness() >= 0.95;
+                zapStatLight = player2.zapper.lightDetected;
+                zapStatTrig = player2.zapper.triggerPulled;
             }
-            cpu.Start(player1, player2, player1Zap, player2Zap, (this.frame % this.frameSkipper != 0));
+            cpu.Start(player1, player2, (this.frame % this.frameSkipper != 0));
 
             if(memoryViewerMem == 1)
                 memoryViewer.updateMemory(cpu.Memory, cpu.MirrorMap);
@@ -2320,6 +2319,7 @@ namespace DirectXEmu
             //sVoice.FilterParameters = filter;
             sVoice.Start();
             this.frame = 0;
+            this.saveBufferAvaliable = 0;
             this.cpu.logging = logState;
             this.cpu.displayBG = (config["displayBG"] == "1");
             this.cpu.displaySprites = (config["displaySprites"] == "1");

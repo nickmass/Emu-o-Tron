@@ -1,4 +1,5 @@
-﻿//#define LogOpcodeStats
+﻿
+//#define nestest
 
 using System;
 using System.Collections;
@@ -25,7 +26,7 @@ namespace DirectXEmu
         private int FlagCarry = 0; //Bit 0 of P
         private int FlagZero = 1; //backwards
         private int FlagIRQ = 1;
-        private int FlagDecimal = 1;
+        private int FlagDecimal = 0;
         private int FlagBreak = 1;
         private int FlagNotUsed= 1;
         private int FlagOverflow = 0;
@@ -40,7 +41,7 @@ namespace DirectXEmu
         private bool interruptNMI = false;
         private bool interruptBRK = false;
 
-        private int[] scanlineLengths = { 113, 113, 114 };
+        private int[] scanlineLengths = { 114, 114, 113 };
         private byte slCounter = 0;
         private int scanline = 241;
         private int vblank = 1;
@@ -62,11 +63,13 @@ namespace DirectXEmu
         public StringBuilder romInfo = new StringBuilder();
 
         private Controller player1;
-        private int player1Read = 0;
         private Controller player2;
-        private int player2Read = 0;
-        private Zapper player1Zap;
-        private Zapper player2Zap;
+        private Controller player3;
+        private Controller player4;
+        private int controlReg1;
+        private int controlReg2;
+        private bool controlReady;
+        public bool fourScore = true;
 
         public GameGenie[] gameGenieCodes = new GameGenie[0xFF];
         public int gameGenieCodeNum = 0;
@@ -110,16 +113,11 @@ namespace DirectXEmu
         private bool turbo = false;
         private OpInfo OpCodes = new OpInfo();
         public APU APU;
-#if LogOpcodeStats
-        private byte[] opcodeUsage = new byte[50000000];
-        private int op = 0;
-#endif
-        public void Start(Controller player1, Controller player2, Zapper player1Zap, Zapper player2Zap, bool turbo)
+
+        public void Start(Controller player1, Controller player2, bool turbo)
         {
             this.player1 = player1;
             this.player2 = player2;
-            this.player1Zap = player1Zap;
-            this.player2Zap = player2Zap;
             this.turbo = turbo;
             this.Start();
         }
@@ -799,6 +797,9 @@ namespace DirectXEmu
                 #endregion
                 this.counter += opCycles;
                 APU.AddCycles(opCycles);
+                if (romMapper.mapper == 69)
+                    romMapper.MapperIRQ(opCycles, 0);
+#if !nestest
                 if (interruptBRK)
                 {
                     PushWordStack((RegPC + 1) & 0xFFFF);
@@ -832,6 +833,7 @@ namespace DirectXEmu
                     FlagIRQ = 1;
                     RegPC = PeekWord(0xFFFE);
                 }
+#endif
                 if (this.counter >= this.scanlineLengths[this.slCounter % 3])
                 {
                     this.counter -= this.scanlineLengths[this.slCounter % 3];
@@ -858,22 +860,20 @@ namespace DirectXEmu
                         this.patternTablesPalette = this.GeneratePatternTablePalette();
                         this.patternTables = this.GeneratePatternTables();
                     }
-
-                    if (((Memory[0x2000] & 0x18) != 0) && vblank == 0)
-                        romMapper.MapperScanline(scanline, vblank);
+                    if (romMapper.mapper == 4 && (((Memory[0x2000] & 0x18) != 0) && vblank == 0))
+                        romMapper.MapperIRQ(scanline, vblank);
 
                     this.scanline++;
-                    if (this.scanline >= 240)
+                    if (this.scanline > 240)
                     {
-                        if (this.scanline == 240 && this.vblank == 0)
+                        if (vblank == 0)
                         {
-                            //this.PPUAddrFlip = false;
                             this.Memory[0x2002] |= 0x80;
                             if ((this.Memory[0x2000] & 0x80) != 0)
                                 this.interruptNMI = true;
                         }
-                        this.vblank++;
-                        if (this.vblank > 20)
+                        vblank++;
+                        if (vblank > 20)
                         {
                             this.spriteZeroHit = false;
                             this.spriteOverflow = false;
@@ -1126,6 +1126,9 @@ namespace DirectXEmu
                 case 34: //BNROM and NINA-001
                     romMapper = new mappers.m034(Memory, PPUMemory, numprgrom, numvrom);
                     break;
+                case 69: //Sunsoft5
+                    romMapper = new mappers.m069(Memory, PPUMemory, numprgrom, numvrom);
+                    break;
                 case 70: //Bandai
                     romMapper = new mappers.m070(Memory, PPUMemory, numprgrom, numvrom);
                     break;
@@ -1154,6 +1157,9 @@ namespace DirectXEmu
             this.CPUMirror(0x0000, 0x0800, 0x0800, 3);
             this.CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
             RegPC = PeekWord(0xFFFC);//entry point
+#if nestest
+            RegPC = 0xC000;
+#endif
             for(int i = 0; i < 0x20; i++)
                 this.PalMemory[i] = 0x0F; //Sets the background to black on startup to prevent grey flashes, not exactly accurate but it looks nicer
         }
@@ -1239,117 +1245,33 @@ namespace DirectXEmu
             else if (this.MirrorMap[address] == 0x4016) //Player1 Controller
             {
                 nextByte = 0;
-                if (player1Zap.connected)
+                if (player1.zapper.connected)
                 {
-                    if (player1Zap.triggerPulled)
+                    if (player1.zapper.triggerPulled)
                         nextByte |= 0x10;
-                    if (!player1Zap.lightDetected)
+                    if (!player1.zapper.lightDetected)
                         nextByte |= 0x08;
                 }
-                switch (this.player1Read)
+                if (controlReady)
                 {
-                    case 2:
-                        if (this.player1.a)
-                            nextByte |= 0x01;
-                        this.player1Read++;
-                        break;
-                    case 3:
-                        if (this.player1.b)
-                            nextByte |= 0x01;
-                        this.player1Read++;
-                        break;
-                    case 4:
-                        if (this.player1.select)
-                            nextByte |= 0x01;
-                        this.player1Read++;
-                        break;
-                    case 5:
-                        if (this.player1.start)
-                            nextByte |= 0x01;
-                        this.player1Read++;
-                        break;
-                    case 6:
-                        if (this.player1.up)
-                            nextByte |= 0x01;
-                        this.player1Read++;
-                        break;
-                    case 7:
-                        if (this.player1.down)
-                            nextByte |= 0x01;
-                        this.player1Read++;
-                        break;
-                    case 8:
-                        if (this.player1.left)
-                            nextByte |= 0x01;
-                        this.player1Read++;
-                        break;
-                    case 9:
-                        if (this.player1.right)
-                            nextByte |= 0x01;
-                        this.player1Read++;
-                        break;
-                    default:
-                        nextByte |= 0x01;
-                        break;
-
-
+                    nextByte |= (byte)(controlReg1 & 1);
+                    controlReg1 >>= 1;
                 }
             }
             else if (this.MirrorMap[address] == 0x4017) //Player2 Controller
             {
                 nextByte = 0;
-                if (player2Zap.connected)
+                if (player2.zapper.connected)
                 {
-                    if (player2Zap.triggerPulled)
+                    if (player2.zapper.triggerPulled)
                         nextByte |= 0x10;
-                    if (!player2Zap.lightDetected)
+                    if (!player2.zapper.lightDetected)
                         nextByte |= 0x08;
                 }
-                switch (this.player2Read)
+                if (controlReady)
                 {
-                    case 2:
-                        if (this.player2.a)
-                            nextByte |= 0x01;
-                        this.player2Read++;
-                        break;
-                    case 3:
-                        if (this.player2.b)
-                            nextByte |= 0x01;
-                        this.player2Read++;
-                        break;
-                    case 4:
-                        if (this.player2.select)
-                            nextByte |= 0x01;
-                        this.player2Read++;
-                        break;
-                    case 5:
-                        if (this.player2.start)
-                            nextByte |= 0x01;
-                        this.player2Read++;
-                        break;
-                    case 6:
-                        if (this.player2.up)
-                            nextByte |= 0x01;
-                        this.player2Read++;
-                        break;
-                    case 7:
-                        if (this.player2.down)
-                            nextByte |= 0x01;
-                        this.player2Read++;
-                        break;
-                    case 8:
-                        if (this.player2.left)
-                            nextByte |= 0x01;
-                        this.player2Read++;
-                        break;
-                    case 9:
-                        if (this.player2.right)
-                            nextByte |= 0x01;
-                        this.player2Read++;
-                        break;
-                    default:
-                        nextByte |= 0x01;
-                        break;
+                    nextByte |= (byte)(controlReg2 & 1);
+                    controlReg2 >>= 1;
                 }
             }
             nextByte = APU.Read(nextByte, this.MirrorMap[address]);
@@ -1509,11 +1431,6 @@ namespace DirectXEmu
         private void Write(int address, int value)
         {
             romMapper.MapperWrite(MirrorMap[address], (byte)value);
-            /*if (this.MirrorMap[address] == 0x2001) //Everynes doc says sprite memory is destroyed when rendering is disabled, didn't appear to increase accuracy, but only caused lad amount of blinking.
-            {
-                if((value & 0x18) == 0)
-                    this.SPRMemory = new byte[0x100];
-            }*/
             if (this.MirrorMap[address] == 0x4014) //Sprite DMA
             {
                 ushort startAddress = (ushort)(value << 8);
@@ -1573,8 +1490,8 @@ namespace DirectXEmu
                     this.vertOffset = (this.vertOffset & 0x3F) | ((value & 3) << 6);
                     int oldA12 = ((loopyT >> 12) & 1);
                     loopyT = (ushort)((loopyT & 0x00FF) | ((value & 0x3F) << 8));
-                    if (oldA12 == 0 && oldA12 != ((loopyT >> 12) & 1))
-                        romMapper.MapperScanline(scanline, vblank);
+                    if (romMapper.mapper == 4 && (oldA12 == 0 && oldA12 != ((loopyT >> 12) & 1)))
+                        romMapper.MapperIRQ(scanline, vblank);
                 }
                 this.PPUAddrFlip = !this.PPUAddrFlip;
             }
@@ -1598,20 +1515,99 @@ namespace DirectXEmu
             }
             else if (this.MirrorMap[address] == 0x4016)
             {
-                if ((value & 0x01) != 0)
+                if ((value & 0x01) == 1)
                 {
-                    this.player1Read = 1;
-                    this.player2Read = 1;
+                    controlReg1 = 0;
+                    if (fourScore)
+                    {
+                        controlReg1 |= 1;
+                        controlReg1 <<= 1;
+                        controlReg1 |= 0;
+                        controlReg1 <<= 1;
+                        controlReg1 |= 0;
+                        controlReg1 <<= 1;
+                        controlReg1 |= 0;
+                        controlReg1 <<= 1;
+                        controlReg1 |= player3.right ? 1 : 0;
+                        controlReg1 <<= 1;
+                        controlReg1 |= player3.left ? 1 : 0;
+                        controlReg1 <<= 1;
+                        controlReg1 |= player3.down ? 1 : 0;
+                        controlReg1 <<= 1;
+                        controlReg1 |= player3.up ? 1 : 0;
+                        controlReg1 <<= 1;
+                        controlReg1 |= player3.start ? 1 : 0;
+                        controlReg1 <<= 1;
+                        controlReg1 |= player3.select ? 1 : 0;
+                        controlReg1 <<= 1;
+                        controlReg1 |= player3.b ? 1 : 0;
+                        controlReg1 <<= 1;
+                        controlReg1 |= player3.a ? 1 : 0;
+                        controlReg1 <<= 1;
+                    }
+                    controlReg1 |= player1.right ? 1 : 0;
+                    controlReg1 <<= 1;
+                    controlReg1 |= player1.left ? 1 : 0;
+                    controlReg1 <<= 1;
+                    controlReg1 |= player1.down ? 1 : 0;
+                    controlReg1 <<= 1;
+                    controlReg1 |= player1.up ? 1 : 0;
+                    controlReg1 <<= 1;
+                    controlReg1 |= player1.start ? 1 : 0;
+                    controlReg1 <<= 1;
+                    controlReg1 |= player1.select ? 1 : 0;
+                    controlReg1 <<= 1;
+                    controlReg1 |= player1.b ? 1 : 0;
+                    controlReg1 <<= 1;
+                    controlReg1 |= player1.a ? 1 : 0;
+
+                    controlReg2 = 0;
+                    if(fourScore)
+                    {
+                        controlReg2 |= 1;
+                        controlReg2 <<= 1;
+                        controlReg2 |= 0;
+                        controlReg2 <<= 1;
+                        controlReg2 |= 0;
+                        controlReg2 <<= 1;
+                        controlReg2 |= player4.right ? 1 : 0;
+                        controlReg2 <<= 1;
+                        controlReg2 |= player4.left ? 1 : 0;
+                        controlReg2 <<= 1;
+                        controlReg2 |= player4.down ? 1 : 0;
+                        controlReg2 <<= 1;
+                        controlReg2 |= player4.up ? 1 : 0;
+                        controlReg2 <<= 1;
+                        controlReg2 |= player4.start ? 1 : 0;
+                        controlReg2 <<= 1;
+                        controlReg2 |= player4.select ? 1 : 0;
+                        controlReg2 <<= 1;
+                        controlReg2 |= player4.b ? 1 : 0;
+                        controlReg2 <<= 1;
+                        controlReg2 |= player4.a ? 1 : 0;
+                        controlReg2 <<= 1;
+                    }
+                    controlReg2 |= player2.right ? 1 : 0;
+                    controlReg2 <<= 1;
+                    controlReg2 |= player2.left ? 1 : 0;
+                    controlReg2 <<= 1;
+                    controlReg2 |= player2.down ? 1 : 0;
+                    controlReg2 <<= 1;
+                    controlReg2 |= player2.up ? 1 : 0;
+                    controlReg2 <<= 1;
+                    controlReg2 |= player2.start ? 1 : 0;
+                    controlReg2 <<= 1;
+                    controlReg2 |= player2.select ? 1 : 0;
+                    controlReg2 <<= 1;
+                    controlReg2 |= player2.b ? 1 : 0;
+                    controlReg2 <<= 1;
+                    controlReg2 |= player2.a ? 1 : 0;
+
+                    controlReady = false;
                 }
-                if (this.player1Read == 1)
+                else
                 {
-                    if ((value & 0x01) == 0)
-                        this.player1Read = 2;
-                }
-                if (this.player2Read == 1)
-                {
-                    if ((value & 0x01) == 0)
-                        this.player2Read = 2;
+                    controlReady = true;
                 }
             }
             
@@ -2073,8 +2069,8 @@ namespace DirectXEmu
             newState.loopyT = this.loopyT;
             newState.loopyV = this.loopyV;
             newState.loopyX = this.loopyX;
-            newState.player1Read = this.player1Read;
-            newState.player2Read = this.player2Read;
+            newState.player1Read = 0;
+            newState.player2Read = 0;
             newState.PPUAddrFlip = this.PPUAddrFlip;
             newState.readBuffer = this.readBuffer;
             newState.spriteZeroHit = this.spriteZeroHit;
@@ -2111,8 +2107,8 @@ namespace DirectXEmu
             this.loopyT = oldState.loopyT;
             this.loopyV = oldState.loopyV;
             this.loopyX = oldState.loopyX;
-            this.player1Read = oldState.player1Read;
-            this.player2Read = oldState.player2Read;
+            //this.player1Read = oldState.player1Read;
+            //this.player2Read = oldState.player2Read;
             this.PPUAddrFlip = oldState.PPUAddrFlip;
             this.readBuffer = oldState.readBuffer;
             this.spriteZeroHit = oldState.spriteZeroHit;

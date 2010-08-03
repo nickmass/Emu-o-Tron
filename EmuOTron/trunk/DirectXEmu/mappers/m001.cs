@@ -148,7 +148,7 @@ namespace DirectXEmu.mappers
             ChrRegZeroChange();
             ChrRegOneChange();
         }
-        public override void MapperScanline(int scanline, int vblank) { }
+        public override void MapperIRQ(int scanline, int vblank) { }
         public override void MapperStateSave(ref MemoryStream buf)
         {
             BinaryWriter writer = new BinaryWriter(buf);

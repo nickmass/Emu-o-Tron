@@ -8,6 +8,7 @@ namespace DirectXEmu.mappers
 {
     abstract class Mapper
     {
+        public int mapper;
         public int numPRGRom;
         public int numVRom;
         public bool interruptMapper;
@@ -15,7 +16,7 @@ namespace DirectXEmu.mappers
         protected MemoryStore PPUMemory;
         public abstract void MapperInit();
         public abstract void MapperWrite(ushort address, byte value);
-        public abstract void MapperScanline(int scanline, int vblank);
+        public abstract void MapperIRQ(int scanline, int vblank);
         public abstract void MapperStateSave(ref MemoryStream buf);
         public abstract void MapperStateLoad(MemoryStream buf);
     }

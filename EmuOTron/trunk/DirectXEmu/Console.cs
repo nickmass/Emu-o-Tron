@@ -222,7 +222,7 @@ namespace DirectXEmu
                     bool movieEnd = Fm2Reader(fm2, ref player1, ref player2);
                     while (!close && !movieEnd)
                     {
-                        testCore.Start(player1, player2, new Zapper(), new Zapper(), false);
+                        testCore.Start(player1, player2, false);
                         testCore.APU.ResetBuffer();
                         movieEnd = Fm2Reader(fm2, ref player1, ref player2);
                     }
@@ -232,7 +232,7 @@ namespace DirectXEmu
                 {
                     while (frame++ != test.frame && !close)
                     {
-                        testCore.Start(new Controller(), new Controller(), new Zapper(), new Zapper(), false);
+                        testCore.Start(new Controller(), new Controller(), false);
                         testCore.APU.ResetBuffer();
                     }
                 }

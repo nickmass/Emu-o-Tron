@@ -19,6 +19,7 @@ namespace DirectXEmu.mappers
             this.numVRom = numVRom;
             this.Memory = Memory;
             this.PPUMemory = PPUMemory;
+            this.mapper = 4;
         }
         public override void MapperInit()
         {
@@ -268,7 +269,7 @@ namespace DirectXEmu.mappers
                 }
             }
         }
-        public override void MapperScanline(int scanline, int vblank)
+        public override void MapperIRQ(int scanline, int vblank)
         {
             bool wasNotZero = (irqCounter != 0);
             if (irqCounter == 0 || irqReload)

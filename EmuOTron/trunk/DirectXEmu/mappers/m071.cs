@@ -35,7 +35,7 @@ namespace DirectXEmu.mappers
                     PPUMemory.ScreenTwoMirroring();
              */
         }
-        public override void MapperScanline(int scanline, int vblank) { }
+        public override void MapperIRQ(int scanline, int vblank) { }
         public override void MapperStateLoad(System.IO.MemoryStream buf) { }
         public override void MapperStateSave(ref System.IO.MemoryStream buf) { }
     }
