@@ -107,6 +107,7 @@
     </Compile>
     <Compile Include="CRC32.cs" />
     <Compile Include="Fill.cs" />
+    <Compile Include="mappers\m099.cs" />
     <Compile Include="mappers\m000.cs" />
     <Compile Include="mappers\m001.cs" />
     <Compile Include="mappers\m002.cs" />
@@ -404,6 +405,7 @@
     <None Include="palettes\Inverted.pal">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="palettes\VSMario.pal" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>

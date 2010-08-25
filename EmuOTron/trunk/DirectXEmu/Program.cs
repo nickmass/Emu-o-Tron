@@ -35,6 +35,7 @@ namespace DirectXEmu
         public bool right;
         public bool a;
         public bool b;
+        public bool coin;
         public AutoFire aTurbo;
         public AutoFire bTurbo;
         public Zapper zapper;
@@ -224,7 +225,6 @@ namespace DirectXEmu
                     else
                         this.frame--;
                     this.Render(); // Keep rendering until the program terminates
-                    UpdateFramerate();
                 }
             }
         }
@@ -265,8 +265,17 @@ namespace DirectXEmu
             FileStream palFile = File.OpenRead(this.config["palette"]);
             for (int i = 0; i < 0x08; i++)
                 this.colorChart[i] = new Color[0x100];
-            for (int i = 0; palFile.Position < palFile.Length; i++)
+            for (int i = 0; i < 64; i++)
                 this.colorChart[0][i] = Color.FromArgb(palFile.ReadByte(), palFile.ReadByte(), palFile.ReadByte());
+            if (palFile.Length > 64 * 3) //shitty hack for vs palette because im LAZY
+            {
+                Color[] vsColor = new Color[0x100];
+                for (int i = 0; palFile.Position < palFile.Length; i++)
+                {
+                    vsColor[i] = colorChart[0][palFile.ReadByte()];
+                }
+                colorChart[0] = vsColor;
+            }
             palFile.Close();
             CreateEmphasisTables();
             if (this.config["showFPS"] == "1")
@@ -722,6 +731,8 @@ namespace DirectXEmu
                     frameSkipper = maxFrameSkip;
                 else
                     frameSkipper = 1;
+                player1.coin = keyState.IsPressed(Key.F2);
+                player2.coin = keyState.IsPressed(Key.F3);
             }
             catch
             {
@@ -854,6 +865,7 @@ namespace DirectXEmu
                 zapStatTrig = player2.zapper.triggerPulled;
             }
             cpu.Start(player1, player2, (this.frame % this.frameSkipper != 0));
+            UpdateFramerate();
 
             if(memoryViewerMem == 1)
                 memoryViewer.updateMemory(cpu.Memory, cpu.MirrorMap);
@@ -1485,11 +1497,16 @@ namespace DirectXEmu
             {
                 FileStream palFile = File.OpenRead(this.openPaletteDialog.FileName);
                 this.config["palette"] = this.openPaletteDialog.FileName;
-                int i = 0;
-                while (palFile.Position < palFile.Length)
-                {
+                for (int i = 0; i < 64; i++)
                     this.colorChart[0][i] = Color.FromArgb(palFile.ReadByte(), palFile.ReadByte(), palFile.ReadByte());
-                    i++;
+                if (palFile.Length > 64 * 3) //shitty hack for vs palette because im LAZY
+                {
+                    Color[] vsColor = new Color[0x100];
+                    for (int i = 0; palFile.Position < palFile.Length; i++)
+                    {
+                        vsColor[i] = colorChart[0][palFile.ReadByte()];
+                    }
+                    colorChart[0] = vsColor;
                 }
                 palFile.Close();
                 CreateEmphasisTables();

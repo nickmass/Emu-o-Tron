@@ -98,6 +98,16 @@ namespace DirectXEmu
         public UInt32 CRC = 0xffffffff;
         public string filePath;
         public string fileName;
+        public bool VS;
+        public bool creditService;
+        public bool dip1;
+        public bool dip2;
+        public bool dip3;
+        public bool dip4;
+        public bool dip5;
+        public bool dip6;
+        public bool dip7;
+        public bool dip8;
 
         private ushort loopyT;
         private ushort loopyX;
@@ -118,6 +128,8 @@ namespace DirectXEmu
         {
             this.player1 = player1;
             this.player2 = player2;
+            player3 = player1;
+            player4 = player1;
             this.turbo = turbo;
             this.Start();
         }
@@ -143,7 +155,6 @@ namespace DirectXEmu
             {
                 if (logging)
                 {
-
                     if (logBuilder.Length > 1024 * 1024 * 100)
                         logBuilder.Remove(0, 1024 * 512 * 95);
                     logBuilder.AppendLine(LogOp(RegPC));
@@ -838,14 +849,6 @@ namespace DirectXEmu
                 {
                     this.counter -= this.scanlineLengths[this.slCounter % 3];
                     this.slCounter++;
-
-                    if (this.scanline == -1)
-                    {
-                        HorizontalReset();
-                        VerticalReset();
-                        HorizontalIncrement();
-                        HorizontalIncrement();
-                    }
                     if (this.scanline >= 0 && this.scanline < 240)
                     {
                         if (!turbo)
@@ -889,38 +892,6 @@ namespace DirectXEmu
             this.generateNameTables = false;
             this.generatePatternTables = false;
         }
-
-        /*
-        private void HorizontalIncrement()
-        {
-            loopyV = (ushort)((loopyV & 0x7FE0) | ((loopyV + 0x01) & 0x1F));
-            if ((loopyV & 0x1F) == 0)
-                loopyV ^= 0x0400;
-        }
-        private void VerticalIncrement()
-        {
-            loopyV = (ushort)((loopyV + 0x1000) & 0x7FFF);//Vert Increment
-            if ((loopyV & 0x7000) == 0)
-            {
-                loopyV = (ushort)((loopyV & 0x7C1F) | ((loopyV + 0x20) & 0x03E0));
-                if ((loopyV & 0x03E0) == 0x03C0)
-                    loopyV = (ushort)((loopyV & 0x7C1F) ^ 0x0800);
-            }
-        }
-        private void VerticalReset()
-        {
-            if((this.Memory[0x2001] & 0x18) != 0)//dummy line
-                loopyV = loopyT; //Vert reset
-        }
-        private void HorizontalReset()
-        {
-            if ((this.Memory[0x2001] & 0x18) != 0)
-                loopyV = (ushort)((loopyV & 0x7BE0) | (loopyT & 0x041F)); //Horz reset
-        }*/
-        private void HorizontalIncrement() { }
-        private void VerticalIncrement() { }
-        private void VerticalReset() { }
-        private void HorizontalReset() { }
         public NESCore(String input, String cartDBLocation)
         {
             this.cartDBLocation = cartDBLocation;
@@ -956,7 +927,7 @@ namespace DirectXEmu
             if (inputStream.ReadByte() != 0)
                 highMapper = 0;
             bool PC10 = ((highMapper & 0x02) != 0);
-            bool VS = ((highMapper & 0x01) != 0);
+            VS = ((highMapper & 0x01) != 0);
             int mapper = (lowMapper >> 4) + (highMapper & 0xF0);
             Memory = new MemoryStore(0x20 + (numprgrom * 0x10), false);
             Memory.swapOffset = 0x20;
@@ -1135,6 +1106,9 @@ namespace DirectXEmu
                 case 71: //Camerica
                     romMapper = new mappers.m071(Memory, PPUMemory, numprgrom, numvrom);
                     break;
+                case 99: //VS Unisystem
+                    romMapper = new mappers.m099(Memory, PPUMemory, numprgrom, numvrom);
+                    break;
                 default:
                     MessageBox.Show("This game will probably not load, mapper unsupported.\r\nMapper:" + mapper.ToString() + " PRG-ROM:" + numprgrom.ToString() + " CHR-ROM:" + numvrom.ToString());
                     goto case 0;
@@ -1272,6 +1246,66 @@ namespace DirectXEmu
                 {
                     nextByte |= (byte)(controlReg2 & 1);
                     controlReg2 >>= 1;
+                }
+            }
+            if (VS)
+            {
+                if (this.MirrorMap[address] == 0x4016)
+                {
+                    //nextbyte should be coming from controller reg with data in bit 1
+                    /*
+                     * Port 4016h/Read:
+                        Bit2    Credit Service Button       (0=Released, 1=Service Credit)
+                        Bit3-4  DIP Switch 1-2              (0=Off, 1=On)
+                        Bit5-6  Credit Left/Right Coin Slot (0=None, 1=Coin) (Acknowledge via 4020h)
+                     */
+                    if (creditService)
+                        nextByte |= 0x04;
+                    else
+                        nextByte &= 0xFB;
+                    if (dip1)
+                        nextByte |= 0x08;
+                    else
+                        nextByte &= 0xF7;
+                    if (dip2)
+                        nextByte |= 0x10;
+                    else
+                        nextByte &= 0xEF;
+                    if (player1.coin)
+                        nextByte |= 0x20;
+                    else
+                        nextByte &= 0xDF;
+                    if (player2.coin)
+                        nextByte |= 0x40;
+                    else
+                        nextByte &= 0xBF;
+                }
+                else if (this.MirrorMap[address] == 0x4017)
+                {
+                    if (dip3)
+                        nextByte |= 0x04;
+                    else
+                        nextByte &= 0xFB;
+                    if (dip4)
+                        nextByte |= 0x08;
+                    else
+                        nextByte &= 0xF7;
+                    if (dip5)
+                        nextByte |= 0x10;
+                    else
+                        nextByte &= 0xEF;
+                    if (dip6)
+                        nextByte |= 0x20;
+                    else
+                        nextByte &= 0xDF;
+                    if (dip7)
+                        nextByte |= 0x40;
+                    else
+                        nextByte &= 0xBF;
+                    if (dip8)
+                        nextByte |= 0x80;
+                    else
+                        nextByte &= 0x7F;
                 }
             }
             nextByte = APU.Read(nextByte, this.MirrorMap[address]);
@@ -1610,7 +1644,17 @@ namespace DirectXEmu
                     controlReady = true;
                 }
             }
-            
+            if (VS)
+            {
+                if (this.MirrorMap[address] == 0x4020)
+                {
+                    if ((value & 1) != 0)
+                    {
+                        player1.coin = false;
+                        player2.coin = false;
+                    }
+                }
+            }
             APU.Write((byte)value, this.MirrorMap[address]);
 
             if (this.MirrorMap[address] != 0x2002)
@@ -1779,14 +1823,7 @@ namespace DirectXEmu
                             scanline[column] = this.PalMemory[0x00];
 
                     }
-
-                    if (column % 8 == 0)
-                        HorizontalIncrement();
                 }
-                VerticalIncrement();
-                HorizontalReset();
-                HorizontalIncrement();
-                HorizontalIncrement();
             }
             else //If background rendering disabled still show background color
             {
@@ -2069,8 +2106,9 @@ namespace DirectXEmu
             newState.loopyT = this.loopyT;
             newState.loopyV = this.loopyV;
             newState.loopyX = this.loopyX;
-            newState.player1Read = 0;
-            newState.player2Read = 0;
+            newState.controlReg1 = this.controlReg1;
+            newState.controlReg2 = this.controlReg2;
+            newState.controlReady = this.controlReady;
             newState.PPUAddrFlip = this.PPUAddrFlip;
             newState.readBuffer = this.readBuffer;
             newState.spriteZeroHit = this.spriteZeroHit;
@@ -2107,8 +2145,9 @@ namespace DirectXEmu
             this.loopyT = oldState.loopyT;
             this.loopyV = oldState.loopyV;
             this.loopyX = oldState.loopyX;
-            //this.player1Read = oldState.player1Read;
-            //this.player2Read = oldState.player2Read;
+            this.controlReg1 = oldState.controlReg1;
+            this.controlReg2 = oldState.controlReg2;
+            this.controlReady = oldState.controlReady;
             this.PPUAddrFlip = oldState.PPUAddrFlip;
             this.readBuffer = oldState.readBuffer;
             this.spriteZeroHit = oldState.spriteZeroHit;
@@ -2175,8 +2214,9 @@ namespace DirectXEmu
         public ushort loopyV;
         public ushort loopyT;
         public ushort loopyX;
-        public int player1Read;
-        public int player2Read;
+        public int controlReg1;
+        public int controlReg2;
+        public bool controlReady;
         public bool PPUAddrFlip;
         public byte readBuffer;
         public bool spriteZeroHit;
