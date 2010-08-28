@@ -930,7 +930,9 @@ namespace DirectXEmu
             {
                 BitmapData frameBMD = frameBuffer.LockBits(new Rectangle(0, 0, frameBuffer.Width, frameBuffer.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
                 byte* framePixels = (byte*)frameBMD.Scan0;
-                byte[][] scanlines = cpu.scanlines;
+                byte[][] scanlines = cpu.PPU.screen;
+                if(!cpu.PPU.testPPU)
+                    scanlines = cpu.scanlines;
                 for (int y = 0; y < 240; y++)
                 {
                     int emphasisTable = 0;
@@ -2329,11 +2331,6 @@ namespace DirectXEmu
             audioFormat.SamplesPerSecond = this.cpu.APU.sampleRate;
             outWavFormat.SamplesPerSecond = audioFormat.SamplesPerSecond;
             sVoice = new SourceVoice(dAudio, audioFormat, VoiceFlags.None);
-            //FilterParameters filter = new FilterParameters();
-            //filter.Frequency = (float)(2 * Math.Sin(Math.PI * (15000.0) / audioFormat.SamplesPerSecond));
-            //filter.Type = FilterType.LowPassFilter;
-            //filter.OneOverQ = 1.0f;
-            //sVoice.FilterParameters = filter;
             sVoice.Start();
             this.frame = 0;
             this.saveBufferAvaliable = 0;
@@ -2349,7 +2346,28 @@ namespace DirectXEmu
             this.Text = this.cpu.fileName + " - Emu-o-Tron";
             this.state = SystemState.Playing;
             this.surfaceControl.Visible = true;
+            if (this.cpu.VS)
+            {
+                this.state = SystemState.SystemPause;
+                DipDialog DipDiag = new DipDialog();
+                DipDiag.FormClosing += new FormClosingEventHandler(DipDiag_FormClosing);
+                DipDiag.ShowDialog();
+            }
 
+        }
+
+        void DipDiag_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            this.cpu.dip1 = ((DipDialog)sender).dip1.Checked;
+            this.cpu.dip2 = ((DipDialog)sender).dip2.Checked;
+            this.cpu.dip3 = ((DipDialog)sender).dip3.Checked;
+            this.cpu.dip4 = ((DipDialog)sender).dip4.Checked;
+            this.cpu.dip5 = ((DipDialog)sender).dip5.Checked;
+            this.cpu.dip6 = ((DipDialog)sender).dip6.Checked;
+            this.cpu.dip7 = ((DipDialog)sender).dip7.Checked;
+            this.cpu.dip8 = ((DipDialog)sender).dip8.Checked;
+            this.state = SystemState.Playing;
+            
         }
         private void helpToolStripMenuItem1_Click(object sender, EventArgs e)
         {

@@ -106,6 +106,12 @@
       <DependentUpon>Console.cs</DependentUpon>
     </Compile>
     <Compile Include="CRC32.cs" />
+    <Compile Include="DipDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="DipDialog.Designer.cs">
+      <DependentUpon>DipDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Fill.cs" />
     <Compile Include="mappers\m099.cs" />
     <Compile Include="mappers\m000.cs" />
@@ -333,6 +339,9 @@
     <EmbeddedResource Include="Console.resx">
       <DependentUpon>Console.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="DipDialog.resx">
+      <DependentUpon>DipDialog.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="GameGenieWindow.resx">
       <DependentUpon>GameGenieWindow.cs</DependentUpon>
       <SubType>Designer</SubType>
@@ -405,7 +414,9 @@
     <None Include="palettes\Inverted.pal">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="palettes\VSMario.pal" />
+    <None Include="palettes\VSMario.pal">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>

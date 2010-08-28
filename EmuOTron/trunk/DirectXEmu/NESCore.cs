@@ -123,6 +123,7 @@ namespace DirectXEmu
         private bool turbo = false;
         private OpInfo OpCodes = new OpInfo();
         public APU APU;
+        public PPU PPU;
 
         public void Start(Controller player1, Controller player2, bool turbo)
         {
@@ -808,6 +809,7 @@ namespace DirectXEmu
                 #endregion
                 this.counter += opCycles;
                 APU.AddCycles(opCycles);
+                PPU.AddCycles(opCycles);
                 if (romMapper.mapper == 69)
                     romMapper.MapperIRQ(opCycles, 0);
 #if !nestest
@@ -937,6 +939,7 @@ namespace DirectXEmu
                 PPUMemory = new MemoryStore(0x20 + (4 * 0x08), false);
             PPUMemory.swapOffset = 0x20;
             APU = new APU(Memory);
+            PPU = new PPU(this, numvrom);
             romInfo.AppendLine(input);
             romInfo.AppendLine();
             romInfo.AppendLine("Mapper: " + mapper);
@@ -966,6 +969,7 @@ namespace DirectXEmu
             {
                 byte nextByte = (byte)inputStream.ReadByte();
                 PPUMemory.banks[(i / 0x400) + PPUMemory.swapOffset][i % 0x400] = nextByte;
+                PPU.PPUMemory.banks[(i / 0x400) + PPU.PPUMemory.swapOffset][i % 0x400] = nextByte;
                 CRC = CRC32.crc32_adjust(CRC, nextByte);
             }
             CRC = CRC ^ 0xFFFFFFFF;
@@ -994,11 +998,19 @@ namespace DirectXEmu
             {
                 PPUMemory.FourScreenMirroring();
                 PPUMemory.hardwired = true;
+                PPU.PPUMemory.FourScreenMirroring();
+                PPU.PPUMemory.hardwired = true;
             }
             else if (vertMirroring)
+            {
                 PPUMemory.VerticalMirroring();
+                PPU.PPUMemory.VerticalMirroring();
+            }
             else
+            {
                 PPUMemory.HorizontalMirroring();
+                PPU.PPUMemory.HorizontalMirroring();
+            }
             if (File.Exists(Path.Combine(cartDBLocation, "NesCarts.xml")))
             {
                 string gameName = "";
@@ -1136,6 +1148,9 @@ namespace DirectXEmu
 #endif
             for(int i = 0; i < 0x20; i++)
                 this.PalMemory[i] = 0x0F; //Sets the background to black on startup to prevent grey flashes, not exactly accurate but it looks nicer
+
+            PPU.PPUMemory = PPUMemory;
+            PPU.PalMemory = PalMemory;
         }
         private byte Read(int address)
         {
@@ -1309,6 +1324,7 @@ namespace DirectXEmu
                 }
             }
             nextByte = APU.Read(nextByte, this.MirrorMap[address]);
+            PPU.Read(nextByte, this.MirrorMap[address]);
             return nextByte;
         }
         private int ReadWord(int address)
@@ -1656,7 +1672,7 @@ namespace DirectXEmu
                 }
             }
             APU.Write((byte)value, this.MirrorMap[address]);
-
+            PPU.Write((byte)value, this.MirrorMap[address]);
             if (this.MirrorMap[address] != 0x2002)
                 this.Memory[this.MirrorMap[address]] = (byte)value;
             ApplyGameGenie();
