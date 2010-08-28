@@ -1,0 +1,476 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>9.0.30729</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{B8438570-8A85-4838-B9CB-1AD528AF46F6}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>DirectXEmu</RootNamespace>
+    <AssemblyName>Emu-o-Tron</AssemblyName>
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <ApplicationIcon>nickmass_vista.ico</ApplicationIcon>
+    <NoWin32Manifest>true</NoWin32Manifest>
+    <FileUpgradeFlags>
+    </FileUpgradeFlags>
+    <UpgradeBackupLocation>
+    </UpgradeBackupLocation>
+    <OldToolsVersion>3.5</OldToolsVersion>
+    <PublishUrl>publish\</PublishUrl>
+    <Install>true</Install>
+    <InstallFrom>Disk</InstallFrom>
+    <UpdateEnabled>false</UpdateEnabled>
+    <UpdateMode>Foreground</UpdateMode>
+    <UpdateInterval>7</UpdateInterval>
+    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
+    <UpdatePeriodically>false</UpdatePeriodically>
+    <UpdateRequired>false</UpdateRequired>
+    <MapFileExtensions>true</MapFileExtensions>
+    <ApplicationRevision>0</ApplicationRevision>
+    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
+    <UseApplicationTrust>false</UseApplicationTrust>
+    <BootstrapperEnabled>true</BootstrapperEnabled>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x86\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Optimize>true</Optimize>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <UseVSHostingProcess>true</UseVSHostingProcess>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <OutputPath>bin\x86\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="SlimDX, Version=2.0.8.42, Culture=neutral, PublicKeyToken=b1b0c32fd1ffe4f9, processorArchitecture=x86">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\SlimDX SDK (August 2009)\Bin\x86\SlimDX.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.Xml.Linq">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.Data.DataSetExtensions">
+      <RequiredTargetFramework>3.5</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="System.Data" />
+    <Reference Include="System.Deployment" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="APU.cs" />
+    <Compile Include="Console.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Console.Designer.cs">
+      <DependentUpon>Console.cs</DependentUpon>
+    </Compile>
+    <Compile Include="CRC32.cs" />
+    <Compile Include="DipDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="DipDialog.Designer.cs">
+      <DependentUpon>DipDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Fill.cs" />
+    <Compile Include="mappers\m099.cs" />
+    <Compile Include="mappers\m000.cs" />
+    <Compile Include="mappers\m001.cs" />
+    <Compile Include="mappers\m002.cs" />
+    <Compile Include="mappers\m003.cs" />
+    <Compile Include="mappers\m004.cs" />
+    <Compile Include="mappers\m007.cs" />
+    <Compile Include="mappers\m009.cs" />
+    <Compile Include="mappers\m011.cs" />
+    <Compile Include="mappers\m034.cs" />
+    <Compile Include="mappers\m069.cs" />
+    <Compile Include="mappers\m070.cs" />
+    <Compile Include="mappers\m071.cs" />
+    <Compile Include="mappers\Mapper.cs" />
+    <Compile Include="MemoryStore.cs" />
+    <Compile Include="MemoryViewer.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MemoryViewer.Designer.cs">
+      <DependentUpon>MemoryViewer.cs</DependentUpon>
+    </Compile>
+    <Compile Include="NESCore.cs" />
+    <Compile Include="About.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="About.Designer.cs">
+      <DependentUpon>About.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ArchiveViewer.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ArchiveViewer.Designer.cs">
+      <DependentUpon>ArchiveViewer.cs</DependentUpon>
+    </Compile>
+    <Compile Include="HQ2x.cs" />
+    <Compile Include="Keybind.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Keybind.Designer.cs">
+      <DependentUpon>Keybind.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Keybinds.cs" />
+    <Content Include="OldCPU.cs" />
+    <Compile Include="OpInfo.cs" />
+    <Compile Include="PPU.cs" />
+    <Compile Include="SoundConfig.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="SoundConfig.Designer.cs">
+      <DependentUpon>SoundConfig.cs</DependentUpon>
+    </Compile>
+    <Compile Include="VerticalProgressBar.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Content Include="docs\2C02 technical reference.TXT" />
+    <Content Include="docs\everynes.htm" />
+    <Content Include="docs\loopyppu\SKINNY.TXT" />
+    <Content Include="docs\loopyppu\SKINNYNT.TXT" />
+    <Content Include="docs\mappers\000.txt" />
+    <Content Include="docs\mappers\001.txt" />
+    <Content Include="docs\mappers\002.txt" />
+    <Content Include="docs\mappers\003.txt" />
+    <Content Include="docs\mappers\004.txt" />
+    <Content Include="docs\mappers\005.txt" />
+    <Content Include="docs\mappers\007.txt" />
+    <Content Include="docs\mappers\009.txt" />
+    <Content Include="docs\mappers\010.txt" />
+    <Content Include="docs\mappers\011.txt" />
+    <Content Include="docs\mappers\013.txt" />
+    <Content Include="docs\mappers\015.txt" />
+    <Content Include="docs\mappers\016.txt" />
+    <Content Include="docs\mappers\018.txt" />
+    <Content Include="docs\mappers\019.txt" />
+    <Content Include="docs\mappers\021.txt" />
+    <Content Include="docs\mappers\022.txt" />
+    <Content Include="docs\mappers\023.txt" />
+    <Content Include="docs\mappers\024.txt" />
+    <Content Include="docs\mappers\025.txt" />
+    <Content Include="docs\mappers\026.txt" />
+    <Content Include="docs\mappers\032.txt" />
+    <Content Include="docs\mappers\033.txt" />
+    <Content Include="docs\mappers\034.txt" />
+    <Content Include="docs\mappers\044.txt" />
+    <Content Include="docs\mappers\045.txt" />
+    <Content Include="docs\mappers\046.txt" />
+    <Content Include="docs\mappers\047.txt" />
+    <Content Include="docs\mappers\048.txt" />
+    <Content Include="docs\mappers\049.txt" />
+    <Content Include="docs\mappers\050.txt" />
+    <Content Include="docs\mappers\052.txt" />
+    <Content Include="docs\mappers\057.txt" />
+    <Content Include="docs\mappers\058.txt" />
+    <Content Include="docs\mappers\060.txt" />
+    <Content Include="docs\mappers\061.txt" />
+    <Content Include="docs\mappers\062.txt" />
+    <Content Include="docs\mappers\064.txt" />
+    <Content Include="docs\mappers\065.txt" />
+    <Content Include="docs\mappers\066.txt" />
+    <Content Include="docs\mappers\067.txt" />
+    <Content Include="docs\mappers\068.txt" />
+    <Content Include="docs\mappers\069.txt" />
+    <Content Include="docs\mappers\070.txt" />
+    <Content Include="docs\mappers\071.txt" />
+    <Content Include="docs\mappers\072.txt" />
+    <Content Include="docs\mappers\073.txt" />
+    <Content Include="docs\mappers\074.txt" />
+    <Content Include="docs\mappers\075.txt" />
+    <Content Include="docs\mappers\076.txt" />
+    <Content Include="docs\mappers\077.txt" />
+    <Content Include="docs\mappers\078.txt" />
+    <Content Include="docs\mappers\079.txt" />
+    <Content Include="docs\mappers\080.txt" />
+    <Content Include="docs\mappers\082.txt" />
+    <Content Include="docs\mappers\085.txt" />
+    <Content Include="docs\mappers\086.txt" />
+    <Content Include="docs\mappers\087.txt" />
+    <Content Include="docs\mappers\088.txt" />
+    <Content Include="docs\mappers\089.txt" />
+    <Content Include="docs\mappers\090.txt" />
+    <Content Include="docs\mappers\091.txt" />
+    <Content Include="docs\mappers\092.txt" />
+    <Content Include="docs\mappers\093.txt" />
+    <Content Include="docs\mappers\094.txt" />
+    <Content Include="docs\mappers\095.txt" />
+    <Content Include="docs\mappers\096.txt" />
+    <Content Include="docs\mappers\097.txt" />
+    <Content Include="docs\mappers\105.txt" />
+    <Content Include="docs\mappers\107.txt" />
+    <Content Include="docs\mappers\112.txt" />
+    <Content Include="docs\mappers\113.txt" />
+    <Content Include="docs\mappers\115.txt" />
+    <Content Include="docs\mappers\118.txt" />
+    <Content Include="docs\mappers\119.txt" />
+    <Content Include="docs\mappers\140.txt" />
+    <Content Include="docs\mappers\152.txt" />
+    <Content Include="docs\mappers\154.txt" />
+    <Content Include="docs\mappers\159.txt" />
+    <Content Include="docs\mappers\164.txt" />
+    <Content Include="docs\mappers\165.txt" />
+    <Content Include="docs\mappers\180.txt" />
+    <Content Include="docs\mappers\182.txt" />
+    <Content Include="docs\mappers\184.txt" />
+    <Content Include="docs\mappers\185.txt" />
+    <Content Include="docs\mappers\189.txt" />
+    <Content Include="docs\mappers\191.txt" />
+    <Content Include="docs\mappers\192.txt" />
+    <Content Include="docs\mappers\193.txt" />
+    <Content Include="docs\mappers\194.txt" />
+    <Content Include="docs\mappers\200.txt" />
+    <Content Include="docs\mappers\201.txt" />
+    <Content Include="docs\mappers\203.txt" />
+    <Content Include="docs\mappers\205.txt" />
+    <Content Include="docs\mappers\207.txt" />
+    <Content Include="docs\mappers\209.txt" />
+    <Content Include="docs\mappers\210.txt" />
+    <Content Include="docs\mappers\225.txt" />
+    <Content Include="docs\mappers\226.txt" />
+    <Content Include="docs\mappers\227.txt" />
+    <Content Include="docs\mappers\228.txt" />
+    <Content Include="docs\mappers\230.txt" />
+    <Content Include="docs\mappers\231.txt" />
+    <Content Include="docs\mappers\232.txt" />
+    <Content Include="docs\mappers\233.txt" />
+    <Content Include="docs\mappers\234.txt" />
+    <Content Include="docs\mappers\240.txt" />
+    <Content Include="docs\mappers\242.txt" />
+    <Content Include="docs\mappers\243.txt" />
+    <Content Include="docs\mappers\245.txt" />
+    <Content Include="docs\mappers\246.txt" />
+    <Content Include="docs\mappers\changes.txt" />
+    <Content Include="docs\mappers\__ READ THIS FIRST __.txt" />
+    <Content Include="NesCarts.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Compile Include="OpenRomDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="OpenRomDialog.Designer.cs">
+      <DependentUpon>OpenRomDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="RomInfoBox.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="RomInfoBox.Designer.cs">
+      <DependentUpon>RomInfoBox.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Scale3x.cs" />
+    <Compile Include="SevenZipFormat.cs" />
+    <Compile Include="SevenZipInterface.cs" />
+    <Compile Include="Sizeable.cs" />
+    <Compile Include="EmuConfig.cs" />
+    <Compile Include="GameGenie.cs" />
+    <Compile Include="GameGenieWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="GameGenieWindow.designer.cs">
+      <DependentUpon>GameGenieWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="NameTablePreview.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="NameTablePreview.Designer.cs">
+      <DependentUpon>NameTablePreview.cs</DependentUpon>
+    </Compile>
+    <Compile Include="NearestNeighbor1x.cs" />
+    <Compile Include="NearestNeighbor2x.cs" />
+    <Compile Include="PatternTablePreview.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="PatternTablePreview.Designer.cs">
+      <DependentUpon>PatternTablePreview.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Program.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="About.resx">
+      <DependentUpon>About.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ArchiveViewer.resx">
+      <DependentUpon>ArchiveViewer.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Console.resx">
+      <DependentUpon>Console.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="DipDialog.resx">
+      <DependentUpon>DipDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="GameGenieWindow.resx">
+      <DependentUpon>GameGenieWindow.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Keybind.resx">
+      <DependentUpon>Keybind.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MemoryViewer.resx">
+      <DependentUpon>MemoryViewer.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="NameTablePreview.resx">
+      <DependentUpon>NameTablePreview.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="OpenRomDialog.resx">
+      <DependentUpon>OpenRomDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="PatternTablePreview.resx">
+      <DependentUpon>PatternTablePreview.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Program.resx">
+      <DependentUpon>Program.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="RomInfoBox.resx">
+      <DependentUpon>RomInfoBox.cs</DependentUpon>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <EmbeddedResource Include="SoundConfig.resx">
+      <DependentUpon>SoundConfig.cs</DependentUpon>
+    </EmbeddedResource>
+    <None Include="Emu-o-Tron.chm">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Emu-o-Tron.hnd" />
+    <None Include="palettes\ASQ_realityA.pal">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="palettes\ASQ_realityB.pal">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="palettes\BMF_final2.pal">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="palettes\BMF_final3.pal">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="palettes\FCEU-13-default_nitsuja.pal">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="palettes\FCEU-15-nitsuja_new.pal">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="palettes\FCEUX.pal">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="palettes\GreyScale.pal">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="palettes\Inverted.pal">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="palettes\VSMario.pal">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+    <Compile Include="Scale2x.cs" />
+    <Compile Include="Scaler.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="7z.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="copying.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <EmbeddedResource Include="images\charSheet.png" />
+    <None Include="Notes.txt" />
+    <Content Include="SlimDX.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="SlimDX.xml" />
+    <Content Include="nickmass_vista.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <BootstrapperPackage Include="Microsoft.Net.Client.3.5">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1 Client Profile</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Windows.Installer.3.1">
+      <Visible>False</Visible>
+      <ProductName>Windows Installer 3.1</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+  </ItemGroup>
+  <ItemGroup />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+  <PropertyGroup>
+    <PostBuildEvent>if $(ConfigurationName)==Release "C:\Program Files\7-Zip\7z.exe" a $(TargetName).zip "$(TargetDir)*" -r -x!*.vshost.exe -x!*.config -x!*.pdb -x!*.zip -x!*.cfg -x!*.cfg~ -x!*.sram -tzip</PostBuildEvent>
+  </PropertyGroup>
+</Project>
