@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.IO;
+using System.Windows.Forms;
 
 namespace DirectXEmu
 {
@@ -9,8 +11,7 @@ namespace DirectXEmu
     {
         public MemoryStore PPUMemory;
         public ushort[] PPUMirrorMap = new ushort[0x8000];
-        private bool[] PPUReadOnly = new bool[0x8000];
-        private byte[] SPRMemory = new byte[0x100];
+        public byte[] SPRMemory = new byte[0x100];
         public byte[] PalMemory = new byte[0x20];
 
         private NESCore nes;
@@ -20,10 +21,10 @@ namespace DirectXEmu
         bool spriteZeroHit;
         bool addrLatch;
         bool inVblank;
-        int spriteAddr;
+        Int32 spriteAddr;
 
-        int spriteTable;
-        int backgroundTable;
+        Int32 spriteTable;
+        Int32 backgroundTable;
         bool tallSprites;
         bool nmiEnable;
         bool vramInc;
@@ -31,7 +32,7 @@ namespace DirectXEmu
         byte grayScale;
         bool leftmostBackground;
         bool leftmostSprites;
-        bool backgroundRendering = true;
+        bool backgroundRendering;
         bool spriteRendering;
         bool redEmph;
         bool greenEmph;
@@ -39,16 +40,14 @@ namespace DirectXEmu
 
         ushort colorMask;
 
-        private int cycles;
         public int scanlineCycle;
         public int scanline = 241;
-        private int lastUpdateCycle;
         private int[] scanlineLengths = { 114, 114, 113 };
         private byte slCounter = 0;
 
-        private int loopyT;
-        private int loopyX;
-        private int loopyV;
+        private Int32 loopyT;
+        private Int32 loopyX;
+        private Int32 loopyV;
         private byte readBuffer;
 
         public ushort[,] screen = new ushort[256,240];
@@ -279,7 +278,7 @@ namespace DirectXEmu
                                     byte color = (byte)(((lowChr & 0x80) >> 7) + ((highChr & 0x80) >> 6));
                                     zeroBackground[xPosition] = (color == 0 || (!leftmostBackground && xPosition < 8) || !backgroundRendering);
                                     if (zeroBackground[xPosition])
-                                        screen[xPosition, scanline] = (ushort)((PalMemory[0x00] & grayScale)  | colorMask);
+                                        screen[xPosition, scanline] = (ushort)((PalMemory[0x00] & grayScale) | colorMask);
                                     else
                                         screen[xPosition, scanline] = (ushort)((PalMemory[(palette * 4) + color] & grayScale) | colorMask);
                                 }
@@ -297,7 +296,7 @@ namespace DirectXEmu
                             {
 
                                 int yPosition = SPRMemory[sprite * 4] + 1;
-                                if (yPosition <= scanline && yPosition + (tallSprites ? 16 : 8) > scanline && (spritesOnLine < 9 || !enforceSpriteLimit))
+                                if (yPosition <= scanline && yPosition + (tallSprites ? 16 : 8) > scanline && (spritesOnLine < 8 || !enforceSpriteLimit))
                                 {
                                     spritesOnLine++;
                                     int spriteTable;
@@ -306,7 +305,7 @@ namespace DirectXEmu
                                     bool horzFlip = (attr & 0x40) != 0;
                                     bool vertFlip = (attr & 0x80) != 0;
                                     int tileNumber = SPRMemory[(sprite * 4) + 1];
-                                    if(tallSprites)
+                                    if (tallSprites)
                                     {
                                         if ((tileNumber & 1) != 0)
                                             spriteTable = 0x1000;
@@ -375,6 +374,12 @@ namespace DirectXEmu
                     {
                         VerticalReset();
                     }
+                }
+                else
+                {
+                    if (scanline < 240 && scanline >= 0)
+                        for (int i = 0; i < 256; i++)
+                            screen[i, scanline] = (ushort)((PalMemory[0x00] & grayScale) | colorMask);
                 }
                 if (scanline == 240)
                 {
@@ -479,7 +484,71 @@ namespace DirectXEmu
                 tileColor2 = 1;
             return (byte)(tileColor1 + (tileColor2 * 2));
         }
-
+        public void StateSave(ref MemoryStream buf)
+        {
+            BinaryWriter writer = new BinaryWriter(buf);
+            writer.Write(frameComplete);
+            writer.Write(interruptNMI);
+            writer.Write(spriteOverflow);
+            writer.Write(spriteZeroHit);
+            writer.Write(addrLatch);
+            writer.Write(inVblank);
+            writer.Write(spriteAddr);
+            writer.Write(spriteTable);
+            writer.Write(backgroundTable);
+            writer.Write(tallSprites);
+            writer.Write(nmiEnable);
+            writer.Write(vramInc);
+            writer.Write(grayScale);
+            writer.Write(leftmostBackground);
+            writer.Write(leftmostSprites);
+            writer.Write(backgroundRendering);
+            writer.Write(spriteRendering);
+            writer.Write(redEmph);
+            writer.Write(greenEmph);
+            writer.Write(blueEmph);
+            writer.Write(colorMask);
+            writer.Write(scanlineCycle);
+            writer.Write(scanline);
+            writer.Write(slCounter);
+            writer.Write(loopyT);
+            writer.Write(loopyX);
+            writer.Write(loopyV);
+            writer.Write(readBuffer);
+            writer.Flush();
+        }
+        public void StateLoad(MemoryStream buf)
+        {
+            BinaryReader reader = new BinaryReader(buf);
+            frameComplete = reader.ReadBoolean();
+            interruptNMI = reader.ReadBoolean();
+            spriteOverflow = reader.ReadBoolean();
+            spriteZeroHit = reader.ReadBoolean();
+            addrLatch = reader.ReadBoolean();
+            inVblank = reader.ReadBoolean();
+            spriteAddr = reader.ReadInt32();
+            spriteTable = reader.ReadInt32();
+            backgroundTable = reader.ReadInt32();
+            tallSprites = reader.ReadBoolean();
+            nmiEnable = reader.ReadBoolean();
+            vramInc = reader.ReadBoolean();
+            grayScale = reader.ReadByte();
+            leftmostBackground = reader.ReadBoolean();
+            leftmostSprites = reader.ReadBoolean();
+            backgroundRendering = reader.ReadBoolean();
+            spriteRendering = reader.ReadBoolean();
+            redEmph = reader.ReadBoolean();
+            greenEmph = reader.ReadBoolean();
+            blueEmph = reader.ReadBoolean();
+            colorMask = reader.ReadUInt16();
+            scanlineCycle = reader.ReadInt32();
+            scanline = reader.ReadInt32();
+            slCounter = reader.ReadByte();
+            loopyT = reader.ReadInt32();
+            loopyX = reader.ReadInt32();
+            loopyV = reader.ReadInt32();
+            readBuffer = reader.ReadByte();
+        }
         private int[] Flip = { 7, 5, 3, 1, -1, -3, -5, -7};
         private ushort[] AttrTableLookup = 
           { 0x0000, 0x0000, 0x2000, 0x2000, 0x0001, 0x0001, 0x2001, 0x2001, 0x0002, 0x0002, 0x2002, 0x2002, 0x0003, 0x0003, 0x2003, 0x2003, 

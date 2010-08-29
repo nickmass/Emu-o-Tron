@@ -129,7 +129,6 @@ namespace DirectXEmu.mappers
         public override void MapperStateSave(ref MemoryStream buf)
         {
             BinaryWriter writer = new BinaryWriter(buf);
-            writer.Seek(0, SeekOrigin.Begin);
             writer.Write(indexReg);
             writer.Write(irqCounter);
             writer.Write(irqEnabled);
@@ -139,7 +138,6 @@ namespace DirectXEmu.mappers
         public override void MapperStateLoad(MemoryStream buf)
         {
             BinaryReader reader = new BinaryReader(buf);
-            reader.BaseStream.Seek(0, SeekOrigin.Begin);
             indexReg = reader.ReadInt32();
             irqCounter = reader.ReadInt32();
             irqEnabled = reader.ReadBoolean();

@@ -1581,6 +1581,7 @@ namespace DirectXEmu
             this.patternTablesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.memoryViewerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.pPUMemoryViewerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.testConsoleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.romInfoToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -1592,7 +1593,6 @@ namespace DirectXEmu
             this.openPaletteDialog = new System.Windows.Forms.OpenFileDialog();
             this.openMovieDialog = new System.Windows.Forms.OpenFileDialog();
             this.recordDialog = new System.Windows.Forms.SaveFileDialog();
-            this.testConsoleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip.SuspendLayout();
             this.insideSize.SuspendLayout();
             this.SuspendLayout();
@@ -1757,14 +1757,15 @@ namespace DirectXEmu
             // enableSoundToolStripMenuItem
             // 
             this.enableSoundToolStripMenuItem.Name = "enableSoundToolStripMenuItem";
-            this.enableSoundToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.enableSoundToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.S)));
+            this.enableSoundToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
             this.enableSoundToolStripMenuItem.Text = "Enable Sound";
             this.enableSoundToolStripMenuItem.Click += new System.EventHandler(this.enableSoundToolStripMenuItem_Click);
             // 
             // loadPaletteToolStripMenuItem
             // 
             this.loadPaletteToolStripMenuItem.Name = "loadPaletteToolStripMenuItem";
-            this.loadPaletteToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.loadPaletteToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
             this.loadPaletteToolStripMenuItem.Text = "Load Palette...";
             this.loadPaletteToolStripMenuItem.Click += new System.EventHandler(this.loadPaletteToolStripMenuItem_Click);
             // 
@@ -1778,7 +1779,7 @@ namespace DirectXEmu
             this.scale2xToolStripMenuItem,
             this.scale3xToolStripMenuItem});
             this.videoModeToolStripMenuItem.Name = "videoModeToolStripMenuItem";
-            this.videoModeToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.videoModeToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
             this.videoModeToolStripMenuItem.Text = "Video Mode";
             // 
             // sizeableToolStripMenuItem
@@ -1833,7 +1834,7 @@ namespace DirectXEmu
             this.spritesToolStripMenuItem,
             this.backgroundToolStripMenuItem});
             this.displayToolStripMenuItem.Name = "displayToolStripMenuItem";
-            this.displayToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.displayToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
             this.displayToolStripMenuItem.Text = "Display";
             // 
             // showFPSToolStripMenuItem
@@ -1886,21 +1887,21 @@ namespace DirectXEmu
             // keyBindingsToolStripMenuItem
             // 
             this.keyBindingsToolStripMenuItem.Name = "keyBindingsToolStripMenuItem";
-            this.keyBindingsToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.keyBindingsToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
             this.keyBindingsToolStripMenuItem.Text = "Key Bindings...";
             this.keyBindingsToolStripMenuItem.Click += new System.EventHandler(this.keyBindingsToolStripMenuItem_Click);
             // 
             // gameGenieCodesToolStripMenuItem
             // 
             this.gameGenieCodesToolStripMenuItem.Name = "gameGenieCodesToolStripMenuItem";
-            this.gameGenieCodesToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.gameGenieCodesToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
             this.gameGenieCodesToolStripMenuItem.Text = "Game Genie Codes...";
             this.gameGenieCodesToolStripMenuItem.Click += new System.EventHandler(this.gameGenieCodesToolStripMenuItem_Click);
             // 
             // soundToolStripMenuItem
             // 
             this.soundToolStripMenuItem.Name = "soundToolStripMenuItem";
-            this.soundToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.soundToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
             this.soundToolStripMenuItem.Text = "Sound...";
             this.soundToolStripMenuItem.Click += new System.EventHandler(this.soundToolStripMenuItem_Click);
             // 
@@ -1984,6 +1985,13 @@ namespace DirectXEmu
             this.pPUMemoryViewerToolStripMenuItem.Text = "PPU Memory Viewer...";
             this.pPUMemoryViewerToolStripMenuItem.Click += new System.EventHandler(this.pPUMemoryViewerToolStripMenuItem_Click);
             // 
+            // testConsoleToolStripMenuItem
+            // 
+            this.testConsoleToolStripMenuItem.Name = "testConsoleToolStripMenuItem";
+            this.testConsoleToolStripMenuItem.Size = new System.Drawing.Size(191, 22);
+            this.testConsoleToolStripMenuItem.Text = "Test Console...";
+            this.testConsoleToolStripMenuItem.Click += new System.EventHandler(this.testConsoleToolStripMenuItem_Click);
+            // 
             // helpToolStripMenuItem
             // 
             this.helpToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -2064,13 +2072,6 @@ namespace DirectXEmu
             // 
             this.recordDialog.DefaultExt = "wav";
             this.recordDialog.Filter = "Wav files (*.wav)|*.wav";
-            // 
-            // testConsoleToolStripMenuItem
-            // 
-            this.testConsoleToolStripMenuItem.Name = "testConsoleToolStripMenuItem";
-            this.testConsoleToolStripMenuItem.Size = new System.Drawing.Size(191, 22);
-            this.testConsoleToolStripMenuItem.Text = "Test Console...";
-            this.testConsoleToolStripMenuItem.Click += new System.EventHandler(this.testConsoleToolStripMenuItem_Click);
             // 
             // Program
             // 

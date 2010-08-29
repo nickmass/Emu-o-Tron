@@ -1472,7 +1472,6 @@ namespace DirectXEmu
         public SaveState getState()
         {
             SaveState newState = new SaveState();
-            newState.stateProgramCounter = RegPC;
             newState.stateMemory = (byte[][])Memory.StoreBanks().Clone();
             newState.stateMemBanks = (bool[])Memory.saveBanks.Clone();
             newState.stateMemMap = (int[])Memory.memMap.Clone();
@@ -1480,72 +1479,52 @@ namespace DirectXEmu
             newState.statePPUBanks = (bool[])PPU.PPUMemory.saveBanks.Clone();
             newState.statePPUMap = (int[])PPU.PPUMemory.memMap.Clone();
             newState.statePalMemory = (byte[])PPU.PalMemory.Clone();
-            newState.stateA = RegA;
-            newState.stateX = RegX;
-            newState.stateY = RegY;
-            newState.stateS = RegS;
-            newState.stateP = PToByte();
-            newState.stateCounter = this.counter;
-            //newState.stateSlCounter = this.slCounter;
-            //newState.stateScanline = this.scanline;
-            //newState.stateVblank = this.vblank;
-            //newState.stateSPRMemory = (byte[])this.SPRMemory.Clone();
-            newState.stateInterruptReset = this.interruptReset;
-            //newState.stateInterruptNMI = this.interruptNMI;
-            newState.stateInterruptMapper = romMapper.interruptMapper;
-            //newState.vertOffset = this.vertOffset;
-            //newState.horzOffset = this.horzOffset;
-            //newState.nameTableOffset = this.nameTableOffset;
-            //newState.loopyT = this.loopyT;
-            //newState.loopyV = this.loopyV;
-            //newState.loopyX = this.loopyX;
-            newState.controlReg1 = this.controlReg1;
-            newState.controlReg2 = this.controlReg2;
-            newState.controlReady = this.controlReady;
-            //newState.PPUAddrFlip = this.PPUAddrFlip;
-            //newState.readBuffer = this.readBuffer;
-            //newState.spriteZeroHit = this.spriteZeroHit;
-            //newState.spriteOverflow = this.spriteOverflow;
-            newState.mapperState = new MemoryStream();
-            romMapper.MapperStateSave(ref newState.mapperState);
+            newState.stateSPRMemory = (byte[])PPU.SPRMemory.Clone();
+            newState.stateStream = new MemoryStream();
+            BinaryWriter writer = new BinaryWriter(newState.stateStream);
+            writer.Seek(0, SeekOrigin.Begin);
+            writer.Write(RegPC);
+            writer.Write(RegA);
+            writer.Write(RegX);
+            writer.Write(RegY);
+            writer.Write(RegS);
+            writer.Write(PToByte());
+            writer.Write(counter);
+            writer.Write(interruptReset);
+            writer.Write(romMapper.interruptMapper);
+            writer.Write(controlReg1);
+            writer.Write(controlReg2);
+            writer.Write(controlReady);
+            writer.Flush();
+            romMapper.MapperStateSave(ref newState.stateStream);
+            PPU.StateSave(ref newState.stateStream);
             newState.isStored = true;
             return newState;
         }
         public void loadState(SaveState oldState)
         {
-            RegPC = oldState.stateProgramCounter;
             this.Memory.LoadBanks((bool[])oldState.stateMemBanks.Clone(), (byte[][])oldState.stateMemory.Clone());
             this.Memory.memMap = (int[])oldState.stateMemMap.Clone();
             PPU.PPUMemory.LoadBanks((bool[])oldState.statePPUBanks.Clone(), (byte[][])oldState.statePPUMemory.Clone());
             PPU.PPUMemory.memMap = (int[])oldState.statePPUMap.Clone();
             PPU.PalMemory = (byte[])oldState.statePalMemory.Clone();
-            RegA = oldState.stateA;
-            RegX = oldState.stateX;
-            RegY = oldState.stateY;
-            RegS = oldState.stateS;
-            PFromByte(oldState.stateP);
-            this.counter = oldState.stateCounter;
-            //this.slCounter = oldState.stateSlCounter;
-            //this.scanline = oldState.stateScanline;
-            //this.vblank = oldState.stateVblank;
-            //this.SPRMemory = (byte[])oldState.stateSPRMemory.Clone();
-            //this.interruptReset = oldState.stateInterruptReset;
-            //this.interruptNMI = oldState.stateInterruptNMI;
-            romMapper.interruptMapper = oldState.stateInterruptMapper;
-            //this.vertOffset = oldState.vertOffset;
-            //this.horzOffset = oldState.horzOffset;
-            //this.nameTableOffset = oldState.nameTableOffset;
-            //this.loopyT = oldState.loopyT;
-            //this.loopyV = oldState.loopyV;
-            //this.loopyX = oldState.loopyX;
-            this.controlReg1 = oldState.controlReg1;
-            this.controlReg2 = oldState.controlReg2;
-            this.controlReady = oldState.controlReady;
-            //this.PPUAddrFlip = oldState.PPUAddrFlip;
-            //this.readBuffer = oldState.readBuffer;
-            //this.spriteZeroHit = oldState.spriteZeroHit;
-            //this.spriteOverflow = oldState.spriteOverflow;
-            romMapper.MapperStateLoad(oldState.mapperState);
+            PPU.SPRMemory = (byte[])oldState.stateSPRMemory.Clone();
+            BinaryReader reader = new BinaryReader(oldState.stateStream);
+            reader.BaseStream.Seek(0, SeekOrigin.Begin);
+            RegPC = reader.ReadInt32();
+            RegA = reader.ReadInt32();
+            RegX = reader.ReadInt32();
+            RegY = reader.ReadInt32();
+            RegS = reader.ReadInt32();
+            PFromByte(reader.ReadByte());
+            counter = reader.ReadInt32();
+            interruptReset = reader.ReadBoolean();
+            romMapper.interruptMapper = reader.ReadBoolean();
+            controlReg1 = reader.ReadInt32();
+            controlReg2 = reader.ReadInt32();
+            controlReady = reader.ReadBoolean();
+            romMapper.MapperStateLoad(oldState.stateStream);
+            PPU.StateLoad(oldState.stateStream);
         }
         public void restart()
         {
@@ -1579,7 +1558,6 @@ namespace DirectXEmu
     [Serializable]
     public struct SaveState
     {
-        public int stateProgramCounter;
         public byte[][] stateMemory;
         public bool[] stateMemBanks;
         public int[] stateMemMap;
@@ -1588,33 +1566,7 @@ namespace DirectXEmu
         public int[] statePPUMap;
         public byte[] stateSPRMemory;
         public byte[] statePalMemory;
-        public int stateA;
-        public int stateX;
-        public int stateY;
-        public int stateS;
-        public int stateP;
-        public int stateCounter;
-        public byte stateSlCounter;
-        public int stateScanline;
-        public int stateVblank;
-        public bool stateInterruptReset;
-        public bool stateInterruptIRQ;
-        public bool stateInterruptNMI;
-        public bool stateInterruptMapper;
-        public int vertOffset;
-        public int horzOffset;
-        public int nameTableOffset;
-        public ushort loopyV;
-        public ushort loopyT;
-        public ushort loopyX;
-        public int controlReg1;
-        public int controlReg2;
-        public bool controlReady;
-        public bool PPUAddrFlip;
-        public byte readBuffer;
-        public bool spriteZeroHit;
-        public bool spriteOverflow;
+        public MemoryStream stateStream;
         public bool isStored;
-        public MemoryStream mapperState;
     }
 }
