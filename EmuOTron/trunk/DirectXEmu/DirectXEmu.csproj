@@ -105,7 +105,6 @@
     <Compile Include="Console.Designer.cs">
       <DependentUpon>Console.cs</DependentUpon>
     </Compile>
-    <None Include="Copy of NESCore.cs" />
     <Compile Include="CRC32.cs" />
     <Compile Include="DipDialog.cs">
       <SubType>Form</SubType>
