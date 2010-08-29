@@ -860,7 +860,7 @@ namespace DirectXEmu
             {
                 Point curPoint = LocateMouse();
                 player2.zapper.triggerPulled = dMouse.GetCurrentState().IsPressed(0) && (curPoint.X != 0 || curPoint.Y != 0);
-                player2.zapper.lightDetected = colorChart[0][cpu.scanlines[curPoint.Y][curPoint.X]].GetBrightness() >= 0.95;
+                player2.zapper.lightDetected = colorChart[0][cpu.PPU.screen[curPoint.X, curPoint.Y]].GetBrightness() >= 0.95;
                 zapStatLight = player2.zapper.lightDetected;
                 zapStatTrig = player2.zapper.triggerPulled;
             }
@@ -870,7 +870,7 @@ namespace DirectXEmu
             if(memoryViewerMem == 1)
                 memoryViewer.updateMemory(cpu.Memory, cpu.MirrorMap);
             else if (memoryViewerMem == 2)
-                memoryViewer.updateMemory(cpu.PPUMemory, cpu.PPUMirrorMap);
+                memoryViewer.updateMemory(cpu.PPU.PPUMemory, cpu.PPU.PPUMirrorMap);
 
 
             if (frame % cpu.APU.frameBuffer == 0)
@@ -930,23 +930,14 @@ namespace DirectXEmu
             {
                 BitmapData frameBMD = frameBuffer.LockBits(new Rectangle(0, 0, frameBuffer.Width, frameBuffer.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
                 byte* framePixels = (byte*)frameBMD.Scan0;
-                byte[][] scanlines = cpu.PPU.screen;
-                if(!cpu.PPU.testPPU)
-                    scanlines = cpu.scanlines;
+                ushort[,] screen = cpu.PPU.screen;
                 for (int y = 0; y < 240; y++)
                 {
-                    int emphasisTable = 0;
-                    if (this.cpu.blueEmph[y])
-                        emphasisTable |= 4;
-                    if (this.cpu.greenEmph[y])
-                        emphasisTable |= 2;
-                    if (this.cpu.redEmph[y])
-                        emphasisTable |= 1;
                     for (int x = 0; x < 256; x++)
                     {
-                        framePixels[(((y * 4) * 256) + (x * 4))] = this.colorChart[emphasisTable][scanlines[y][x]].B;
-                        framePixels[(((y * 4) * 256) + (x * 4)) + 1] = this.colorChart[emphasisTable][scanlines[y][x]].G;
-                        framePixels[(((y * 4) * 256) + (x * 4)) + 2] = this.colorChart[emphasisTable][scanlines[y][x]].R;
+                        framePixels[(((y * 4) * 256) + (x * 4))] = this.colorChart[screen[x, y] >> 8][screen[x, y] & 0xFF].B;
+                        framePixels[(((y * 4) * 256) + (x * 4)) + 1] = this.colorChart[screen[x, y] >> 8][screen[x, y] & 0xFF].G;
+                        framePixels[(((y * 4) * 256) + (x * 4)) + 2] = this.colorChart[screen[x, y] >> 8][screen[x, y] & 0xFF].R;
                         framePixels[(((y * 4) * 256) + (x * 4)) + 3] = 255;
                     }
                 }
@@ -961,12 +952,12 @@ namespace DirectXEmu
             }
         }
         uint CRC;
-        public uint GetScreenCRC(byte[][] scanlines)
+        private uint GetScreenCRC(ushort[,] scanlines)
         {
             uint crc = 0xFFFFFFFF;
             for (int y = 0; y < 240; y++)
                 for (int x = 0; x < 256; x++)
-                    crc = CRC32.crc32_adjust(crc, scanlines[y][x]);
+                    crc = CRC32.crc32_adjust(crc, (byte)(scanlines[x, y] & 0xFF));
             crc ^= 0xFFFFFFFF;
             return crc;
         }
@@ -1103,7 +1094,7 @@ namespace DirectXEmu
                     DrawString(frame.ToString(), this.surfaceControl.Width - ((charSize * frame.ToString().Length) + 4), 24);
                     if (cpu != null)
                     {
-                        CRC = GetScreenCRC(cpu.scanlines);
+                        CRC = GetScreenCRC(cpu.PPU.screen);
                         DrawString(CRC.ToString("X8"), this.surfaceControl.Width - ((charSize * CRC.ToString("X8").Length) + 4), 44);
                     }
                 }
@@ -1312,15 +1303,6 @@ namespace DirectXEmu
                     ToggleFullScreen();
                 }
             }
-#if DEBUG
-            else if (e.KeyCode == Keys.H)
-            {
-                if (cpu != null)
-                {
-                    cpu.spriteZeroHit = !cpu.spriteZeroHit;
-                }
-            }
-#endif
             else if (e.KeyValue == 18) //This sucks dick too but I'm not sure how best to do it
             {
                 if (fullScreen)
@@ -2335,9 +2317,9 @@ namespace DirectXEmu
             this.frame = 0;
             this.saveBufferAvaliable = 0;
             this.cpu.logging = logState;
-            this.cpu.displayBG = (config["displayBG"] == "1");
-            this.cpu.displaySprites = (config["displaySprites"] == "1");
-            this.cpu.displaySpriteLimit = !(config["disableSpriteLimit"] == "1");
+            this.cpu.PPU.displayBG = (config["displayBG"] == "1");
+            this.cpu.PPU.displaySprites = (config["displaySprites"] == "1");
+            this.cpu.PPU.enforceSpriteLimit = !(config["disableSpriteLimit"] == "1");
             this.cpu.APU.mute = !(config["sound"] == "1");
             this.LoadGame();
             this.LoadSaveStateFiles();
@@ -2607,7 +2589,7 @@ namespace DirectXEmu
         private void spritesToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (cpu != null)
-                cpu.displaySprites = !cpu.displaySprites;
+                cpu.PPU.displaySprites = !cpu.PPU.displaySprites;
             this.spritesToolStripMenuItem.Checked = !this.spritesToolStripMenuItem.Checked;
             config["displaySprites"] = this.spritesToolStripMenuItem.Checked ? "1" : "0";
         }
@@ -2615,7 +2597,7 @@ namespace DirectXEmu
         private void backgroundToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (cpu != null)
-                cpu.displayBG = !cpu.displayBG;
+                cpu.PPU.displayBG = !cpu.PPU.displayBG;
             this.backgroundToolStripMenuItem.Checked = !this.backgroundToolStripMenuItem.Checked;
             config["displayBG"] = this.backgroundToolStripMenuItem.Checked ? "1" : "0";
         }
@@ -2623,7 +2605,7 @@ namespace DirectXEmu
         private void spriteLimitToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (cpu != null)
-                cpu.displaySpriteLimit = !cpu.displaySpriteLimit;
+                cpu.PPU.enforceSpriteLimit = !cpu.PPU.enforceSpriteLimit;
             this.spriteLimitToolStripMenuItem.Checked = !this.spriteLimitToolStripMenuItem.Checked;
             config["disableSpriteLimit"] = this.spriteLimitToolStripMenuItem.Checked ? "1" : "0";
         }

@@ -35,10 +35,27 @@ namespace DirectXEmu
 
         private int invalidCount = 0;
 
-        public mappers.Mapper romMapper;
+        private mappers.Mapper romMapper;
 
         private bool interruptReset = false;
+        private bool interruptNMI = false;
         private bool interruptBRK = false;
+
+        private int[] scanlineLengths = { 114, 114, 113 };
+        private byte slCounter = 0;
+        private int scanline = 241;
+        private int vblank = 1;
+
+        private bool PPUAddrFlip = false;
+
+        public MemoryStore PPUMemory;
+        public ushort[] PPUMirrorMap = new ushort[0x8000];
+        private byte[] SPRMemory = new byte[0x100];
+        private byte[] PalMemory = new byte[0x20];
+
+        private int horzOffset = 0;
+        private int vertOffset = 0;
+        private int nameTableOffset = 0;
 
         public StringBuilder logBuilder = new StringBuilder();
         public bool logging = false;
@@ -57,6 +74,11 @@ namespace DirectXEmu
         public GameGenie[] gameGenieCodes = new GameGenie[0xFF];
         public int gameGenieCodeNum = 0;
 
+        public byte[][] scanlines = new byte[240][];
+        public bool[] blueEmph = new bool[240];
+        public bool[] greenEmph = new bool[240];
+        public bool[] redEmph = new bool[240];
+
         public bool generateNameTables = false;
         public int generateLine = 0;
         public byte[][,] nameTables;
@@ -65,6 +87,11 @@ namespace DirectXEmu
         public int generatePatternLine = 0;
         public byte[][] patternTablesPalette;
         public byte[][,] patternTables;
+
+        public bool spriteZeroHit = false;
+        private bool spriteOverflow = false;
+
+        private int[] flip = new int[8];
 
         public bool sramPresent = false;
         public string romHash;
@@ -82,6 +109,15 @@ namespace DirectXEmu
         public bool dip7;
         public bool dip8;
 
+        private ushort loopyT;
+        private ushort loopyX;
+        private ushort loopyV;
+        private byte readBuffer;
+
+        public bool displaySprites = true;
+        public bool displayBG = true;
+        public bool displaySpriteLimit = false;
+
         public string cartDBLocation = "";
 
         private bool turbo = false;
@@ -95,7 +131,7 @@ namespace DirectXEmu
             this.player2 = player2;
             player3 = player1;
             player4 = player1;
-            PPU.turbo = turbo; //not functioning, maybe never functioning
+            this.turbo = turbo;
             this.Start();
         }
         public void Start(Controller player1)
@@ -783,7 +819,7 @@ namespace DirectXEmu
                     PushByteStack(PToByte() | 0x30);
                     FlagIRQ = 1;
                     RegPC = PeekWord(0xFFFE);
-                    interruptBRK = false;
+                    this.interruptBRK = false;
                 }
                 if (interruptReset)
                 {
@@ -791,16 +827,16 @@ namespace DirectXEmu
                     PushByteStack(PToByte());
                     FlagIRQ = 1;
                     RegPC = PeekWord(0xFFFC);
-                    interruptReset = false;
+                    this.interruptReset = false;
                 }
-                else if (PPU.interruptNMI)
+                else if (interruptNMI)
                 {
                     PushWordStack(RegPC);
                     FlagBreak = 0;
                     PushByteStack(PToByte());
                     FlagIRQ = 1;
                     RegPC = PeekWord(0xFFFA);
-                    PPU.interruptNMI = false;
+                    this.interruptNMI = false;
                 }
                 else if ((romMapper.interruptMapper || APU.frameIRQ || APU.dmcInterrupt) && FlagIRQ == 0)
                 {
@@ -811,10 +847,47 @@ namespace DirectXEmu
                     RegPC = PeekWord(0xFFFE);
                 }
 #endif
-                if (PPU.frameComplete)
+                if (this.counter >= this.scanlineLengths[this.slCounter % 3])
                 {
-                    emulationRunning = false;
-                    PPU.frameComplete = false;
+                    this.counter -= this.scanlineLengths[this.slCounter % 3];
+                    this.slCounter++;
+                    if (this.scanline >= 0 && this.scanline < 240)
+                    {
+                        if (!turbo)
+                            this.scanlines[this.scanline] = this.ProcessScanline(this.scanline);
+                        else
+                            SpriteZeroHit(this.scanline);
+                    }
+                    if (this.generateNameTables && this.scanline == this.generateLine)
+                        this.nameTables = this.GenerateNameTables();
+                    if (this.generatePatternTables && this.scanline == this.generatePatternLine)
+                    {
+                        this.patternTablesPalette = this.GeneratePatternTablePalette();
+                        this.patternTables = this.GeneratePatternTables();
+                    }
+                    if (romMapper.mapper == 4 && (((Memory[0x2000] & 0x18) != 0) && vblank == 0))
+                        romMapper.MapperIRQ(scanline, vblank);
+
+                    this.scanline++;
+                    if (this.scanline > 240)
+                    {
+                        if (vblank == 0)
+                        {
+                            this.Memory[0x2002] |= 0x80;
+                            if ((this.Memory[0x2000] & 0x80) != 0)
+                                this.interruptNMI = true;
+                        }
+                        vblank++;
+                        if (vblank > 20)
+                        {
+                            this.spriteZeroHit = false;
+                            this.spriteOverflow = false;
+                            this.Memory[0x2002] &= 0x7F;
+                            this.vblank = 0;
+                            this.scanline = -1;
+                            this.emulationRunning = false;
+                        }
+                    }
                 }
             }
             APU.Update();
@@ -824,6 +897,10 @@ namespace DirectXEmu
         public NESCore(String input, String cartDBLocation)
         {
             this.cartDBLocation = cartDBLocation;
+            for (int i = 7, j = 0; i >= -7; i -= 2, j++)
+                this.flip[j] = i;
+            for (int i = 0; i < 240; i++)
+                this.scanlines[i] = new byte[256];
             this.filePath = input;
             this.fileName = Path.GetFileNameWithoutExtension(filePath);
             FileStream inputStream = File.OpenRead(input);
@@ -856,6 +933,11 @@ namespace DirectXEmu
             int mapper = (lowMapper >> 4) + (highMapper & 0xF0);
             Memory = new MemoryStore(0x20 + (numprgrom * 0x10), false);
             Memory.swapOffset = 0x20;
+            if(numvrom > 0)
+                PPUMemory = new MemoryStore(0x20 + (numvrom * 0x08), false);
+            else
+                PPUMemory = new MemoryStore(0x20 + (4 * 0x08), false);
+            PPUMemory.swapOffset = 0x20;
             APU = new APU(Memory);
             PPU = new PPU(this, numvrom);
             romInfo.AppendLine(input);
@@ -886,6 +968,7 @@ namespace DirectXEmu
             for (int i = 0x00; i < numvrom * 0x2000; i++)
             {
                 byte nextByte = (byte)inputStream.ReadByte();
+                PPUMemory.banks[(i / 0x400) + PPUMemory.swapOffset][i % 0x400] = nextByte;
                 PPU.PPUMemory.banks[(i / 0x400) + PPU.PPUMemory.swapOffset][i % 0x400] = nextByte;
                 CRC = CRC32.crc32_adjust(CRC, nextByte);
             }
@@ -913,15 +996,19 @@ namespace DirectXEmu
 
             if (fourScreenMirroring)
             {
+                PPUMemory.FourScreenMirroring();
+                PPUMemory.hardwired = true;
                 PPU.PPUMemory.FourScreenMirroring();
                 PPU.PPUMemory.hardwired = true;
             }
             else if (vertMirroring)
             {
+                PPUMemory.VerticalMirroring();
                 PPU.PPUMemory.VerticalMirroring();
             }
             else
             {
+                PPUMemory.HorizontalMirroring();
                 PPU.PPUMemory.HorizontalMirroring();
             }
             if (File.Exists(Path.Combine(cartDBLocation, "NesCarts.xml")))
@@ -996,43 +1083,43 @@ namespace DirectXEmu
             switch (mapper)
             {
                 case 0://NROM
-                    romMapper = new mappers.m000(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    romMapper = new mappers.m000(Memory, PPUMemory, numprgrom, numvrom);
                     break;
                 case 1: //MMC1
-                    romMapper = new mappers.m001(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    romMapper = new mappers.m001(Memory, PPUMemory, numprgrom, numvrom);
                     break;
                 case 2: //UNROM
-                    romMapper = new mappers.m002(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    romMapper = new mappers.m002(Memory, PPUMemory, numprgrom, numvrom);
                     break;
                 case 3://CNROM
-                    romMapper = new mappers.m003(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    romMapper = new mappers.m003(Memory, PPUMemory, numprgrom, numvrom);
                     break;
                 case 4: //MMC3
-                    romMapper = new mappers.m004(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    romMapper = new mappers.m004(Memory, PPUMemory, numprgrom, numvrom);
                     break;
                 case 7: //AOROM
-                    romMapper = new mappers.m007(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    romMapper = new mappers.m007(Memory, PPUMemory, numprgrom, numvrom);
                     break;
                 case 9: //MMC2
-                    romMapper = new mappers.m009(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    romMapper = new mappers.m009(Memory, PPUMemory, numprgrom, numvrom);
                     break;
                 case 11: //Color Dreams
-                    romMapper = new mappers.m011(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    romMapper = new mappers.m011(Memory, PPUMemory, numprgrom, numvrom);
                     break;
                 case 34: //BNROM and NINA-001
-                    romMapper = new mappers.m034(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    romMapper = new mappers.m034(Memory, PPUMemory, numprgrom, numvrom);
                     break;
                 case 69: //Sunsoft5
-                    romMapper = new mappers.m069(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    romMapper = new mappers.m069(Memory, PPUMemory, numprgrom, numvrom);
                     break;
                 case 70: //Bandai
-                    romMapper = new mappers.m070(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    romMapper = new mappers.m070(Memory, PPUMemory, numprgrom, numvrom);
                     break;
                 case 71: //Camerica
-                    romMapper = new mappers.m071(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    romMapper = new mappers.m071(Memory, PPUMemory, numprgrom, numvrom);
                     break;
                 case 99: //VS Unisystem
-                    romMapper = new mappers.m099(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    romMapper = new mappers.m099(Memory, PPUMemory, numprgrom, numvrom);
                     break;
                 default:
                     MessageBox.Show("This game will probably not load, mapper unsupported.\r\nMapper:" + mapper.ToString() + " PRG-ROM:" + numprgrom.ToString() + " CHR-ROM:" + numvrom.ToString());
@@ -1044,19 +1131,107 @@ namespace DirectXEmu
             for (int i = 0; i < 0x10000; i++)
             {
                 this.MirrorMap[i] = (ushort)i;
+                this.PPUMirrorMap[(i & 0x7FFF)] = (ushort)(i & 0x7FFF);
             }
+            this.PPUMirror(0x3F00, 0x3F10, 1, 1);
+            this.PPUMirror(0x3F04, 0x3F14, 1, 1);
+            this.PPUMirror(0x3F08, 0x3F18, 1, 1);
+            this.PPUMirror(0x3F0C, 0x3F1C, 1, 1);
+            this.PPUMirror(0x2000, 0x3000, 0x0F00, 1);
+            this.PPUMirror(0x3F00, 0x3F20, 0x20, 7);
+            this.PPUMirror(0x0000, 0x4000, 0x4000, 1);
             this.CPUMirror(0x0000, 0x0800, 0x0800, 3);
             this.CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
             RegPC = PeekWord(0xFFFC);//entry point
 #if nestest
             RegPC = 0xC000;
 #endif
+            for(int i = 0; i < 0x20; i++)
+                this.PalMemory[i] = 0x0F; //Sets the background to black on startup to prevent grey flashes, not exactly accurate but it looks nicer
+
+            PPU.PPUMemory = PPUMemory;
+            PPU.PalMemory = PalMemory;
         }
         private byte Read(int address)
         {
-            address = this.MirrorMap[address & 0xFFFF];
+            address &= 0xFFFF;
             byte nextByte = this.Memory[this.MirrorMap[address]];
-            if (address == 0x4016) //Player1 Controller
+            if (this.MirrorMap[address] == 0x2002) //PPU Status register
+            {
+                this.Memory[0x2002] = (byte)(nextByte & 0x7F);
+                if (this.spriteOverflow)
+                {
+                    this.Memory[0x2002] |= 0x20;
+                    nextByte |= 0x20;
+                }
+                else
+                {
+                    this.Memory[0x2002] &= 0xDF; 
+                    nextByte &= 0xDF;
+                }
+                if (this.spriteZeroHit)
+                {
+                    this.Memory[0x2002] |= 0x40;
+                    nextByte |= 0x40;
+                }
+                else
+                {
+                    this.Memory[0x2002] &= 0xBF;
+                    nextByte &= 0xBF;
+                }/*
+                else
+                {
+                    if (this.SpriteZeroHit(this.scanline, this.counter))
+                    {
+                        this.spriteZeroHit = true;
+                        this.Memory[0x2002] |= 0x40;
+                        nextByte |= 0x40;
+                    }
+                    else
+                    {
+                        this.Memory[0x2002] &= 0xBF;
+                        nextByte &= 0xBF;
+                    }
+                }*/
+                this.interruptNMI = false;
+                this.PPUAddrFlip = false;
+            }
+            else if (this.MirrorMap[address] == 0x2004)
+            {
+                nextByte = this.SPRMemory[this.Memory[this.MirrorMap[0x2003]]];
+            }
+            else if (this.MirrorMap[address] == 0x2007) //Read write PPU Data
+            {/*
+                if (this.PPUMirrorMap[this.PPUAddr] >= 0x3F00)
+                {
+                    nextByte = this.PPUMemory[this.PPUMirrorMap[this.PPUAddr]];
+                    this.PPUAddrDelay = this.PPUMemory[this.PPUMirrorMap[this.PPUAddr]];
+                }
+                else
+                {
+                    nextByte = this.PPUAddrDelay;
+                    this.PPUAddrDelay = this.PPUMemory[this.PPUMirrorMap[this.PPUAddr]];
+                }
+                if ((this.PPUMemory[0x2000] & 0x04) == 0)
+                {
+                    this.PPUAddr += 1;
+                }
+                else
+                    this.PPUAddr += 32;*/
+                if ((loopyV & 0x3F00) == 0x3F00)
+                {
+                    nextByte = PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F];
+                    readBuffer = this.PPUMemory[this.PPUMirrorMap[(loopyV & 0x2FFF)]];
+                }
+                else
+                {
+                    nextByte = readBuffer;
+                    readBuffer = this.PPUMemory[this.PPUMirrorMap[(loopyV & 0x3FFF)]];
+                }
+                loopyV = (ushort)((loopyV + ((this.Memory[0x2000] & 0x04) != 0 ? 0x20 : 0x01)) & 0x7FFF);
+
+            }
+            else if (this.MirrorMap[address] == 0x4016) //Player1 Controller
             {
                 nextByte = 0;
                 if (player1.zapper.connected)
@@ -1072,7 +1247,7 @@ namespace DirectXEmu
                     controlReg1 >>= 1;
                 }
             }
-            else if (address == 0x4017) //Player2 Controller
+            else if (this.MirrorMap[address] == 0x4017) //Player2 Controller
             {
                 nextByte = 0;
                 if (player2.zapper.connected)
@@ -1090,7 +1265,7 @@ namespace DirectXEmu
             }
             if (VS)
             {
-                if (address == 0x4016)
+                if (this.MirrorMap[address] == 0x4016)
                 {
                     //nextbyte should be coming from controller reg with data in bit 1
                     /*
@@ -1120,7 +1295,7 @@ namespace DirectXEmu
                     else
                         nextByte &= 0xBF;
                 }
-                else if (address == 0x4017)
+                else if (this.MirrorMap[address] == 0x4017)
                 {
                     if (dip3)
                         nextByte |= 0x04;
@@ -1148,8 +1323,8 @@ namespace DirectXEmu
                         nextByte &= 0x7F;
                 }
             }
-            nextByte = APU.Read(nextByte, (ushort)address);
-            nextByte = PPU.Read(nextByte, (ushort)address);
+            nextByte = APU.Read(nextByte, this.MirrorMap[address]);
+            PPU.Read(nextByte, this.MirrorMap[address]);
             return nextByte;
         }
         private int ReadWord(int address)
@@ -1296,7 +1471,7 @@ namespace DirectXEmu
                 line.Append("N");
             else
                 line.Append("n");
-            line.AppendFormat(" S:{0} CYC:{1} SL:{2}", RegS.ToString("X2"), (PPU.scanlineCycle * 3).ToString().PadLeft(3), PPU.scanline.ToString().PadLeft(3));
+            line.AppendFormat(" S:{0} CYC:{1} SL:{2}", RegS.ToString("X2"), (counter * 3).ToString().PadLeft(3), scanline.ToString().PadLeft(3));
             return line.ToString();
         }
         public void AddCycles(int value)
@@ -1305,9 +1480,90 @@ namespace DirectXEmu
         }
         private void Write(int address, int value)
         {
-            address = MirrorMap[address & 0xFFFF];
-            romMapper.MapperWrite((ushort)address, (byte)value);
-            if (address == 0x4016)
+            romMapper.MapperWrite(MirrorMap[address], (byte)value);
+            if (this.MirrorMap[address] == 0x4014) //Sprite DMA
+            {
+                ushort startAddress = (ushort)(value << 8);
+                byte sprAddress = this.Memory[this.MirrorMap[0x2003]];
+                for (int i = 0; i < 0x100; i++)
+                {
+                    this.SPRMemory[(byte)(sprAddress + i)] = this.Memory[this.MirrorMap[(ushort)(startAddress + i)]];
+                }
+                this.counter += 512;
+            }
+            else if (this.MirrorMap[address] == 0x2004) //Sprite Write
+            {
+                byte sprAddress = this.Memory[this.MirrorMap[0x2003]];
+                this.SPRMemory[sprAddress] = (byte)value;
+                sprAddress++;
+                this.Memory[0x2003] = sprAddress;
+            }
+            else if (this.MirrorMap[address] == 0x2000)
+            {
+                loopyT = (ushort)((loopyT & 0xF3FF) | ((value & 3) << 10));
+                //loopyT = (ushort)((loopyT & 0x0C00) | (value << 10));
+                this.nameTableOffset = value & 0x03;
+            }
+            else if (this.MirrorMap[address] == 0x2005) //PPUScroll
+            {
+                if (this.PPUAddrFlip) //2nd Write
+                {
+                    /*if (value >= 240)                     //Some documents claim that vert offset doesnt change untill vblank but I have my doubts, or my implimentation is poor. See Top Gun (E)[!].nes plane cockpit during flight.
+                        this.nextVertOffset = 240 - value;
+                    else
+                        this.nextVertOffset = value;*/
+                    this.vertOffset = value;
+                    loopyT = (ushort)((loopyT & 0x0C1F) | ((value & 0x07) << 12) | ((value & 0xF8) << 2));
+                }
+                else //1st Write
+                {
+                    this.horzOffset = value;
+
+                    loopyT = (ushort)((loopyT & 0x7FE0) | (value >> 3));
+                    loopyX = (ushort)(value & 0x07);
+                }
+                this.PPUAddrFlip = !this.PPUAddrFlip;
+            }
+            else if (this.MirrorMap[address] == 0x2006) //PPUAddr
+            {
+                if (this.PPUAddrFlip)//2nd Write
+                {
+                    this.vertOffset = (this.vertOffset & 0xC7) | ((value & 0xE0) >> 2);
+                    this.horzOffset = (this.horzOffset & 0x07) | ((value & 0x1F) << 3);
+                    loopyT = (ushort)((loopyT & 0xFF00) | value);
+                    loopyV = loopyT;
+                }
+                else//1st Write
+                {
+                    this.nameTableOffset = (byte)((value & 0xC) >> 2); //TO-DO: this is wrong but I don't think it will effect many games other then fixing mario
+                    this.vertOffset = (this.vertOffset & 0xF8) | ((value & 0x30) >> 4);
+                    this.vertOffset = (this.vertOffset & 0x3F) | ((value & 3) << 6);
+                    int oldA12 = ((loopyT >> 12) & 1);
+                    loopyT = (ushort)((loopyT & 0x00FF) | ((value & 0x3F) << 8));
+                    if (romMapper.mapper == 4 && (oldA12 == 0 && oldA12 != ((loopyT >> 12) & 1)))
+                        romMapper.MapperIRQ(scanline, vblank);
+                }
+                this.PPUAddrFlip = !this.PPUAddrFlip;
+            }
+            else if (this.MirrorMap[address] == 0x2007) //PPU Write
+            {
+                /*
+                if (!this.PPUReadOnly[this.PPUMirrorMap[this.PPUAddr]])
+                    this.PPUMemory[this.PPUMirrorMap[this.PPUAddr]] = value;
+
+                if ((this.readByte(0x2000) & 0x04) == 0)
+                {
+                    this.PPUAddr += 1;
+                }
+                else
+                    this.PPUAddr += 32;*/
+                if ((loopyV & 0x3F00) == 0x3F00)
+                    PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] = (byte)(value & 0x3F);
+                else
+                    this.PPUMemory[this.PPUMirrorMap[loopyV & 0x3FFF]] = (byte)value;
+                loopyV = (ushort)((loopyV + ((this.Memory[0x2000] & 0x04) != 0 ? 0x20 : 0x01)) & 0x7FFF);
+            }
+            else if (this.MirrorMap[address] == 0x4016)
             {
                 if ((value & 0x01) == 1)
                 {
@@ -1406,7 +1662,7 @@ namespace DirectXEmu
             }
             if (VS)
             {
-                if (address == 0x4020)
+                if (this.MirrorMap[address] == 0x4020)
                 {
                     if ((value & 1) != 0)
                     {
@@ -1415,9 +1671,10 @@ namespace DirectXEmu
                     }
                 }
             }
-            APU.Write((byte)value, (ushort)address);
-            PPU.Write((byte)value, (ushort)address);
-            Memory[address] = (byte)value;
+            APU.Write((byte)value, this.MirrorMap[address]);
+            PPU.Write((byte)value, this.MirrorMap[address]);
+            if (this.MirrorMap[address] != 0x2002)
+                this.Memory[this.MirrorMap[address]] = (byte)value;
             ApplyGameGenie();
         }
         private byte PToByte()
@@ -1472,11 +1729,368 @@ namespace DirectXEmu
             RegS &= 0xFF;
             return Read((ushort)(RegS + 0x0100));
         }
+        private void SpriteZeroHit(int scanline)
+        {
+            if (spriteZeroHit != true)
+            {
+                byte PPUCTRL = this.Memory[0x2000];
+                bool squareSprites = false;
+                if ((PPUCTRL & 0x20) == 0)
+                    squareSprites = true;
+                int yPos = this.SPRMemory[0] + 1;
+                if((squareSprites && (yPos <= scanline && yPos + 8 > scanline)) || (!squareSprites &&  (yPos <= scanline && yPos + 16 > scanline)))
+                    this.scanlines[scanline] = ProcessScanline(scanline);
+            }
+        }
         private void CPUMirror(ushort address, ushort mirrorAddress, ushort length, int repeat)
         {
             for (int j = 0; j < repeat; j++)
                 for (int i = 0; i < length; i++)
                     this.MirrorMap[mirrorAddress + i + (j * length)] = (ushort)(this.MirrorMap[address + i]);
+        }
+        private void PPUMirror(ushort address, ushort mirrorAddress, ushort length, int repeat)
+        {
+            for (int j = 0; j < repeat; j++)
+                for (int i = 0; i < length; i++)
+                    this.PPUMirrorMap[mirrorAddress + i + (j * length)] = (ushort)(this.PPUMirrorMap[address + i]);
+        }
+        private byte[] ProcessScanline(int line)//256 wide, 240 tall, 32x30
+        {
+            byte PPUCTRL = this.Memory[0x2000];
+            byte PPUMASK = this.Memory[0x2001];
+            if((PPUMASK & 0x80)!= 0)
+                this.blueEmph[line] = true;
+            else
+                this.blueEmph[line] = false;
+            if ((PPUMASK & 0x40) != 0)
+                this.greenEmph[line] = true;
+            else
+                this.greenEmph[line] = false;
+            if ((PPUMASK & 0x20) != 0)
+                this.redEmph[line] = true;
+            else
+                this.redEmph[line] = false;
+            
+            byte[] scanline = new byte[256];
+            bool[] zeroBackground = new bool[256];
+            byte[] spriteLine = new byte[256];
+            bool[] spriteAboveLine = new bool[256];
+            bool[] spriteBelowLine = new bool[256];
+
+            bool monochrome = (PPUMASK & 0x01) != 0;
+            if ((PPUMASK & 0x08) != 0) //If background rendering is enabled
+            {
+                bool backgroundClipping = (PPUMASK & 0x2) == 0;
+                ushort backgroundTable = 0;
+                if ((PPUCTRL & 0x10) != 0)
+                    backgroundTable = 0x1000;
+                ushort nameTableOrigin = (ushort)(((this.nameTableOffset) * 0x400) + 0x2000);
+                //ushort nameTableOrigin = (ushort)((((byte)(PPUCTRL & 0x03)) * 0x400) + 0x2000);
+                //ushort nameTableOrigin = (ushort)((((loopyV >> 0xA) & 0x03) * 0x400) + 0x2000);
+                for (int column = 0; column < 256; column++)//For each pixel in scanline
+                {
+                    ushort nameTableOffset = nameTableOrigin;
+                    int pointY = line + vertOffset;
+                    int pointX = column + horzOffset;
+                    if (pointY >= 240) //If pixel is off the edge of origin nametable, move to next table
+                    {
+                        if (nameTableOrigin == 0x2000 || nameTableOrigin == 0x2400)
+                            nameTableOffset += 0x800;
+                        else
+                            nameTableOffset -= 0x800;
+                        pointY -= 240;
+                    }
+                    if (pointX >= 256)
+                    {
+                        if (nameTableOrigin == 0x2000 || nameTableOrigin == 0x2800)
+                            nameTableOffset += 0x400;
+                        else
+                            nameTableOffset -= 0x400;
+                        pointX -= 256;
+                    }
+                    byte tileNumber = this.PPUMemory[this.PPUMirrorMap[nameTableOffset + ((pointY / 8) * 32) + (pointX / 8)]];
+                    byte color = GetTilePixel(backgroundTable, tileNumber, (byte)(pointX % 8), (byte)(pointY % 8), false);
+                    if (color == 0 || (backgroundClipping && column < 8))
+                    {
+                        byte palColor = this.PalMemory[0x00];
+                        if (monochrome) //If monochrome bit set, have NOT testing in game.
+                            palColor &= 0xF0;
+                        scanline[column] = palColor;
+                        zeroBackground[column] = true;
+                    }
+                    else
+                    {
+                        byte attribute = this.PPUMemory[this.PPUMirrorMap[(nameTableOffset + 0x3C0) + ((pointY / 32) * 8) + (pointX / 32)]];
+                        if (pointY % 32 < 16 && pointX % 32 < 16)
+                            attribute &= 0x03;
+                        else if (pointY % 32 < 16 && pointX % 32 >= 16)
+                            attribute = (byte)((attribute >> 2) & 0x03);
+                        else if (pointY % 32 >= 16 && pointX % 32 < 16)
+                            attribute = (byte)((attribute >> 4) & 0x03);
+                        else if (pointY % 32 >= 16 && pointX % 32 >= 16)
+                            attribute = (byte)((attribute >> 6) & 0x03);
+
+                        byte palColor = this.PalMemory[(attribute * 4) + color];
+                        if (monochrome) //If monochrome bit set, have NOT testing in game.
+                            palColor &= 0xF0;
+                        if(this.displayBG)
+                            scanline[column] = palColor;
+                        else
+                            scanline[column] = this.PalMemory[0x00];
+
+                    }
+                }
+            }
+            else //If background rendering disabled still show background color
+            {
+                byte palColor = this.PalMemory[0x00];
+                if (monochrome)
+                    palColor &= 0xF0;
+                for (int column = 0; column < 256; column++)
+                {
+                    scanline[column] = palColor;
+                    zeroBackground[column] = true;
+                }
+            }
+            if ((PPUMASK & 0x10) != 0) //If sprite rendering is enabled
+            {
+                byte spritesOnLine = 0;
+                bool squareSprites = false;
+                ushort spriteTable = 0;
+                bool spriteClipping = (PPUMASK & 0x4) == 0;
+                if ((PPUCTRL & 0x20) == 0)
+                {
+                    squareSprites = true;
+                    if ((PPUCTRL & 0x08) != 0)
+                        spriteTable = 0x1000;
+                }
+                for (int sprite = 0; sprite < 64; sprite++)
+                {
+                    int yPos = this.SPRMemory[sprite * 4] + 1;
+                    byte tileNum = this.SPRMemory[(sprite * 4) + 1];
+                    byte attr = this.SPRMemory[(sprite * 4) + 2];
+                    byte xPos = this.SPRMemory[(sprite * 4) + 3];
+                    byte palette = (byte)(attr & 0x03);
+                    if (squareSprites)//8x8 Sprites
+                    {
+                        if (yPos <= line && yPos + 8 > line) //If sprite is on this line
+                        {
+                            spritesOnLine++;
+                            if ((spritesOnLine < 9) || !displaySpriteLimit)
+                            {
+                                for (byte spritePixel = 0; spritePixel < 8; spritePixel++)
+                                {
+                                    if (spritePixel + xPos < 256 && (spriteBelowLine[spritePixel + xPos] == false && spriteAboveLine[spritePixel + xPos] == false))
+                                    {
+                                        int vertFlip = 0;
+                                        if ((attr & 0x80) != 0)
+                                            vertFlip = this.flip[(line - yPos) % 8];
+                                        byte color = GetTilePixel(spriteTable, tileNum, spritePixel, (byte)(line - yPos + vertFlip), (attr & 0x40) != 0);
+                                        if (color != 0 && !(spriteClipping && spritePixel + xPos < 8))
+                                        {
+                                            byte palColor = this.PalMemory[0x10 + (palette * 4) + color];
+                                            if (monochrome) //If monochrome bit set, have NOT testing in game.
+                                                palColor &= 0xF0;
+                                            spriteLine[spritePixel + xPos] = palColor;
+                                            if ((attr & 0x20) == 0) //If priority is above background
+                                            {
+                                                spriteAboveLine[spritePixel + xPos] = true;
+                                                spriteBelowLine[spritePixel + xPos] = false;
+                                            }
+                                            else
+                                            {
+                                                spriteBelowLine[spritePixel + xPos] = true;
+                                                spriteAboveLine[spritePixel + xPos] = false;
+                                            }
+                                            if (sprite == 0 && ((PPUMASK & 0x08) != 0) && !zeroBackground[spritePixel + xPos])
+                                                this.spriteZeroHit = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else//8x16 Sprites
+                    {
+                        if (yPos <= line && yPos + 16 > line) //If sprite is on this line
+                        {
+                            spritesOnLine++;
+                            if ((tileNum & 0x01) != 0)
+                                spriteTable = 0x1000;
+                            else
+                                spriteTable = 0x0;
+                            tileNum &= 0xFE;
+                            if ((spritesOnLine < 9) || !displaySpriteLimit)
+                            {
+                                for (byte spritePixel = 0; spritePixel < 8; spritePixel++)
+                                {
+                                    if (spritePixel + xPos < 256 && (spriteBelowLine[spritePixel + xPos] == false && spriteAboveLine[spritePixel + xPos] == false))
+                                    {
+                                        int vertFlip = 0;
+                                        if ((attr & 0x80) != 0)
+                                            vertFlip = this.flip[(line - yPos) % 8];
+                                        byte color;
+                                        if ((attr & 0x80) != 0) //If vertical flipped
+                                            if (line - yPos < 8)
+                                                color = GetTilePixel(spriteTable, (byte)(tileNum + 1), spritePixel, (byte)(((line - yPos) % 8) + vertFlip), (attr & 0x40) != 0); //Need mod 8 here because tile can be 16 px tall
+                                            else
+                                                color = GetTilePixel(spriteTable, tileNum, spritePixel, (byte)(((line - yPos) % 8) + vertFlip), (attr & 0x40) != 0);
+                                        else
+                                            if (line - yPos < 8)
+                                                color = GetTilePixel(spriteTable, tileNum, spritePixel, (byte)(((line - yPos) % 8)), (attr & 0x40) != 0);
+                                            else
+                                                color = GetTilePixel(spriteTable, (byte)(tileNum + 1), spritePixel, (byte)(((line - yPos) % 8)), (attr & 0x40) != 0);
+                                        if (color != 0 && !(spriteClipping && spritePixel + xPos < 8))
+                                        {
+                                            byte palColor = this.PalMemory[0x10 + (palette * 4) + color];
+                                            if (monochrome) //If monochrome bit set, have NOT testing in game.
+                                                palColor &= 0xF0;
+                                            spriteLine[spritePixel + xPos] = palColor;
+                                            if ((attr & 0x20) == 0) //If priority is above background
+                                            {
+                                                spriteAboveLine[spritePixel + xPos] = true;
+                                                spriteBelowLine[spritePixel + xPos] = false;
+                                            }
+                                            else
+                                            {
+                                                spriteBelowLine[spritePixel + xPos] = true;
+                                                spriteAboveLine[spritePixel + xPos] = false;
+                                            }
+                                            if (sprite == 0 && ((PPUMASK & 0x08) != 0) && !zeroBackground[spritePixel + xPos])
+                                                this.spriteZeroHit = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (spritesOnLine >= 9)
+                        {
+                            this.spriteOverflow = true;
+                        }
+                    }
+                }
+                if (this.displaySprites)
+                {
+                    if(this.displayBG)
+                    {
+                        for (int column = 0; column < 256; column++)
+                        {
+                            if (spriteAboveLine[column])
+                                scanline[column] = spriteLine[column];
+                            else if (zeroBackground[column] && spriteBelowLine[column])
+                                scanline[column] = spriteLine[column];
+                        }
+                    }
+                    else
+                    {
+                        for (int column = 0; column < 256; column++)
+                            if (spriteAboveLine[column] || spriteBelowLine[column])
+                                scanline[column] = spriteLine[column];
+                    }
+                }
+            }
+            return scanline;
+        }
+        private byte[][,] GenerateNameTables()
+        {
+            byte PPUCTRL = this.Memory[0x2000];
+            byte PPUMASK = this.Memory[0x2001];
+            byte[][,] nameTables = new byte[4][,];
+            for(int nameTable = 0; nameTable < 4; nameTable++)
+            {
+                nameTables[nameTable] = new byte[256, 240];
+                for(int line = 0; line < 240; line++)
+                {
+                    ushort backgroundTable = 0;
+                    if ((PPUCTRL & 0x10) != 0)
+                        backgroundTable = 0x1000;
+                    for (int column = 0; column < 256; column++)//For each pixel in scanline
+                    {
+                        ushort nameTableOffset = (ushort)((nameTable*0x400) + 0x2000);
+                        byte tileNumber = this.PPUMemory[this.PPUMirrorMap[nameTableOffset + ((line / 8) * 32) + (column / 8)]]; //These 3 lines are BONKERS and I highly doubt they will work
+                        byte color = GetTilePixel(backgroundTable, tileNumber, (byte)(column % 8), (byte)(line % 8), false);
+                        if (color == 0)
+                        {
+                            byte palColor = this.PalMemory[0x00];
+                            if ((PPUMASK & 0x01) != 0) //If monochrome bit set, have NOT testing in game.
+                                palColor &= 0xF0;
+                            nameTables[nameTable][column, line] = palColor;
+                        }
+                        else
+                        {
+                            byte attribute = this.PPUMemory[this.PPUMirrorMap[(nameTableOffset + 0x3C0) + ((line / 32) * 8) + (column / 32)]];
+                            if (line % 32 < 16 && column % 32 < 16)
+                                attribute &= 0x03;
+                            else if (line % 32 < 16 && column % 32 >= 16)
+                                attribute = (byte)((attribute >> 2) & 0x03);
+                            else if (line % 32 >= 16 && column % 32 < 16)
+                                attribute = (byte)((attribute >> 4) & 0x03);
+                            else if (line % 32 >= 16 && column % 32 >= 16)
+                                attribute = (byte)((attribute >> 6) & 0x03);
+
+                            byte palColor = this.PalMemory[(attribute * 4) + color];
+                            if ((PPUMASK & 0x01) != 0) //If monochrome bit set, have NOT testing in game.
+                                palColor &= 0xF0;
+                            nameTables[nameTable][column, line] = palColor;
+                        }
+                    }
+                }
+            }
+            return nameTables;
+        }
+        private byte[][] GeneratePatternTablePalette()
+        {
+            byte[][] pal = new byte[8][];
+            for (int palette = 0; palette < 8; palette++)
+            {
+                pal[palette] = new byte[4];
+                pal[palette][0] = this.PalMemory[0x00];
+                pal[palette][1] = this.PalMemory[(palette * 4) + 1];
+                pal[palette][2] = this.PalMemory[(palette * 4) + 2];
+                pal[palette][3] = this.PalMemory[(palette * 4) + 3];
+            }
+            return pal;
+        }
+        private byte[][,] GeneratePatternTables()
+        {
+            byte PPUCTRL = this.Memory[0x2000];
+            byte PPUMASK = this.Memory[0x2001];
+            byte[][,] patternTables = new byte[2][,];
+            for (int patternTable = 0; patternTable < 2; patternTable++)
+            {
+                patternTables[patternTable] = new byte[128, 128];
+                for (int line = 0; line < 128; line++)
+                {
+                    ushort backgroundTable = (ushort)(patternTable * 0x1000);
+                    for (int column = 0; column < 128; column++)//For each pixel in scanline
+                    {
+                        byte tileNumber = (byte)(((line/8) * 16) + (column/8));
+                        patternTables[patternTable][column, line] = GetTilePixel(backgroundTable, tileNumber, (byte)(column % 8), (byte)(line % 8), false);
+                    }
+                }
+            }
+            return patternTables;
+        }
+        private byte GetTilePixel(ushort table, byte tile, byte pixelX, byte pixelY, bool horzFlip)
+        {
+            byte tileColor1;
+            byte tileColor2;
+            if (horzFlip)
+            {
+                tileColor1 = (byte)((this.PPUMemory[this.PPUMirrorMap[(table + (tile * 16)) + pixelY]] >> pixelX) & 0x01);
+                tileColor2 = (byte)((this.PPUMemory[this.PPUMirrorMap[(table + (tile * 16) + 8) + pixelY]] >> pixelX) & 0x01);
+            }
+            else
+            {
+                tileColor1 = (byte)((this.PPUMemory[this.PPUMirrorMap[(table + (tile * 16)) + pixelY]] << pixelX) & 0x80);
+                tileColor2 = (byte)((this.PPUMemory[this.PPUMirrorMap[(table + (tile * 16) + 8) + pixelY]] << pixelX) & 0x80);
+            }
+            if (tileColor1 != 0)
+                tileColor1 = 1;
+            if (tileColor2 != 0)
+                tileColor2 = 1;
+            return (byte)(tileColor1 + (tileColor2 * 2));
+
         }
         public SaveState getState()
         {
@@ -1485,36 +2099,36 @@ namespace DirectXEmu
             newState.stateMemory = (byte[][])Memory.StoreBanks().Clone();
             newState.stateMemBanks = (bool[])Memory.saveBanks.Clone();
             newState.stateMemMap = (int[])Memory.memMap.Clone();
-            newState.statePPUMemory = (byte[][])PPU.PPUMemory.StoreBanks().Clone();
-            newState.statePPUBanks = (bool[])PPU.PPUMemory.saveBanks.Clone();
-            newState.statePPUMap = (int[])PPU.PPUMemory.memMap.Clone();
-            newState.statePalMemory = (byte[])PPU.PalMemory.Clone();
+            newState.statePPUMemory = (byte[][])PPUMemory.StoreBanks().Clone();
+            newState.statePPUBanks = (bool[])PPUMemory.saveBanks.Clone();
+            newState.statePPUMap = (int[])PPUMemory.memMap.Clone();
+            newState.statePalMemory = (byte[])this.PalMemory.Clone();
             newState.stateA = RegA;
             newState.stateX = RegX;
             newState.stateY = RegY;
             newState.stateS = RegS;
             newState.stateP = PToByte();
             newState.stateCounter = this.counter;
-            //newState.stateSlCounter = this.slCounter;
-            //newState.stateScanline = this.scanline;
-            //newState.stateVblank = this.vblank;
-            //newState.stateSPRMemory = (byte[])this.SPRMemory.Clone();
+            newState.stateSlCounter = this.slCounter;
+            newState.stateScanline = this.scanline;
+            newState.stateVblank = this.vblank;
+            newState.stateSPRMemory = (byte[])this.SPRMemory.Clone();
             newState.stateInterruptReset = this.interruptReset;
-            //newState.stateInterruptNMI = this.interruptNMI;
+            newState.stateInterruptNMI = this.interruptNMI;
             newState.stateInterruptMapper = romMapper.interruptMapper;
-            //newState.vertOffset = this.vertOffset;
-            //newState.horzOffset = this.horzOffset;
-            //newState.nameTableOffset = this.nameTableOffset;
-            //newState.loopyT = this.loopyT;
-            //newState.loopyV = this.loopyV;
-            //newState.loopyX = this.loopyX;
+            newState.vertOffset = this.vertOffset;
+            newState.horzOffset = this.horzOffset;
+            newState.nameTableOffset = this.nameTableOffset;
+            newState.loopyT = this.loopyT;
+            newState.loopyV = this.loopyV;
+            newState.loopyX = this.loopyX;
             newState.controlReg1 = this.controlReg1;
             newState.controlReg2 = this.controlReg2;
             newState.controlReady = this.controlReady;
-            //newState.PPUAddrFlip = this.PPUAddrFlip;
-            //newState.readBuffer = this.readBuffer;
-            //newState.spriteZeroHit = this.spriteZeroHit;
-            //newState.spriteOverflow = this.spriteOverflow;
+            newState.PPUAddrFlip = this.PPUAddrFlip;
+            newState.readBuffer = this.readBuffer;
+            newState.spriteZeroHit = this.spriteZeroHit;
+            newState.spriteOverflow = this.spriteOverflow;
             newState.mapperState = new MemoryStream();
             romMapper.MapperStateSave(ref newState.mapperState);
             newState.isStored = true;
@@ -1525,35 +2139,35 @@ namespace DirectXEmu
             RegPC = oldState.stateProgramCounter;
             this.Memory.LoadBanks((bool[])oldState.stateMemBanks.Clone(), (byte[][])oldState.stateMemory.Clone());
             this.Memory.memMap = (int[])oldState.stateMemMap.Clone();
-            PPU.PPUMemory.LoadBanks((bool[])oldState.statePPUBanks.Clone(), (byte[][])oldState.statePPUMemory.Clone());
-            PPU.PPUMemory.memMap = (int[])oldState.statePPUMap.Clone();
-            PPU.PalMemory = (byte[])oldState.statePalMemory.Clone();
+            this.PPUMemory.LoadBanks((bool[])oldState.statePPUBanks.Clone(), (byte[][])oldState.statePPUMemory.Clone());
+            this.PPUMemory.memMap = (int[])oldState.statePPUMap.Clone();
+            this.PalMemory = (byte[])oldState.statePalMemory.Clone();
             RegA = oldState.stateA;
             RegX = oldState.stateX;
             RegY = oldState.stateY;
             RegS = oldState.stateS;
             PFromByte(oldState.stateP);
             this.counter = oldState.stateCounter;
-            //this.slCounter = oldState.stateSlCounter;
-            //this.scanline = oldState.stateScanline;
-            //this.vblank = oldState.stateVblank;
-            //this.SPRMemory = (byte[])oldState.stateSPRMemory.Clone();
-            //this.interruptReset = oldState.stateInterruptReset;
-            //this.interruptNMI = oldState.stateInterruptNMI;
+            this.slCounter = oldState.stateSlCounter;
+            this.scanline = oldState.stateScanline;
+            this.vblank = oldState.stateVblank;
+            this.SPRMemory = (byte[])oldState.stateSPRMemory.Clone();
+            this.interruptReset = oldState.stateInterruptReset;
+            this.interruptNMI = oldState.stateInterruptNMI;
             romMapper.interruptMapper = oldState.stateInterruptMapper;
-            //this.vertOffset = oldState.vertOffset;
-            //this.horzOffset = oldState.horzOffset;
-            //this.nameTableOffset = oldState.nameTableOffset;
-            //this.loopyT = oldState.loopyT;
-            //this.loopyV = oldState.loopyV;
-            //this.loopyX = oldState.loopyX;
+            this.vertOffset = oldState.vertOffset;
+            this.horzOffset = oldState.horzOffset;
+            this.nameTableOffset = oldState.nameTableOffset;
+            this.loopyT = oldState.loopyT;
+            this.loopyV = oldState.loopyV;
+            this.loopyX = oldState.loopyX;
             this.controlReg1 = oldState.controlReg1;
             this.controlReg2 = oldState.controlReg2;
             this.controlReady = oldState.controlReady;
-            //this.PPUAddrFlip = oldState.PPUAddrFlip;
-            //this.readBuffer = oldState.readBuffer;
-            //this.spriteZeroHit = oldState.spriteZeroHit;
-            //this.spriteOverflow = oldState.spriteOverflow;
+            this.PPUAddrFlip = oldState.PPUAddrFlip;
+            this.readBuffer = oldState.readBuffer;
+            this.spriteZeroHit = oldState.spriteZeroHit;
+            this.spriteOverflow = oldState.spriteOverflow;
             romMapper.MapperStateLoad(oldState.mapperState);
         }
         public void restart()

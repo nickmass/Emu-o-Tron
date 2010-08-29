@@ -272,7 +272,7 @@ namespace DirectXEmu
                         }
                         else if (compare.type == CompareType.screenshot)
                         {
-                            uint CRC = GetScreenCRC(testCore.scanlines);
+                            uint CRC = GetScreenCRC(testCore.PPU.screen);
                             switch (compare.op)
                             {
                                 default:
@@ -316,12 +316,12 @@ namespace DirectXEmu
             else
                 return int.Parse(str);
         }
-        public uint GetScreenCRC(byte[][] scanlines)
+        public uint GetScreenCRC(ushort[,] scanlines)
         {
             uint crc = 0xFFFFFFFF;
             for (int y = 0; y < 240; y++)
                 for (int x = 0; x < 256; x++)
-                    crc = CRC32.crc32_adjust(crc, scanlines[y][x]);
+                    crc = CRC32.crc32_adjust(crc, (byte)(scanlines[x,y] & 0xFF));
             crc ^= 0xFFFFFFFF;
             return crc;
         }
