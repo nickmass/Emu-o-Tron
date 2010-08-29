@@ -57,15 +57,6 @@ namespace DirectXEmu
         public GameGenie[] gameGenieCodes = new GameGenie[0xFF];
         public int gameGenieCodeNum = 0;
 
-        public bool generateNameTables = false;
-        public int generateLine = 0;
-        public byte[][,] nameTables;
-
-        public bool generatePatternTables = false;
-        public int generatePatternLine = 0;
-        public byte[][] patternTablesPalette;
-        public byte[][,] patternTables;
-
         public bool sramPresent = false;
         public string romHash;
         public UInt32 CRC = 0xffffffff;
@@ -815,11 +806,11 @@ namespace DirectXEmu
                 {
                     emulationRunning = false;
                     PPU.frameComplete = false;
+                    PPU.generateNameTables = false;
+                    PPU.generatePatternTables = false;
                 }
             }
             APU.Update();
-            this.generateNameTables = false;
-            this.generatePatternTables = false;
         }
         public NESCore(String input, String cartDBLocation)
         {
@@ -1178,131 +1169,6 @@ namespace DirectXEmu
             int highAddress = (address & 0xFF00) + ((address + 1) & 0xFF);
             return (Peek(address) + (Peek(highAddress) << 8)) & 0xFFFF;
         }
-        private string LogOp(int address)
-        {
-            StringBuilder line = new StringBuilder();
-            int op = Peek(address);
-            int opInfo = OpInfo.GetOps()[op];
-            int size = (opInfo >> 16) & 0xFF;
-            int addressing = (opInfo >> 8) & 0xFF;
-            line.AppendFormat("{0}  ", address.ToString("X4"));
-            if (size == 0)
-                line.Append("          ");
-            else if (size == 1)
-                line.AppendFormat("{0}       ", Peek(address).ToString("X2"));
-            else if (size == 2)
-                line.AppendFormat("{0} {1}    ", Peek(address).ToString("X2"), Peek(address + 1).ToString("X2"));
-            else if (size == 3)
-                line.AppendFormat("{0} {1} {2} ", Peek(address).ToString("X2"), Peek(address + 1).ToString("X2"), Peek(address + 2).ToString("X2"));
-            line.Append(OpInfo.GetOpNames()[opInfo & 0xFF].PadLeft(4).PadRight(5));
-            //Should be 20 long at this point, addressing should be 28 long
-
-            int val1;
-            int val2;
-            int val3;
-            int val4;
-            switch (addressing)
-            {
-                case OpInfo.AddrNone:
-                    line.Append("                            ");
-                    break;
-                case OpInfo.AddrAccumulator:
-                    line.Append("A                           ");
-                    break;
-                case OpInfo.AddrImmediate:
-                    line.AppendFormat("#${0}                        ", Peek(address + 1).ToString("X2"));
-                    break;
-                case OpInfo.AddrZeroPage:
-                    line.AppendFormat("${0} = {1}                    ", Peek(address + 1).ToString("X2"), Peek(Peek(address + 1)).ToString("X2"));
-                    break;
-                case OpInfo.AddrZeroPageX:
-                    line.AppendFormat("${0},X @ {1} = {2}             ", Peek(address + 1).ToString("X2"), ((Peek(address + 1) + RegX) & 0xFF).ToString("X2"), Peek((Peek(address + 1) + RegX) & 0xFF).ToString("X2"));
-                    break;
-                case OpInfo.AddrZeroPageY:
-                    line.AppendFormat("${0},Y @ {1} = {2}             ", Peek(address + 1).ToString("X2"), ((Peek(address + 1) + RegY) & 0xFF).ToString("X2"), Peek((Peek(address + 1) + RegY) & 0xFF).ToString("X2"));
-                    break;
-                case OpInfo.AddrAbsolute:
-                    if(op == 0x4C || op == 0x20)
-                        line.AppendFormat("${0}                       ", PeekWord(address + 1).ToString("X4"));
-                    else
-                        line.AppendFormat("${0} = {1}                  ", PeekWord(address + 1).ToString("X4"), Peek(PeekWord(address + 1)).ToString("X2"));
-                    break;
-                case OpInfo.AddrAbsoluteX:
-                    line.AppendFormat("${0},X @ {1} = {2}         ", PeekWord(address + 1).ToString("X4"), ((PeekWord(address + 1) + RegX) & 0xFFFF).ToString("X4"), Peek((PeekWord(address + 1) + RegX) & 0xFFFF).ToString("X2"));
-                    break;
-                case OpInfo.AddrAbsoluteY:
-                    line.AppendFormat("${0},Y @ {1} = {2}         ", PeekWord(address + 1).ToString("X4"), ((PeekWord(address + 1) + RegY) & 0xFFFF).ToString("X4"), Peek((PeekWord(address + 1) + RegY) & 0xFFFF).ToString("X2"));
-                    break;
-                case OpInfo.AddrIndirectAbs:
-                    line.AppendFormat("(${0}) = {1}              ", PeekWord(address + 1).ToString("X4"), PeekWordWrap(PeekWord(address + 1)).ToString("X4"));
-                    break;
-                case OpInfo.AddrRelative:
-                    int addr = Peek(address + 1);
-                    if (addr < 0x80)
-                        addr += (address + 1);
-                    else
-                        addr += (address + 1) - 256;
-                    line.AppendFormat("${0}                       ", addr.ToString("X4"));
-                    break;
-                case OpInfo.AddrIndirectX:
-                    addr = val1 = Peek(address + 1);
-                    addr += RegX;
-                    addr &= 0xFF;
-                    val2 = addr;
-                    addr = val3 = Peek(addr) + (Peek((addr + 1) & 0xFF) << 8);
-                    addr = val4 = Peek(addr);
-                    line.AppendFormat("(${0},X) @ {1} = {2} = {3}    ", val1.ToString("X2"), val2.ToString("X2"), val3.ToString("X4"), val4.ToString("X2"));
-                    break;
-                case OpInfo.AddrIndirectY:
-                    addr = val1 = Peek(address + 1);
-                    addr = val2 = Peek(addr) + (Peek((addr + 1) & 0xFF) << 8);
-                    addr += RegY;
-                    addr &= 0xFFFF;
-                    val3 = addr;
-                    addr = val4 = Peek(addr & 0xFFFF);
-                    line.AppendFormat("(${0}),Y = {1} @ {2} = {3}  ", val1.ToString("X2"), val2.ToString("X4"), val3.ToString("X4"), val4.ToString("X2"));
-                    break;
-            }
-            line.AppendFormat("A:{0} X:{1} Y:{2} P:", RegA.ToString("X2"), RegX.ToString("X2"), RegY.ToString("X2"));
-            if (FlagCarry != 0)
-                line.Append("C");
-            else
-                line.Append("c");
-            if (FlagZero == 0)
-                line.Append("Z");
-            else
-                line.Append("z");
-            if (FlagIRQ != 0)
-                line.Append("I");
-            else
-                line.Append("i");
-            if (FlagDecimal != 0)
-                line.Append("D");
-            else
-                line.Append("d");
-            if (FlagBreak != 0)
-                line.Append("B");
-            else
-                line.Append("b");
-            if (FlagNotUsed != 0)
-                line.Append("-");
-            else
-                line.Append("_");
-            if (FlagOverflow != 0)
-                line.Append("V");
-            else
-                line.Append("v");
-            if (FlagSign != 0)
-                line.Append("N");
-            else
-                line.Append("n");
-            line.AppendFormat(" S:{0} CYC:{1} SL:{2}", RegS.ToString("X2"), (PPU.scanlineCycle * 3).ToString().PadLeft(3), PPU.scanline.ToString().PadLeft(3));
-            return line.ToString();
-        }
-        public void AddCycles(int value)
-        {
-            counter += value;
-        }
         private void Write(int address, int value)
         {
             address = MirrorMap[address & 0xFFFF];
@@ -1471,6 +1337,131 @@ namespace DirectXEmu
             RegS++;
             RegS &= 0xFF;
             return Read((ushort)(RegS + 0x0100));
+        }
+        private string LogOp(int address)
+        {
+            StringBuilder line = new StringBuilder();
+            int op = Peek(address);
+            int opInfo = OpInfo.GetOps()[op];
+            int size = (opInfo >> 16) & 0xFF;
+            int addressing = (opInfo >> 8) & 0xFF;
+            line.AppendFormat("{0}  ", address.ToString("X4"));
+            if (size == 0)
+                line.Append("          ");
+            else if (size == 1)
+                line.AppendFormat("{0}       ", Peek(address).ToString("X2"));
+            else if (size == 2)
+                line.AppendFormat("{0} {1}    ", Peek(address).ToString("X2"), Peek(address + 1).ToString("X2"));
+            else if (size == 3)
+                line.AppendFormat("{0} {1} {2} ", Peek(address).ToString("X2"), Peek(address + 1).ToString("X2"), Peek(address + 2).ToString("X2"));
+            line.Append(OpInfo.GetOpNames()[opInfo & 0xFF].PadLeft(4).PadRight(5));
+            //Should be 20 long at this point, addressing should be 28 long
+
+            int val1;
+            int val2;
+            int val3;
+            int val4;
+            switch (addressing)
+            {
+                case OpInfo.AddrNone:
+                    line.Append("                            ");
+                    break;
+                case OpInfo.AddrAccumulator:
+                    line.Append("A                           ");
+                    break;
+                case OpInfo.AddrImmediate:
+                    line.AppendFormat("#${0}                        ", Peek(address + 1).ToString("X2"));
+                    break;
+                case OpInfo.AddrZeroPage:
+                    line.AppendFormat("${0} = {1}                    ", Peek(address + 1).ToString("X2"), Peek(Peek(address + 1)).ToString("X2"));
+                    break;
+                case OpInfo.AddrZeroPageX:
+                    line.AppendFormat("${0},X @ {1} = {2}             ", Peek(address + 1).ToString("X2"), ((Peek(address + 1) + RegX) & 0xFF).ToString("X2"), Peek((Peek(address + 1) + RegX) & 0xFF).ToString("X2"));
+                    break;
+                case OpInfo.AddrZeroPageY:
+                    line.AppendFormat("${0},Y @ {1} = {2}             ", Peek(address + 1).ToString("X2"), ((Peek(address + 1) + RegY) & 0xFF).ToString("X2"), Peek((Peek(address + 1) + RegY) & 0xFF).ToString("X2"));
+                    break;
+                case OpInfo.AddrAbsolute:
+                    if (op == 0x4C || op == 0x20)
+                        line.AppendFormat("${0}                       ", PeekWord(address + 1).ToString("X4"));
+                    else
+                        line.AppendFormat("${0} = {1}                  ", PeekWord(address + 1).ToString("X4"), Peek(PeekWord(address + 1)).ToString("X2"));
+                    break;
+                case OpInfo.AddrAbsoluteX:
+                    line.AppendFormat("${0},X @ {1} = {2}         ", PeekWord(address + 1).ToString("X4"), ((PeekWord(address + 1) + RegX) & 0xFFFF).ToString("X4"), Peek((PeekWord(address + 1) + RegX) & 0xFFFF).ToString("X2"));
+                    break;
+                case OpInfo.AddrAbsoluteY:
+                    line.AppendFormat("${0},Y @ {1} = {2}         ", PeekWord(address + 1).ToString("X4"), ((PeekWord(address + 1) + RegY) & 0xFFFF).ToString("X4"), Peek((PeekWord(address + 1) + RegY) & 0xFFFF).ToString("X2"));
+                    break;
+                case OpInfo.AddrIndirectAbs:
+                    line.AppendFormat("(${0}) = {1}              ", PeekWord(address + 1).ToString("X4"), PeekWordWrap(PeekWord(address + 1)).ToString("X4"));
+                    break;
+                case OpInfo.AddrRelative:
+                    int addr = Peek(address + 1);
+                    if (addr < 0x80)
+                        addr += (address + 1);
+                    else
+                        addr += (address + 1) - 256;
+                    line.AppendFormat("${0}                       ", addr.ToString("X4"));
+                    break;
+                case OpInfo.AddrIndirectX:
+                    addr = val1 = Peek(address + 1);
+                    addr += RegX;
+                    addr &= 0xFF;
+                    val2 = addr;
+                    addr = val3 = Peek(addr) + (Peek((addr + 1) & 0xFF) << 8);
+                    addr = val4 = Peek(addr);
+                    line.AppendFormat("(${0},X) @ {1} = {2} = {3}    ", val1.ToString("X2"), val2.ToString("X2"), val3.ToString("X4"), val4.ToString("X2"));
+                    break;
+                case OpInfo.AddrIndirectY:
+                    addr = val1 = Peek(address + 1);
+                    addr = val2 = Peek(addr) + (Peek((addr + 1) & 0xFF) << 8);
+                    addr += RegY;
+                    addr &= 0xFFFF;
+                    val3 = addr;
+                    addr = val4 = Peek(addr & 0xFFFF);
+                    line.AppendFormat("(${0}),Y = {1} @ {2} = {3}  ", val1.ToString("X2"), val2.ToString("X4"), val3.ToString("X4"), val4.ToString("X2"));
+                    break;
+            }
+            line.AppendFormat("A:{0} X:{1} Y:{2} P:", RegA.ToString("X2"), RegX.ToString("X2"), RegY.ToString("X2"));
+            if (FlagCarry != 0)
+                line.Append("C");
+            else
+                line.Append("c");
+            if (FlagZero == 0)
+                line.Append("Z");
+            else
+                line.Append("z");
+            if (FlagIRQ != 0)
+                line.Append("I");
+            else
+                line.Append("i");
+            if (FlagDecimal != 0)
+                line.Append("D");
+            else
+                line.Append("d");
+            if (FlagBreak != 0)
+                line.Append("B");
+            else
+                line.Append("b");
+            if (FlagNotUsed != 0)
+                line.Append("-");
+            else
+                line.Append("_");
+            if (FlagOverflow != 0)
+                line.Append("V");
+            else
+                line.Append("v");
+            if (FlagSign != 0)
+                line.Append("N");
+            else
+                line.Append("n");
+            line.AppendFormat(" S:{0} CYC:{1} SL:{2}", RegS.ToString("X2"), (PPU.scanlineCycle * 3).ToString().PadLeft(3), PPU.scanline.ToString().PadLeft(3));
+            return line.ToString();
+        }
+        public void AddCycles(int value)
+        {
+            counter += value;
         }
         private void CPUMirror(ushort address, ushort mirrorAddress, ushort length, int repeat)
         {

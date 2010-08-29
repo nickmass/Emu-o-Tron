@@ -803,13 +803,13 @@ namespace DirectXEmu
                 this.Fm2Reader();
             if (this.generatePatternTables && this.frame % this.patternTableUpdate == 0)
             {
-                cpu.generatePatternLine = this.generatePatternLine;
-                cpu.generatePatternTables = true;
+                cpu.PPU.generatePatternLine = this.generatePatternLine;
+                cpu.PPU.generatePatternTables = true;
             }
             if (this.generateNameTables && this.frame % this.nameTableUpdate == 0)
             {
-                cpu.generateLine = this.generateLine;
-                cpu.generateNameTables = true;
+                cpu.PPU.generateLine = this.generateLine;
+                cpu.PPU.generateNameTables = true;
             }
 
             if (rewindingEnabled)
@@ -919,12 +919,12 @@ namespace DirectXEmu
             }
             if (this.generatePatternTables && this.frame % this.patternTableUpdate == 0)
             {
-                this.patternTablePreview.UpdatePatternTables(cpu.patternTables, cpu.patternTablesPalette);
+                this.patternTablePreview.UpdatePatternTables(cpu.PPU.patternTables, cpu.PPU.patternTablesPalette);
                 this.generatePatternLine = this.patternTablePreview.generateLine;
             }
             if (this.generateNameTables && this.frame % this.nameTableUpdate == 0)
             {
-                this.generateLine = this.nameTablePreview.UpdateNameTables(cpu.nameTables);
+                this.generateLine = this.nameTablePreview.UpdateNameTables(cpu.PPU.nameTables);
             }
             if (this.frame % this.frameSkipper == 0)
             {
