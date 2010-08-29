@@ -152,7 +152,6 @@ namespace DirectXEmu.mappers
         public override void MapperStateSave(ref MemoryStream buf)
         {
             BinaryWriter writer = new BinaryWriter(buf);
-            writer.Seek(0, SeekOrigin.Begin);
             writer.Write(reg0);
             writer.Write(reg1);
             writer.Write(reg2);
@@ -164,7 +163,6 @@ namespace DirectXEmu.mappers
         public override void MapperStateLoad(MemoryStream buf)
         {
             BinaryReader reader = new BinaryReader(buf);
-            reader.BaseStream.Seek(0, SeekOrigin.Begin);
             reg0 = reader.ReadByte();
             reg1 = reader.ReadByte();
             reg2 = reader.ReadByte();

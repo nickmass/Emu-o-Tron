@@ -288,7 +288,6 @@ namespace DirectXEmu.mappers
         public override void MapperStateSave(ref MemoryStream buf)
         {
             BinaryWriter writer = new BinaryWriter(buf);
-            writer.Seek(0, SeekOrigin.Begin);
             writer.Write(bankSelect);
             writer.Write(irqCounter);
             writer.Write(irqLatch);
@@ -299,7 +298,6 @@ namespace DirectXEmu.mappers
         public override void MapperStateLoad(MemoryStream buf)
         {
             BinaryReader reader = new BinaryReader(buf);
-            reader.BaseStream.Seek(0, SeekOrigin.Begin);
             bankSelect = reader.ReadByte();
             irqCounter = reader.ReadByte();
             irqLatch = reader.ReadByte();

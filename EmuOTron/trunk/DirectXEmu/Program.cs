@@ -75,8 +75,10 @@ namespace DirectXEmu
         Controller player1;
         Controller player2;
         Color[][] colorChart = new Color[0x8][];
+        bool reinitializeD3D = false;
         public int frame = 0;
         public int frameSkipper = 1;
+        int maxFrameSkip = 10;
         GameGenie[] gameGenieCodes = new GameGenie[0xFF];
         int gameGenieCodeCount = 0;
         string message = "";
@@ -127,19 +129,18 @@ namespace DirectXEmu
         bool saveSafeRewind = false;
         bool rewinding = false;
         bool rewindingEnabled;
-        private ToolStripMenuItem romInfoToolStripMenuItem;
-        private ToolStripMenuItem keyBindingsToolStripMenuItem;
 
         private SlimDX.XInput.Controller x360Controller;
         private bool enableController = true;
         private bool buttonDown = false;
         private int vibTimer = 0;
+
+        private ToolStripMenuItem romInfoToolStripMenuItem;
+        private ToolStripMenuItem keyBindingsToolStripMenuItem;
         private ToolStripMenuItem displayToolStripMenuItem;
         private ToolStripMenuItem spritesToolStripMenuItem;
         private ToolStripMenuItem backgroundToolStripMenuItem;
         private ToolStripSeparator toolStripSeparator5;
-
-        bool reinitializeD3D = false;
         private ToolStripMenuItem showInputToolStripMenuItem;
         private ToolStripMenuItem videoModeToolStripMenuItem;
         private ToolStripMenuItem sizeableToolStripMenuItem;
@@ -149,7 +150,6 @@ namespace DirectXEmu
         private ToolStripMenuItem scale2xToolStripMenuItem;
         private ToolStripMenuItem scale3xToolStripMenuItem;
         private ToolStripMenuItem spriteLimitToolStripMenuItem;
-        int maxFrameSkip = 10;
         private ToolStripMenuItem recordToolStripMenuItem;
         private ToolStripMenuItem recordWAVToolStripMenuItem;
         private ToolStripMenuItem stopWAVToolStripMenuItem;
@@ -803,13 +803,13 @@ namespace DirectXEmu
                 this.Fm2Reader();
             if (this.generatePatternTables && this.frame % this.patternTableUpdate == 0)
             {
-                cpu.generatePatternLine = this.generatePatternLine;
-                cpu.generatePatternTables = true;
+                cpu.PPU.generatePatternLine = this.generatePatternLine;
+                cpu.PPU.generatePatternTables = true;
             }
             if (this.generateNameTables && this.frame % this.nameTableUpdate == 0)
             {
-                cpu.generateLine = this.generateLine;
-                cpu.generateNameTables = true;
+                cpu.PPU.generateLine = this.generateLine;
+                cpu.PPU.generateNameTables = true;
             }
 
             if (rewindingEnabled)
@@ -860,7 +860,7 @@ namespace DirectXEmu
             {
                 Point curPoint = LocateMouse();
                 player2.zapper.triggerPulled = dMouse.GetCurrentState().IsPressed(0) && (curPoint.X != 0 || curPoint.Y != 0);
-                player2.zapper.lightDetected = colorChart[0][cpu.scanlines[curPoint.Y][curPoint.X]].GetBrightness() >= 0.95;
+                player2.zapper.lightDetected = colorChart[0][cpu.PPU.screen[curPoint.X, curPoint.Y]].GetBrightness() >= 0.95;
                 zapStatLight = player2.zapper.lightDetected;
                 zapStatTrig = player2.zapper.triggerPulled;
             }
@@ -870,7 +870,7 @@ namespace DirectXEmu
             if(memoryViewerMem == 1)
                 memoryViewer.updateMemory(cpu.Memory, cpu.MirrorMap);
             else if (memoryViewerMem == 2)
-                memoryViewer.updateMemory(cpu.PPUMemory, cpu.PPUMirrorMap);
+                memoryViewer.updateMemory(cpu.PPU.PPUMemory, cpu.PPU.PPUMirrorMap);
 
 
             if (frame % cpu.APU.frameBuffer == 0)
@@ -919,34 +919,25 @@ namespace DirectXEmu
             }
             if (this.generatePatternTables && this.frame % this.patternTableUpdate == 0)
             {
-                this.patternTablePreview.UpdatePatternTables(cpu.patternTables, cpu.patternTablesPalette);
+                this.patternTablePreview.UpdatePatternTables(cpu.PPU.patternTables, cpu.PPU.patternTablesPalette);
                 this.generatePatternLine = this.patternTablePreview.generateLine;
             }
             if (this.generateNameTables && this.frame % this.nameTableUpdate == 0)
             {
-                this.generateLine = this.nameTablePreview.UpdateNameTables(cpu.nameTables);
+                this.generateLine = this.nameTablePreview.UpdateNameTables(cpu.PPU.nameTables);
             }
             if (this.frame % this.frameSkipper == 0)
             {
                 BitmapData frameBMD = frameBuffer.LockBits(new Rectangle(0, 0, frameBuffer.Width, frameBuffer.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
                 byte* framePixels = (byte*)frameBMD.Scan0;
-                byte[][] scanlines = cpu.PPU.screen;
-                if(!cpu.PPU.testPPU)
-                    scanlines = cpu.scanlines;
+                ushort[,] screen = cpu.PPU.screen;
                 for (int y = 0; y < 240; y++)
                 {
-                    int emphasisTable = 0;
-                    if (this.cpu.blueEmph[y])
-                        emphasisTable |= 4;
-                    if (this.cpu.greenEmph[y])
-                        emphasisTable |= 2;
-                    if (this.cpu.redEmph[y])
-                        emphasisTable |= 1;
                     for (int x = 0; x < 256; x++)
                     {
-                        framePixels[(((y * 4) * 256) + (x * 4))] = this.colorChart[emphasisTable][scanlines[y][x]].B;
-                        framePixels[(((y * 4) * 256) + (x * 4)) + 1] = this.colorChart[emphasisTable][scanlines[y][x]].G;
-                        framePixels[(((y * 4) * 256) + (x * 4)) + 2] = this.colorChart[emphasisTable][scanlines[y][x]].R;
+                        framePixels[(((y * 4) * 256) + (x * 4))] = this.colorChart[screen[x, y] >> 8][screen[x, y] & 0xFF].B;
+                        framePixels[(((y * 4) * 256) + (x * 4)) + 1] = this.colorChart[screen[x, y] >> 8][screen[x, y] & 0xFF].G;
+                        framePixels[(((y * 4) * 256) + (x * 4)) + 2] = this.colorChart[screen[x, y] >> 8][screen[x, y] & 0xFF].R;
                         framePixels[(((y * 4) * 256) + (x * 4)) + 3] = 255;
                     }
                 }
@@ -961,12 +952,12 @@ namespace DirectXEmu
             }
         }
         uint CRC;
-        public uint GetScreenCRC(byte[][] scanlines)
+        private uint GetScreenCRC(ushort[,] scanlines)
         {
             uint crc = 0xFFFFFFFF;
             for (int y = 0; y < 240; y++)
                 for (int x = 0; x < 256; x++)
-                    crc = CRC32.crc32_adjust(crc, scanlines[y][x]);
+                    crc = CRC32.crc32_adjust(crc, (byte)(scanlines[x, y] & 0xFF));
             crc ^= 0xFFFFFFFF;
             return crc;
         }
@@ -1103,7 +1094,7 @@ namespace DirectXEmu
                     DrawString(frame.ToString(), this.surfaceControl.Width - ((charSize * frame.ToString().Length) + 4), 24);
                     if (cpu != null)
                     {
-                        CRC = GetScreenCRC(cpu.scanlines);
+                        CRC = GetScreenCRC(cpu.PPU.screen);
                         DrawString(CRC.ToString("X8"), this.surfaceControl.Width - ((charSize * CRC.ToString("X8").Length) + 4), 44);
                     }
                 }
@@ -1312,15 +1303,6 @@ namespace DirectXEmu
                     ToggleFullScreen();
                 }
             }
-#if DEBUG
-            else if (e.KeyCode == Keys.H)
-            {
-                if (cpu != null)
-                {
-                    cpu.spriteZeroHit = !cpu.spriteZeroHit;
-                }
-            }
-#endif
             else if (e.KeyValue == 18) //This sucks dick too but I'm not sure how best to do it
             {
                 if (fullScreen)
@@ -1599,6 +1581,7 @@ namespace DirectXEmu
             this.patternTablesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.memoryViewerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.pPUMemoryViewerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.testConsoleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.romInfoToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -1610,7 +1593,6 @@ namespace DirectXEmu
             this.openPaletteDialog = new System.Windows.Forms.OpenFileDialog();
             this.openMovieDialog = new System.Windows.Forms.OpenFileDialog();
             this.recordDialog = new System.Windows.Forms.SaveFileDialog();
-            this.testConsoleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip.SuspendLayout();
             this.insideSize.SuspendLayout();
             this.SuspendLayout();
@@ -1775,14 +1757,15 @@ namespace DirectXEmu
             // enableSoundToolStripMenuItem
             // 
             this.enableSoundToolStripMenuItem.Name = "enableSoundToolStripMenuItem";
-            this.enableSoundToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.enableSoundToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.S)));
+            this.enableSoundToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
             this.enableSoundToolStripMenuItem.Text = "Enable Sound";
             this.enableSoundToolStripMenuItem.Click += new System.EventHandler(this.enableSoundToolStripMenuItem_Click);
             // 
             // loadPaletteToolStripMenuItem
             // 
             this.loadPaletteToolStripMenuItem.Name = "loadPaletteToolStripMenuItem";
-            this.loadPaletteToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.loadPaletteToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
             this.loadPaletteToolStripMenuItem.Text = "Load Palette...";
             this.loadPaletteToolStripMenuItem.Click += new System.EventHandler(this.loadPaletteToolStripMenuItem_Click);
             // 
@@ -1796,7 +1779,7 @@ namespace DirectXEmu
             this.scale2xToolStripMenuItem,
             this.scale3xToolStripMenuItem});
             this.videoModeToolStripMenuItem.Name = "videoModeToolStripMenuItem";
-            this.videoModeToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.videoModeToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
             this.videoModeToolStripMenuItem.Text = "Video Mode";
             // 
             // sizeableToolStripMenuItem
@@ -1851,7 +1834,7 @@ namespace DirectXEmu
             this.spritesToolStripMenuItem,
             this.backgroundToolStripMenuItem});
             this.displayToolStripMenuItem.Name = "displayToolStripMenuItem";
-            this.displayToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.displayToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
             this.displayToolStripMenuItem.Text = "Display";
             // 
             // showFPSToolStripMenuItem
@@ -1904,21 +1887,21 @@ namespace DirectXEmu
             // keyBindingsToolStripMenuItem
             // 
             this.keyBindingsToolStripMenuItem.Name = "keyBindingsToolStripMenuItem";
-            this.keyBindingsToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.keyBindingsToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
             this.keyBindingsToolStripMenuItem.Text = "Key Bindings...";
             this.keyBindingsToolStripMenuItem.Click += new System.EventHandler(this.keyBindingsToolStripMenuItem_Click);
             // 
             // gameGenieCodesToolStripMenuItem
             // 
             this.gameGenieCodesToolStripMenuItem.Name = "gameGenieCodesToolStripMenuItem";
-            this.gameGenieCodesToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.gameGenieCodesToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
             this.gameGenieCodesToolStripMenuItem.Text = "Game Genie Codes...";
             this.gameGenieCodesToolStripMenuItem.Click += new System.EventHandler(this.gameGenieCodesToolStripMenuItem_Click);
             // 
             // soundToolStripMenuItem
             // 
             this.soundToolStripMenuItem.Name = "soundToolStripMenuItem";
-            this.soundToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.soundToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
             this.soundToolStripMenuItem.Text = "Sound...";
             this.soundToolStripMenuItem.Click += new System.EventHandler(this.soundToolStripMenuItem_Click);
             // 
@@ -2002,6 +1985,13 @@ namespace DirectXEmu
             this.pPUMemoryViewerToolStripMenuItem.Text = "PPU Memory Viewer...";
             this.pPUMemoryViewerToolStripMenuItem.Click += new System.EventHandler(this.pPUMemoryViewerToolStripMenuItem_Click);
             // 
+            // testConsoleToolStripMenuItem
+            // 
+            this.testConsoleToolStripMenuItem.Name = "testConsoleToolStripMenuItem";
+            this.testConsoleToolStripMenuItem.Size = new System.Drawing.Size(191, 22);
+            this.testConsoleToolStripMenuItem.Text = "Test Console...";
+            this.testConsoleToolStripMenuItem.Click += new System.EventHandler(this.testConsoleToolStripMenuItem_Click);
+            // 
             // helpToolStripMenuItem
             // 
             this.helpToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -2082,13 +2072,6 @@ namespace DirectXEmu
             // 
             this.recordDialog.DefaultExt = "wav";
             this.recordDialog.Filter = "Wav files (*.wav)|*.wav";
-            // 
-            // testConsoleToolStripMenuItem
-            // 
-            this.testConsoleToolStripMenuItem.Name = "testConsoleToolStripMenuItem";
-            this.testConsoleToolStripMenuItem.Size = new System.Drawing.Size(191, 22);
-            this.testConsoleToolStripMenuItem.Text = "Test Console...";
-            this.testConsoleToolStripMenuItem.Click += new System.EventHandler(this.testConsoleToolStripMenuItem_Click);
             // 
             // Program
             // 
@@ -2335,9 +2318,9 @@ namespace DirectXEmu
             this.frame = 0;
             this.saveBufferAvaliable = 0;
             this.cpu.logging = logState;
-            this.cpu.displayBG = (config["displayBG"] == "1");
-            this.cpu.displaySprites = (config["displaySprites"] == "1");
-            this.cpu.displaySpriteLimit = !(config["disableSpriteLimit"] == "1");
+            this.cpu.PPU.displayBG = (config["displayBG"] == "1");
+            this.cpu.PPU.displaySprites = (config["displaySprites"] == "1");
+            this.cpu.PPU.enforceSpriteLimit = !(config["disableSpriteLimit"] == "1");
             this.cpu.APU.mute = !(config["sound"] == "1");
             this.LoadGame();
             this.LoadSaveStateFiles();
@@ -2607,7 +2590,7 @@ namespace DirectXEmu
         private void spritesToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (cpu != null)
-                cpu.displaySprites = !cpu.displaySprites;
+                cpu.PPU.displaySprites = !cpu.PPU.displaySprites;
             this.spritesToolStripMenuItem.Checked = !this.spritesToolStripMenuItem.Checked;
             config["displaySprites"] = this.spritesToolStripMenuItem.Checked ? "1" : "0";
         }
@@ -2615,7 +2598,7 @@ namespace DirectXEmu
         private void backgroundToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (cpu != null)
-                cpu.displayBG = !cpu.displayBG;
+                cpu.PPU.displayBG = !cpu.PPU.displayBG;
             this.backgroundToolStripMenuItem.Checked = !this.backgroundToolStripMenuItem.Checked;
             config["displayBG"] = this.backgroundToolStripMenuItem.Checked ? "1" : "0";
         }
@@ -2623,7 +2606,7 @@ namespace DirectXEmu
         private void spriteLimitToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (cpu != null)
-                cpu.displaySpriteLimit = !cpu.displaySpriteLimit;
+                cpu.PPU.enforceSpriteLimit = !cpu.PPU.enforceSpriteLimit;
             this.spriteLimitToolStripMenuItem.Checked = !this.spriteLimitToolStripMenuItem.Checked;
             config["disableSpriteLimit"] = this.spriteLimitToolStripMenuItem.Checked ? "1" : "0";
         }

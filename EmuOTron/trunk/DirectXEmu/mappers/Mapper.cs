@@ -6,7 +6,7 @@ using System.IO;
 
 namespace DirectXEmu.mappers
 {
-    abstract class Mapper
+    public abstract class Mapper
     {
         public int mapper;
         public int numPRGRom;

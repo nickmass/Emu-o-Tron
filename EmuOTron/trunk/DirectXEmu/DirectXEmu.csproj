@@ -105,6 +105,7 @@
     <Compile Include="Console.Designer.cs">
       <DependentUpon>Console.cs</DependentUpon>
     </Compile>
+    <None Include="Copy of NESCore.cs" />
     <Compile Include="CRC32.cs" />
     <Compile Include="DipDialog.cs">
       <SubType>Form</SubType>
@@ -155,7 +156,6 @@
       <DependentUpon>Keybind.cs</DependentUpon>
     </Compile>
     <Compile Include="Keybinds.cs" />
-    <Content Include="OldCPU.cs" />
     <Compile Include="OpInfo.cs" />
     <Compile Include="PPU.cs" />
     <Compile Include="SoundConfig.cs">
