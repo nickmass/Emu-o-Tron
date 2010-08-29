@@ -1462,6 +1462,8 @@ namespace DirectXEmu
         public void AddCycles(int value)
         {
             counter += value;
+            APU.AddCycles(value);
+            PPU.AddCycles(value);
         }
         private void CPUMirror(ushort address, ushort mirrorAddress, ushort length, int repeat)
         {

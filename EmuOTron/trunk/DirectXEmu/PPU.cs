@@ -244,7 +244,6 @@ namespace DirectXEmu
         {
             loopyV = (loopyV & 0x7BE0) | (loopyT & 0x041F); //Horz reset
         }
-
         public void AddCycles(int cycles)
         {
             scanlineCycle += cycles;
@@ -402,26 +401,26 @@ namespace DirectXEmu
                         for (int i = 0; i < 256; i++)
                             screen[i, scanline] = (ushort)((PalMemory[0x00] & grayScale) | colorMask);
                 }
-                if (scanline == 240)
-                {
-                    if (nmiEnable)
-                        interruptNMI = true;
-                    inVblank = true;
-                }
-                else if (scanline == 261)
-                {
-                    spriteOverflow = false;
-                    spriteZeroHit = false;
-                    frameComplete = true;
-                    inVblank = false;
-                    scanline = -2;
-                }
                 if (generateNameTables && scanline == generateLine)
                     nameTables = GenerateNameTables();
                 if (generatePatternTables && scanline == generatePatternLine)
                 {
                     patternTablesPalette = GeneratePatternTablePalette();
                     patternTables = GeneratePatternTables();
+                }
+                if (scanline == 240)
+                {
+                    if (nmiEnable)
+                        interruptNMI = true;
+                    inVblank = true;
+                }
+                else if (scanline == 260)
+                {
+                    spriteOverflow = false;
+                    spriteZeroHit = false;
+                    frameComplete = true;
+                    inVblank = false;
+                    scanline = -2;
                 }
                 scanline++;
             }
