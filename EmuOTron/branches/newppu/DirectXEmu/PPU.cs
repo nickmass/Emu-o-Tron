@@ -252,7 +252,29 @@ namespace DirectXEmu
             {
                 scanlineCycle -= scanlineLengths[slCounter % 3];
                 slCounter++;
-                if (backgroundRendering | spriteRendering)
+                bool spriteZeroLine = false;
+                if (turbo)
+                {
+                    int yPosition = SPRMemory[0] + 1;
+                    if (yPosition <= scanline && yPosition + (tallSprites ? 16 : 8) > scanline)
+                        spriteZeroLine = true;
+                    else if (backgroundRendering || spriteRendering) //Run through line in turbo mode if it isnt a sprite zero line
+                    {
+                        if (scanline < 240 && scanline >= 0)//real scanline
+                        {
+                            for (int tile = 0; tile < 34; tile++)//each tile on line
+                                HorizontalIncrement();
+                            VerticalIncrement();
+                            HorizontalReset();
+                        }
+                        if (nes.romMapper.mapper == 4 && (spriteRendering | backgroundRendering) && scanline < 240)
+                            nes.romMapper.MapperIRQ(scanline, 0);
+                        if (scanline == -1)
+                            VerticalReset();
+                    }
+
+                }
+                if ((backgroundRendering || spriteRendering) && ((turbo && spriteZeroLine) || !turbo))
                 {
                     if (scanline < 240 && scanline >= 0)//real scanline
                     {
@@ -294,7 +316,6 @@ namespace DirectXEmu
                             int spritesOnLine = 0;
                             for (int sprite = 0; sprite < 64; sprite++)
                             {
-
                                 int yPosition = SPRMemory[sprite * 4] + 1;
                                 if (yPosition <= scanline && yPosition + (tallSprites ? 16 : 8) > scanline && (spritesOnLine < 8 || !enforceSpriteLimit))
                                 {
@@ -375,7 +396,7 @@ namespace DirectXEmu
                         VerticalReset();
                     }
                 }
-                else
+                else if(!turbo)
                 {
                     if (scanline < 240 && scanline >= 0)
                         for (int i = 0; i < 256; i++)

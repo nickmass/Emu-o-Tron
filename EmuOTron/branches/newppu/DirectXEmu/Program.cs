@@ -75,8 +75,10 @@ namespace DirectXEmu
         Controller player1;
         Controller player2;
         Color[][] colorChart = new Color[0x8][];
+        bool reinitializeD3D = false;
         public int frame = 0;
         public int frameSkipper = 1;
+        int maxFrameSkip = 10;
         GameGenie[] gameGenieCodes = new GameGenie[0xFF];
         int gameGenieCodeCount = 0;
         string message = "";
@@ -127,19 +129,18 @@ namespace DirectXEmu
         bool saveSafeRewind = false;
         bool rewinding = false;
         bool rewindingEnabled;
-        private ToolStripMenuItem romInfoToolStripMenuItem;
-        private ToolStripMenuItem keyBindingsToolStripMenuItem;
 
         private SlimDX.XInput.Controller x360Controller;
         private bool enableController = true;
         private bool buttonDown = false;
         private int vibTimer = 0;
+
+        private ToolStripMenuItem romInfoToolStripMenuItem;
+        private ToolStripMenuItem keyBindingsToolStripMenuItem;
         private ToolStripMenuItem displayToolStripMenuItem;
         private ToolStripMenuItem spritesToolStripMenuItem;
         private ToolStripMenuItem backgroundToolStripMenuItem;
         private ToolStripSeparator toolStripSeparator5;
-
-        bool reinitializeD3D = false;
         private ToolStripMenuItem showInputToolStripMenuItem;
         private ToolStripMenuItem videoModeToolStripMenuItem;
         private ToolStripMenuItem sizeableToolStripMenuItem;
@@ -149,7 +150,6 @@ namespace DirectXEmu
         private ToolStripMenuItem scale2xToolStripMenuItem;
         private ToolStripMenuItem scale3xToolStripMenuItem;
         private ToolStripMenuItem spriteLimitToolStripMenuItem;
-        int maxFrameSkip = 10;
         private ToolStripMenuItem recordToolStripMenuItem;
         private ToolStripMenuItem recordWAVToolStripMenuItem;
         private ToolStripMenuItem stopWAVToolStripMenuItem;
