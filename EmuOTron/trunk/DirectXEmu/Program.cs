@@ -159,6 +159,9 @@ namespace DirectXEmu
         private ToolStripMenuItem memoryViewerToolStripMenuItem;
         private ToolStripMenuItem pPUMemoryViewerToolStripMenuItem;
         private ToolStripMenuItem testConsoleToolStripMenuItem;
+        private ToolStripMenuItem regionToolStripMenuItem;
+        private ToolStripMenuItem nTSCToolStripMenuItem;
+        private ToolStripMenuItem pALToolStripMenuItem;
 
         bool controlStrobe = false;
         public Program()
@@ -305,6 +308,8 @@ namespace DirectXEmu
             this.openMovieDialog.InitialDirectory = this.config["movieDir"];
             this.openFile.InitialDirectory = this.config["romPath1"];
             this.enableSoundToolStripMenuItem.Checked = (config["sound"] == "1");
+            this.nTSCToolStripMenuItem.Checked = (SystemType)Convert.ToInt32(config["region"]) == SystemType.NTSC;
+            this.pALToolStripMenuItem.Checked = (SystemType)Convert.ToInt32(config["region"]) == SystemType.PAL;
             for(int i = 1; i <= 5; i++)
                 if(this.config["romPath" + i.ToString()] != "")
                     this.openFile.CustomPlaces.Add(this.config["romPath" + i.ToString()]);
@@ -1561,6 +1566,9 @@ namespace DirectXEmu
             this.xToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.scale2xToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.scale3xToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.regionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.nTSCToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.pALToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.displayToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.showFPSToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.showInputToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -1746,6 +1754,7 @@ namespace DirectXEmu
             this.enableSoundToolStripMenuItem,
             this.loadPaletteToolStripMenuItem,
             this.videoModeToolStripMenuItem,
+            this.regionToolStripMenuItem,
             this.displayToolStripMenuItem,
             this.keyBindingsToolStripMenuItem,
             this.gameGenieCodesToolStripMenuItem,
@@ -1823,6 +1832,29 @@ namespace DirectXEmu
             this.scale3xToolStripMenuItem.Size = new System.Drawing.Size(122, 22);
             this.scale3xToolStripMenuItem.Text = "Scale3x";
             this.scale3xToolStripMenuItem.Click += new System.EventHandler(this.scale3xToolStripMenuItem_Click);
+            // 
+            // regionToolStripMenuItem
+            // 
+            this.regionToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.nTSCToolStripMenuItem,
+            this.pALToolStripMenuItem});
+            this.regionToolStripMenuItem.Name = "regionToolStripMenuItem";
+            this.regionToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
+            this.regionToolStripMenuItem.Text = "Region";
+            // 
+            // nTSCToolStripMenuItem
+            // 
+            this.nTSCToolStripMenuItem.Name = "nTSCToolStripMenuItem";
+            this.nTSCToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.nTSCToolStripMenuItem.Text = "NTSC";
+            this.nTSCToolStripMenuItem.Click += new System.EventHandler(this.nTSCToolStripMenuItem_Click);
+            // 
+            // pALToolStripMenuItem
+            // 
+            this.pALToolStripMenuItem.Name = "pALToolStripMenuItem";
+            this.pALToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.pALToolStripMenuItem.Text = "PAL";
+            this.pALToolStripMenuItem.Click += new System.EventHandler(this.pALToolStripMenuItem_Click);
             // 
             // displayToolStripMenuItem
             // 
@@ -2310,7 +2342,7 @@ namespace DirectXEmu
             bool logState = false;
             if(this.cpu != null)
                 logState = this.cpu.logging;
-            this.cpu = new NESCore(this.romPath, this.appPath);
+            this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath);
             audioFormat.SamplesPerSecond = this.cpu.APU.sampleRate;
             outWavFormat.SamplesPerSecond = audioFormat.SamplesPerSecond;
             sVoice = new SourceVoice(dAudio, audioFormat, VoiceFlags.None);
@@ -2996,6 +3028,22 @@ namespace DirectXEmu
         {
             Console con = new Console();
             con.Show();
+        }
+
+        private void nTSCToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            foreach (ToolStripMenuItem item in regionToolStripMenuItem.DropDownItems)
+                item.Checked = false;
+            nTSCToolStripMenuItem.Checked = true;
+            config["region"] = ((int)SystemType.NTSC).ToString();
+        }
+
+        private void pALToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            foreach (ToolStripMenuItem item in regionToolStripMenuItem.DropDownItems)
+                item.Checked = false;
+            pALToolStripMenuItem.Checked = true;
+            config["region"] = ((int)SystemType.PAL).ToString();
         }
     }
     class ArchiveCallback : IArchiveExtractCallback

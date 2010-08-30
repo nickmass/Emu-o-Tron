@@ -14,6 +14,7 @@ namespace DirectXEmu
 {
     public class NESCore
     {
+        public SystemType nesRegion = SystemType.PAL;
 
         public MemoryStore Memory;
         public ushort[] MirrorMap = new ushort[0x10000];
@@ -762,7 +763,7 @@ namespace DirectXEmu
                         break;
                 }
                 #endregion
-                this.counter += opCycles;
+                counter += opCycles;
                 APU.AddCycles(opCycles);
                 PPU.AddCycles(opCycles);
                 if (romMapper.mapper == 69)
@@ -812,8 +813,9 @@ namespace DirectXEmu
             }
             APU.Update();
         }
-        public NESCore(String input, String cartDBLocation)
+        public NESCore(SystemType region, String input, String cartDBLocation)
         {
+            this.nesRegion = region;
             this.cartDBLocation = cartDBLocation;
             this.filePath = input;
             this.fileName = Path.GetFileNameWithoutExtension(filePath);
@@ -847,7 +849,7 @@ namespace DirectXEmu
             int mapper = (lowMapper >> 4) + (highMapper & 0xF0);
             Memory = new MemoryStore(0x20 + (numprgrom * 0x10), false);
             Memory.swapOffset = 0x20;
-            APU = new APU(Memory);
+            APU = new APU(this);
             PPU = new PPU(this, numvrom);
             romInfo.AppendLine(input);
             romInfo.AppendLine();
@@ -1556,6 +1558,12 @@ namespace DirectXEmu
             for (int i = 0x0; i < 0x2000; i++)
                 this.Memory[i + 0x6000] = sram[i];
         }
+    }
+    public enum SystemType
+    {
+        NTSC,
+        PAL,
+        Dendy
     }
     [Serializable]
     public struct SaveState

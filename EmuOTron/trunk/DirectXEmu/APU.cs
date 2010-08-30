@@ -7,15 +7,18 @@ namespace DirectXEmu
 {
     public class APU
     {
+        NESCore nes;
+
         public int CPUClock = 1789773; //NTSC
                              //1662607 PAL
-        public int divider = 41;
 
         public bool mute = true;
 
         public int frameBuffer = 1;
         public int sampleRate = 44100;
         public int sampleRateDivider = 1;
+        public int[] sampleDividers = { 40, 41 };
+        public int sampleDividersCounter;
 
         public SoundLevels levels;
         public SoundVolume volume;
@@ -134,11 +137,30 @@ namespace DirectXEmu
         public int outputPtr = 0;
 
 
-        public APU(MemoryStore Memory)
+        public APU(NESCore nes)
         {
-            output = new float[(CPUClock / divider) * frameBuffer];
-            outBytes = new byte[(CPUClock / divider * 4) * frameBuffer];
-            this.Memory = Memory;
+            this.nes = nes;
+            switch (nes.nesRegion)
+            {
+                default:
+                case SystemType.NTSC:
+                    CPUClock = 1789773;
+                    //40.58
+                    frameLengths = new int[] { 7457, 7458 };
+                    noisePeriods = new ushort[] { 4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068 };
+                    dmcRates = new int[] { 428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54 };
+                    break;
+                case SystemType.PAL:
+                    CPUClock = 1662607;
+                    frameLengths = new int[] { 6927, 6928 }; //this is original research and could be very very very wrong, CPUClock / 240hz
+                    noisePeriods = new ushort[] { 4, 7, 14, 30, 60, 88, 118, 148, 188, 236, 354, 472, 708, 944, 1890, 3778 };
+                    dmcRates = new int[] { 398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118, 98, 78, 66, 50 };
+                    break;
+
+            }
+            output = new float[sampleRate * frameBuffer];
+            outBytes = new byte[(sampleRate * 4) * frameBuffer];
+            this.Memory = nes.Memory;
             for (int i = 0; i < 32; i++)
                 pulseTable[i] = ((95.52f / (8128.0f / i + 100f)));
             for (int i = 0; i < 204; i++)
@@ -701,13 +723,15 @@ namespace DirectXEmu
 
                 for (int updateCycle = lastUpdateCycle; updateCycle < cycles; updateCycle++)
                 {
-                    if (updateCycle % divider == 0)
+                    sampleRateDivider--;
+                    if (sampleRateDivider == 0)
                     {
                         outBytes[(outputPtr * 4) + 0] = 0;
                         outBytes[(outputPtr * 4) + 1] = 0;
                         outBytes[(outputPtr * 4) + 2] = 0;
                         outBytes[(outputPtr * 4) + 3] = 0;
                         outputPtr++;
+                        sampleRateDivider = sampleDividers[sampleDividersCounter++ % 2];
                     }
                 }
                 lastUpdateCycle = cycles;
@@ -822,7 +846,7 @@ namespace DirectXEmu
                     outBytes[(outputPtr * 4) + 2] = tmp[2];
                     outBytes[(outputPtr * 4) + 3] = tmp[3];
                     outputPtr++;
-                    sampleRateDivider = CPUClock / sampleRate;
+                    sampleRateDivider = sampleDividers[sampleDividersCounter++ % 2];
                 }
             }
             lastUpdateCycle = cycles;

@@ -88,6 +88,7 @@ namespace DirectXEmu
             defaults["sound"] = "1";
             defaults["volume"] = "100";
             defaults["showDebug"] = "0";
+            defaults["region"] = ((int)SystemType.NTSC).ToString();
 #if DEBUG
             defaults["romPath2"] = @"C:\Games\Emulators\Roms\NES";
             defaults["romPath3"] = @"C:\Games\Emulators\Roms\MapperNes";

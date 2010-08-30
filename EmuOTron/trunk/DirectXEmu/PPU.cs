@@ -41,9 +41,7 @@ namespace DirectXEmu
         ushort colorMask;
 
         public int scanlineCycle;
-        public int scanline = 241;
-        private int[] scanlineLengths = { 114, 114, 113 };
-        private byte slCounter = 0;
+        public int scanline = -1;
 
         private Int32 loopyT;
         private Int32 loopyX;
@@ -65,6 +63,8 @@ namespace DirectXEmu
         public byte[][] patternTablesPalette;
         public byte[][,] patternTables;
 
+        int vblankEnd;
+
         public PPU(NESCore nes, int numvrom)
         {
             this.nes = nes;
@@ -84,6 +84,19 @@ namespace DirectXEmu
 
             for (int i = 0; i < 0x20; i++)
                 PalMemory[i] = 0x0F; //Sets the background to black on startup to prevent grey flashes, not exactly accurate but it looks nicer
+
+
+            switch (nes.nesRegion)
+            {
+                default:
+                case SystemType.NTSC:
+                    vblankEnd = 261;
+                    break;
+                case SystemType.PAL:
+                    vblankEnd = 312;
+                    break;
+
+            }
         }
         private void PPUMirror(ushort address, ushort mirrorAddress, ushort length, int repeat)
         {
@@ -246,16 +259,15 @@ namespace DirectXEmu
         }
         public void AddCycles(int cycles)
         {
-            scanlineCycle += cycles;
-            if (scanlineCycle >= scanlineLengths[slCounter % 3])//scanline finished
+            scanlineCycle += (cycles * 3);
+            if (scanlineCycle >= 341)//scanline finished
             {
-                scanlineCycle -= scanlineLengths[slCounter % 3];
-                slCounter++;
+                scanlineCycle -= 341;
                 bool spriteZeroLine = false;
                 if (turbo)
                 {
                     int yPosition = SPRMemory[0] + 1;
-                    if (yPosition <= scanline && yPosition + (tallSprites ? 16 : 8) > scanline)
+                    if (yPosition <= scanline && yPosition + (tallSprites ? 16 : 8) > scanline && !spriteZeroHit)
                         spriteZeroLine = true;
                     else if (backgroundRendering || spriteRendering) //Run through line in turbo mode if it isnt a sprite zero line
                     {
@@ -352,7 +364,7 @@ namespace DirectXEmu
                                                 spriteAboveLine[xPosition] = (attr & 0x20) == 0;
                                                 spriteBelowLine[xPosition] = (attr & 0x20) != 0;
                                                 spriteLine[xPosition] = (ushort)((PalMemory[(palette * 4) + color + 0x10] & grayScale) | colorMask);
-                                                if (sprite == 0 && !zeroBackground[xPosition])
+                                                if (sprite == 0 && !zeroBackground[xPosition] && xPosition != 255 && scanline != 239)
                                                     spriteZeroHit = true;
                                             }
                                         }
@@ -408,21 +420,21 @@ namespace DirectXEmu
                     patternTablesPalette = GeneratePatternTablePalette();
                     patternTables = GeneratePatternTables();
                 }
-                if (scanline == 240)
+                scanline++;
+                if (scanline == 241)
                 {
                     if (nmiEnable)
                         interruptNMI = true;
                     inVblank = true;
                 }
-                else if (scanline == 260)
+                else if (scanline == vblankEnd)
                 {
                     spriteOverflow = false;
                     spriteZeroHit = false;
                     frameComplete = true;
                     inVblank = false;
-                    scanline = -2;
+                    scanline = -1;
                 }
-                scanline++;
             }
         }
 
@@ -530,7 +542,6 @@ namespace DirectXEmu
             writer.Write(colorMask);
             writer.Write(scanlineCycle);
             writer.Write(scanline);
-            writer.Write(slCounter);
             writer.Write(loopyT);
             writer.Write(loopyX);
             writer.Write(loopyV);
@@ -563,7 +574,6 @@ namespace DirectXEmu
             colorMask = reader.ReadUInt16();
             scanlineCycle = reader.ReadInt32();
             scanline = reader.ReadInt32();
-            slCounter = reader.ReadByte();
             loopyT = reader.ReadInt32();
             loopyX = reader.ReadInt32();
             loopyV = reader.ReadInt32();

@@ -212,7 +212,7 @@ namespace DirectXEmu
             foreach (Test test in testSuite.tests)
             {
                 output.Append(@"\cf1" + test.name + ": ");
-                testCore = new NESCore(Path.Combine(testSuite.basepath, test.file), "");
+                testCore = new NESCore(SystemType.NTSC, Path.Combine(testSuite.basepath, test.file), "");
                 int frame = 0;
                 if (test.type == TestType.movie)
                 {
