@@ -136,7 +136,10 @@ namespace DirectXEmu
                     nextByte = readBuffer;
                     readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x3FFF]];
                 }
+                int oldA12 = (loopyV >> 12) & 1;
                 loopyV = (loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF;
+                if (nes.romMapper.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
+                    nes.romMapper.MapperIRQ(scanline, 0);
             }
             return nextByte;
         }
@@ -195,7 +198,7 @@ namespace DirectXEmu
                 int startAddress = value << 8;
                 for (int i = 0; i < 0x100; i++)
                     SPRMemory[(spriteAddr + i) & 0xFF] = nes.Memory[nes.MirrorMap[(startAddress + i) & 0xFFFF]];
-                //nes.AddCycles(513);
+                nes.AddCycles(513);
             }
             else if (address == 0x2005) //PPUScroll
             {
@@ -213,13 +216,14 @@ namespace DirectXEmu
                 if (!addrLatch)//1st Write
                 {
                     loopyT = ((loopyT & 0x00FF) | ((value & 0x3F) << 8));
-                    //if (oldA12 == 0 && oldA12 != ((loopyT >> 12) & 1))
-                    //    nes.romMapper.MapperScanline(scanline, vblank);
                 }
                 else //2nd Write
                 {
                     loopyT = ((loopyT & 0x7F00) | value);
+                    int oldA12 = ((loopyV >> 12) & 1); ;
                     loopyV = loopyT;
+                    if (nes.romMapper.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
+                        nes.romMapper.MapperIRQ(scanline, 0);
                 }
                 addrLatch = !addrLatch;
             }
@@ -229,7 +233,11 @@ namespace DirectXEmu
                     PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] = (byte)(value & 0x3F);
                 else
                     PPUMemory[PPUMirrorMap[loopyV & 0x3FFF]] = value;
+
+                int oldA12 = (loopyV >> 12) & 1;
                 loopyV = ((loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF);
+                if (nes.romMapper.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
+                    nes.romMapper.MapperIRQ(scanline, 0);
             }
         }
 
@@ -318,6 +326,17 @@ namespace DirectXEmu
                                 lowChr <<= 1;
                                 highChr <<= 1;
                             }
+                            if (nes.romMapper.mapper == 9)//MMC 2 Punch Out!
+                            {
+                                if (chrAddress >= 0xFD0 && chrAddress <= 0xFDF)
+                                    nes.romMapper.MapperIRQ(0, 0xFD);
+                                else if (chrAddress >= 0xFE0 && chrAddress <= 0xFEF)
+                                    nes.romMapper.MapperIRQ(0, 0xFE);
+                                else if (chrAddress >= 0x1FD0 && chrAddress <= 0x1FDF)
+                                    nes.romMapper.MapperIRQ(1, 0xFD);
+                                else if (chrAddress >= 0x1FE0 && chrAddress <= 0x1FEF)
+                                    nes.romMapper.MapperIRQ(1, 0xFE);
+                            }
                             HorizontalIncrement();
                         }
                         VerticalIncrement();
@@ -362,7 +381,7 @@ namespace DirectXEmu
                                             if (color != 0 && !(!leftmostSprites && xPosition < 8))
                                             {
                                                 spriteAboveLine[xPosition] = (attr & 0x20) == 0;
-                                                spriteBelowLine[xPosition] = (attr & 0x20) != 0;
+                                                spriteBelowLine[xPosition] = !spriteAboveLine[xPosition];
                                                 spriteLine[xPosition] = (ushort)((PalMemory[(palette * 4) + color + 0x10] & grayScale) | colorMask);
                                                 if (sprite == 0 && !zeroBackground[xPosition] && xPosition != 255 && scanline != 239)
                                                     spriteZeroHit = true;
@@ -370,6 +389,17 @@ namespace DirectXEmu
                                         }
                                         lowChr <<= 1;
                                         highChr <<= 1;
+                                    }
+                                    if (nes.romMapper.mapper == 9)//MMC 2 Punch Out!
+                                    {
+                                        if (chrAddress >= 0xFD0 && chrAddress <= 0xFDF)
+                                            nes.romMapper.MapperIRQ(0, 0xFD);
+                                        else if (chrAddress >= 0xFE0 && chrAddress <= 0xFEF)
+                                            nes.romMapper.MapperIRQ(0, 0xFE);
+                                        else if (chrAddress >= 0x1FD0 && chrAddress <= 0x1FDF)
+                                            nes.romMapper.MapperIRQ(1, 0xFD);
+                                        else if (chrAddress >= 0x1FE0 && chrAddress <= 0x1FEF)
+                                            nes.romMapper.MapperIRQ(1, 0xFE);
                                     }
                                 }
                             }

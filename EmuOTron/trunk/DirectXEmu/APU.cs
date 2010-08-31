@@ -756,6 +756,7 @@ namespace DirectXEmu
                 pulse2Volume = pulse2Envelope;
             else
                 pulse2Volume = pulse2EnvelopeCounter;
+
             byte noiseVolume = 0;
             if ((noiseShiftReg & 1) == 0)
                 noiseVolume = 0;

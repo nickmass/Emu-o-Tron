@@ -376,12 +376,13 @@ namespace DirectXEmu
             player2.aTurbo.count = 1;
             player2.bTurbo.freq = 2;
             player2.bTurbo.count = 1;
+            player2.zapper.connected = false;
             state = SystemState.Empty;
             surfaceControl.Visible = false;
             audioFormat = new WaveFormat();
             audioFormat.BitsPerSample = 32;
             audioFormat.Channels = 1;
-            audioFormat.SamplesPerSecond = 1789773 / 41;
+            audioFormat.SamplesPerSecond = 44100;
             audioFormat.BlockAlignment = (short)(audioFormat.BitsPerSample * audioFormat.Channels / 8);
             audioFormat.AverageBytesPerSecond = (audioFormat.BitsPerSample / 8) * audioFormat.SamplesPerSecond;
             audioFormat.FormatTag = WaveFormatTag.IeeeFloat;
@@ -389,7 +390,7 @@ namespace DirectXEmu
             outWavFormat = new WaveFormat();
             outWavFormat.BitsPerSample = 32;
             outWavFormat.Channels = 1;
-            outWavFormat.SamplesPerSecond = 1789773 / 41;
+            outWavFormat.SamplesPerSecond = 44100;
             outWavFormat.BlockAlignment = (short)(outWavFormat.BitsPerSample * outWavFormat.Channels / 8);
             outWavFormat.AverageBytesPerSecond = (outWavFormat.BitsPerSample / 8) * outWavFormat.SamplesPerSecond;
             outWavFormat.FormatTag = WaveFormatTag.IeeeFloat;
@@ -865,7 +866,7 @@ namespace DirectXEmu
             {
                 Point curPoint = LocateMouse();
                 player2.zapper.triggerPulled = dMouse.GetCurrentState().IsPressed(0) && (curPoint.X != 0 || curPoint.Y != 0);
-                player2.zapper.lightDetected = colorChart[0][cpu.PPU.screen[curPoint.X, curPoint.Y]].GetBrightness() >= 0.95;
+                player2.zapper.lightDetected = colorChart[cpu.PPU.screen[curPoint.X, curPoint.Y] >> 8][cpu.PPU.screen[curPoint.X, curPoint.Y] & 0xFF].GetBrightness() >= 0.9;
                 zapStatLight = player2.zapper.lightDetected;
                 zapStatTrig = player2.zapper.triggerPulled;
             }

@@ -802,16 +802,16 @@ namespace DirectXEmu
                     FlagIRQ = 1;
                     RegPC = PeekWord(0xFFFE);
                 }
-#endif
                 if (PPU.frameComplete)
                 {
                     emulationRunning = false;
                     PPU.frameComplete = false;
                     PPU.generateNameTables = false;
                     PPU.generatePatternTables = false;
+                    APU.Update();
                 }
+#endif
             }
-            APU.Update();
         }
         public NESCore(SystemType region, String input, String cartDBLocation)
         {
