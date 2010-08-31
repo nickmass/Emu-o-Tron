@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
+using System.IO;
+
 namespace DirectXEmu
 {
     public class APU
@@ -53,7 +55,7 @@ namespace DirectXEmu
         private bool pulse1SweepNegate;
         private bool pulse1SweepReload;
         private byte pulse1SweepShift;
-
+        private bool pulse1SweepMute;
 
 
         private bool pulse2Enable;
@@ -75,6 +77,7 @@ namespace DirectXEmu
         private bool pulse2SweepNegate;
         private bool pulse2SweepReload;
         private byte pulse2SweepShift;
+        private bool pulse2SweepMute;
 
         private bool[][] dutyCycles = {new bool[] {false, true, false, false, false, false, false, false},
                                        new bool[] {false, true, true, false, false, false, false, false}, 
@@ -119,7 +122,6 @@ namespace DirectXEmu
         private int dmcSampleAddress;
         private int dmcSampleCurrentAddress;
         private int dmcSampleLength;
-        private int dmcSampleCounter;
         private byte dmcDeltaCounter;
         private int dmcBytesRemaining;
         private byte dmcSampleBuffer;
@@ -301,7 +303,7 @@ namespace DirectXEmu
             {
                 Update();
                 noiseTimer = noisePeriods[value & 0xF];
-                noiseDivider = noiseTimer;
+                //noiseDivider = noiseTimer;
                 noiseLoop = (value & 0x80) != 0;
             }
             else if (address == 0x400F)//Noise Length Counter
@@ -466,9 +468,23 @@ namespace DirectXEmu
             {
                 int tmp = pulse1Timer >> pulse1SweepShift;
                 if (pulse1SweepNegate)
-                    tmp = (~tmp) & 0x7FF;
-                tmp += pulse1Timer;
-                if (pulse1SweepEnable && pulse1SweepShift != 0 && pulse1Timer >= 8 && tmp <= 0x7FF)
+                {
+                    tmp = pulse1Timer - tmp;
+                    tmp--;
+                }
+                else
+                {
+                    tmp = pulse1Timer + tmp;
+                }
+                //if (pulse1SweepNegate)            //This is how nesdev wiki described the porcess, I could not get it to work or sound correct so instead went by everynes
+                //    tmp = (~tmp) & 0xFF;
+                //tmp += pulse1Timer;
+                pulse1SweepMute = false;
+                if (pulse1Timer < 8 && tmp > 0x7FF)
+                {
+                    pulse1SweepMute = true;
+                }
+                else if (pulse1SweepEnable && pulse1SweepShift != 0)
                 {
                     pulse1Timer = (ushort)(tmp & 0x7FF);
                 }
@@ -509,9 +525,22 @@ namespace DirectXEmu
             {
                 int tmp = pulse2Timer >> pulse2SweepShift;
                 if (pulse2SweepNegate)
-                    tmp = ((~tmp)+1) & 0x7FF;
-                tmp += pulse2Timer;
-                if (pulse2SweepEnable && pulse2SweepShift != 0 && pulse2Timer >= 8 && tmp <= 0x7FF)
+                {
+                    tmp = pulse2Timer - tmp;
+                }
+                else
+                {
+                    tmp = pulse2Timer + tmp;
+                }
+                //if (pulse2SweepNegate)            //This is how nesdev wiki described the porcess, I could not get it to work or sound correct so instead went by everynes
+                //    tmp = ((~tmp)+1) & 0x7FF;
+                //tmp += pulse2Timer;
+                pulse2SweepMute = false;
+                if (pulse2Timer < 8 && tmp > 0x7FF)
+                {
+                    pulse2SweepMute = true;
+                }
+                else if (pulse2SweepEnable && pulse2SweepShift != 0)
                 {
                     pulse2Timer = (ushort)(tmp & 0x7FF);
                 }
@@ -563,7 +592,7 @@ namespace DirectXEmu
         public void AddCycles(int cycles)
         {
             this.cycles += cycles;
-            if (cycles - lastCycleClock > frameLengths[frameCounter % 2])
+            if (this.cycles - lastCycleClock > frameLengths[frameCounter % 2])
             {
                 lastCycleClock += frameLengths[frameCounter % 2];
                 frameCounter++;
@@ -740,7 +769,9 @@ namespace DirectXEmu
             byte pulse1Volume = 0;
             if (pulse1LengthCounter == 0)
                 pulse1Volume = 0;
-            else if(!dutyCycles[pulse1Duty][pulse1DutySequencer % 8])
+            else if (pulse1SweepMute)
+                pulse1Volume = 0;
+            else if (!dutyCycles[pulse1Duty][pulse1DutySequencer % 8])
                 pulse1Volume = 0;
             else if (pulse1ConstantVolume)
                 pulse1Volume = pulse1Envelope;
@@ -750,6 +781,8 @@ namespace DirectXEmu
             byte pulse2Volume = 0;
             if (pulse2LengthCounter == 0)
                 pulse2Volume = 0;
+            else if (pulse2SweepMute)
+                pulse2Volume = 0;
             else if (!dutyCycles[pulse2Duty][pulse2DutySequencer % 8])
                 pulse2Volume = 0;
             else if (pulse2ConstantVolume)
@@ -758,7 +791,7 @@ namespace DirectXEmu
                 pulse2Volume = pulse2EnvelopeCounter;
 
             byte noiseVolume = 0;
-            if ((noiseShiftReg & 1) == 0)
+            if ((noiseShiftReg & 1) == 1)
                 noiseVolume = 0;
             else if (noiseLengthCounter == 0)
                 noiseVolume = 0;
@@ -815,7 +848,7 @@ namespace DirectXEmu
                 if (noiseDivider == 0)
                 {
                     NoiseClock();
-                    if ((noiseShiftReg & 1) == 0)
+                    if ((noiseShiftReg & 1) == 1)
                         noiseVolume = 0;
                     else if (noiseLengthCounter == 0)
                         noiseVolume = 0;
@@ -829,11 +862,6 @@ namespace DirectXEmu
                 sampleRateDivider--;
                 if (sampleRateDivider == 0)
                 {
-                    //pulse1Volume = 8;
-                    //pulse2Volume = 8;
-                    //triangleVolume = 8;
-                    //noiseVolume = 8;
-                    //dmcVolume = 0;
                     levels.pulse1 += pulse1Volume;
                     levels.pulse2 += pulse2Volume;
                     levels.triangle += triangleVolume;
@@ -851,6 +879,180 @@ namespace DirectXEmu
                 }
             }
             lastUpdateCycle = cycles;
+        }
+        public void StateSave(ref MemoryStream buf)
+        {
+            BinaryWriter writer = new BinaryWriter(buf);
+            writer.Write(cycles);
+            writer.Write(lastUpdateCycle);
+            writer.Write(lastCycleClock);
+            writer.Write(frameIRQ);
+            writer.Write(frameCounter);
+            writer.Write(mode);
+            writer.Write(frameIRQInhibit);
+            writer.Write(pulse1Enable);
+            writer.Write(pulse1LengthCounter);
+            writer.Write(pulse1DutySequencer);
+            writer.Write(pulse1Duty);
+            writer.Write(pulse1HaltFlag);
+            writer.Write(pulse1Envelope);
+            writer.Write(pulse1EnvelopeCounter);
+            writer.Write(pulse1EnvelopeDivider);
+            writer.Write(pulse1ConstantVolume);
+            writer.Write(pulse1Timer);
+            writer.Write(pulse1StartFlag);
+            writer.Write(pulse1EnvelopeLoop);
+            writer.Write(pulse1Divider);
+            writer.Write(pulse1SweepEnable);
+            writer.Write(pulse1SweepTimer);
+            writer.Write(pulse1SweepDivider);
+            writer.Write(pulse1SweepNegate);
+            writer.Write(pulse1SweepReload);
+            writer.Write(pulse1SweepShift);
+            writer.Write(pulse1SweepMute);
+            writer.Write(pulse2Enable);
+            writer.Write(pulse2LengthCounter);
+            writer.Write(pulse2DutySequencer);
+            writer.Write(pulse2Duty);
+            writer.Write(pulse2HaltFlag);
+            writer.Write(pulse2Envelope);
+            writer.Write(pulse2EnvelopeCounter);
+            writer.Write(pulse2EnvelopeDivider);
+            writer.Write(pulse2ConstantVolume);
+            writer.Write(pulse2Timer);
+            writer.Write(pulse2StartFlag);
+            writer.Write(pulse2EnvelopeLoop);
+            writer.Write(pulse2Divider);
+            writer.Write(pulse2SweepEnable);
+            writer.Write(pulse2SweepTimer);
+            writer.Write(pulse2SweepDivider);
+            writer.Write(pulse2SweepNegate);
+            writer.Write(pulse2SweepReload);
+            writer.Write(pulse2SweepShift);
+            writer.Write(pulse2SweepMute);
+            writer.Write(noiseEnable);
+            writer.Write(noiseLengthCounter);
+            writer.Write(noiseShiftReg = 1);
+            writer.Write(noiseLoop);
+            writer.Write(noiseHaltFlag);
+            writer.Write(noiseEnvelope);
+            writer.Write(noiseEnvelopeCounter);
+            writer.Write(noiseEnvelopeDivider);
+            writer.Write(noiseConstantVolume);
+            writer.Write(noiseTimer);
+            writer.Write(noiseStartFlag);
+            writer.Write(noiseEnvelopeLoop);
+            writer.Write(noiseDivider);
+            writer.Write(triangleSequenceCounter = 0);
+            writer.Write(triangleEnable);
+            writer.Write(triangleControlFlag);
+            writer.Write(triangleHaltFlag);
+            writer.Write(triangleLinearCounterReload);
+            writer.Write(triangleLinearCounter);
+            writer.Write(triangleLengthCounter);
+            writer.Write(triangleTimer);
+            writer.Write(triangleDivider);
+            writer.Write(dmcInterrupt);
+            writer.Write(dmcInterruptEnable);
+            writer.Write(dmcLoop);
+            writer.Write(dmcRate);
+            writer.Write(dmcDivider);
+            writer.Write(dmcSampleAddress);
+            writer.Write(dmcSampleCurrentAddress);
+            writer.Write(dmcSampleLength);
+            writer.Write(dmcDeltaCounter);
+            writer.Write(dmcBytesRemaining);
+            writer.Write(dmcSampleBuffer);
+            writer.Write(dmcSampleBufferEmpty);
+            writer.Write(dmcSilence);
+            writer.Write(dmcShiftReg);
+        }
+        public void StateLoad(MemoryStream buf)
+        {
+            BinaryReader reader = new BinaryReader(buf);
+            cycles = reader.ReadInt32();
+            lastUpdateCycle = reader.ReadInt32();
+            lastCycleClock = reader.ReadInt32();
+            frameIRQ = reader.ReadBoolean();
+            frameCounter = reader.ReadInt32();
+            mode = reader.ReadBoolean();
+            frameIRQInhibit = reader.ReadBoolean();
+            pulse1Enable = reader.ReadBoolean();
+            pulse1LengthCounter = reader.ReadByte();
+            pulse1DutySequencer = reader.ReadInt32();
+            pulse1Duty = reader.ReadByte();
+            pulse1HaltFlag = reader.ReadBoolean();
+            pulse1Envelope = reader.ReadByte();
+            pulse1EnvelopeCounter = reader.ReadByte();
+            pulse1EnvelopeDivider = reader.ReadInt32();
+            pulse1ConstantVolume = reader.ReadBoolean();
+            pulse1Timer = reader.ReadUInt16();
+            pulse1StartFlag = reader.ReadBoolean();
+            pulse1EnvelopeLoop = reader.ReadBoolean();
+            pulse1Divider = reader.ReadInt32();
+            pulse1SweepEnable = reader.ReadBoolean();
+            pulse1SweepTimer = reader.ReadByte();
+            pulse1SweepDivider = reader.ReadByte();
+            pulse1SweepNegate = reader.ReadBoolean();
+            pulse1SweepReload = reader.ReadBoolean();
+            pulse1SweepShift = reader.ReadByte();
+            pulse1SweepMute = reader.ReadBoolean();
+            pulse2Enable = reader.ReadBoolean();
+            pulse2LengthCounter = reader.ReadByte();
+            pulse2DutySequencer = reader.ReadInt32();
+            pulse2Duty = reader.ReadByte();
+            pulse2HaltFlag = reader.ReadBoolean();
+            pulse2Envelope = reader.ReadByte();
+            pulse2EnvelopeCounter = reader.ReadByte();
+            pulse2EnvelopeDivider = reader.ReadInt32();
+            pulse2ConstantVolume = reader.ReadBoolean();
+            pulse2Timer = reader.ReadUInt16();
+            pulse2StartFlag = reader.ReadBoolean();
+            pulse2EnvelopeLoop = reader.ReadBoolean();
+            pulse2Divider = reader.ReadInt32();
+            pulse2SweepEnable = reader.ReadBoolean();
+            pulse2SweepTimer = reader.ReadByte();
+            pulse2SweepDivider = reader.ReadByte();
+            pulse2SweepNegate = reader.ReadBoolean();
+            pulse2SweepReload = reader.ReadBoolean();
+            pulse2SweepShift = reader.ReadByte();
+            pulse2SweepMute = reader.ReadBoolean();
+            noiseEnable = reader.ReadBoolean();
+            noiseLengthCounter = reader.ReadByte();
+            noiseShiftReg = reader.ReadUInt16();
+            noiseLoop = reader.ReadBoolean();
+            noiseHaltFlag = reader.ReadBoolean();
+            noiseEnvelope = reader.ReadByte();
+            noiseEnvelopeCounter = reader.ReadByte();
+            noiseEnvelopeDivider = reader.ReadInt32();
+            noiseConstantVolume = reader.ReadBoolean();
+            noiseTimer = reader.ReadUInt16();
+            noiseStartFlag = reader.ReadBoolean();
+            noiseEnvelopeLoop = reader.ReadBoolean();
+            noiseDivider = reader.ReadInt32();
+            triangleSequenceCounter = reader.ReadByte();
+            triangleEnable = reader.ReadBoolean();
+            triangleControlFlag = reader.ReadBoolean();
+            triangleHaltFlag = reader.ReadBoolean();
+            triangleLinearCounterReload = reader.ReadByte();
+            triangleLinearCounter = reader.ReadByte();
+            triangleLengthCounter = reader.ReadByte();
+            triangleTimer = reader.ReadUInt16();
+            triangleDivider = reader.ReadInt32();
+            dmcInterrupt = reader.ReadBoolean();
+            dmcInterruptEnable = reader.ReadBoolean();
+            dmcLoop = reader.ReadBoolean();
+            dmcRate = reader.ReadInt32();
+            dmcDivider = reader.ReadInt32();
+            dmcSampleAddress = reader.ReadInt32();
+            dmcSampleCurrentAddress = reader.ReadInt32();
+            dmcSampleLength = reader.ReadInt32();
+            dmcDeltaCounter = reader.ReadByte();
+            dmcBytesRemaining = reader.ReadInt32();
+            dmcSampleBuffer = reader.ReadByte();
+            dmcSampleBufferEmpty = reader.ReadBoolean();
+            dmcSilence = reader.ReadBoolean();
+            dmcShiftReg = reader.ReadByte();
         }
     }
 }

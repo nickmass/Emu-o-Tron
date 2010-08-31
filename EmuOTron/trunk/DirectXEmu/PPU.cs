@@ -122,7 +122,7 @@ namespace DirectXEmu
             }
             else if (address == 0x2004) //OAM Read
             {
-                nextByte = SPRMemory[spriteAddr];
+                nextByte = SPRMemory[spriteAddr & 0xFF];
             }
             else if (address == 0x2007) //PPU Data
             {
@@ -190,7 +190,7 @@ namespace DirectXEmu
             }
             else if (address == 0x2004) //OAM Write
             {
-                SPRMemory[spriteAddr] = value;
+                SPRMemory[spriteAddr & 0xFF] = value;
                 spriteAddr++;
             }
             else if (address == 0x4014) //Sprite DMA

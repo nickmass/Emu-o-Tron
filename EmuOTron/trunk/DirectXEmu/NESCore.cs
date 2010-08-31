@@ -76,7 +76,6 @@ namespace DirectXEmu
 
         public string cartDBLocation = "";
 
-        private bool turbo = false;
         private OpInfo OpCodes = new OpInfo();
         public APU APU;
         public PPU PPU;
@@ -87,7 +86,7 @@ namespace DirectXEmu
             this.player2 = player2;
             player3 = player1;
             player4 = player1;
-            PPU.turbo = turbo; //not functioning, maybe never functioning
+            PPU.turbo = turbo;
             this.Start();
         }
         public void Start(Controller player1)
@@ -1032,6 +1031,7 @@ namespace DirectXEmu
                     goto case 0;
 
             }
+            romMapper.mapper = mapper;
             romMapper.MapperInit();
             #endregion
             for (int i = 0; i < 0x10000; i++)
@@ -1502,6 +1502,7 @@ namespace DirectXEmu
             writer.Flush();
             romMapper.MapperStateSave(ref newState.stateStream);
             PPU.StateSave(ref newState.stateStream);
+            APU.StateSave(ref newState.stateStream);
             newState.isStored = true;
             return newState;
         }
@@ -1529,6 +1530,7 @@ namespace DirectXEmu
             controlReady = reader.ReadBoolean();
             romMapper.MapperStateLoad(oldState.stateStream);
             PPU.StateLoad(oldState.stateStream);
+            APU.StateLoad(oldState.stateStream);
         }
         public void restart()
         {
