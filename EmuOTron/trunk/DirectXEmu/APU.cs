@@ -743,6 +743,7 @@ namespace DirectXEmu
                 }
                 dmcDivider = dmcRate;
             }
+
             return dmcDeltaCounter & 0x7F;
         }
         public void Update()
@@ -801,25 +802,37 @@ namespace DirectXEmu
                 noiseVolume = noiseEnvelopeCounter;
 
             byte triangleVolume = 0;
-            if((triangleLengthCounter != 0 || triangleLinearCounter != 0))
+            if (triangleLengthCounter == 0)
+                triangleVolume = 0;
+            else if (triangleLinearCounter == 0)
+                triangleVolume = 0;
+            else
                 triangleVolume = triangleSequence[triangleSequenceCounter % 32];
+
             int dmcVolume = 0;
             for (int updateCycle = lastUpdateCycle; updateCycle < cycles; updateCycle++)
             {
                 triangleDivider--;
-                if (triangleDivider == 0 && (triangleLengthCounter != 0 || triangleLinearCounter != 0))
+                if (triangleDivider == 0)
                 {
-                    triangleSequenceCounter++;
-                    if (triangleTimer < 2)
-                        triangleVolume = 7;
+                    if (triangleLengthCounter == 0)
+                        triangleVolume = 0;
+                    else if (triangleLinearCounter == 0)
+                        triangleVolume = 0;
                     else
+                    {
+
+                        triangleSequenceCounter++;
                         triangleVolume = triangleSequence[triangleSequenceCounter % 32];
+                    }
                     triangleDivider = triangleTimer + 1;
                 }
                 pulse1Divider--;
                 if (pulse1Divider == 0)
                 {
                     if (pulse1LengthCounter == 0)
+                        pulse1Volume = 0;
+                    else if (pulse1SweepMute)
                         pulse1Volume = 0;
                     else if (!dutyCycles[pulse1Duty][pulse1DutySequencer % 8])
                         pulse1Volume = 0;
@@ -834,6 +847,8 @@ namespace DirectXEmu
                 if (pulse2Divider == 0)
                 {
                     if (pulse2LengthCounter == 0)
+                        pulse2Volume = 0;
+                    else if (pulse2SweepMute)
                         pulse2Volume = 0;
                     else if (!dutyCycles[pulse2Duty][pulse2DutySequencer % 8])
                         pulse2Volume = 0;
