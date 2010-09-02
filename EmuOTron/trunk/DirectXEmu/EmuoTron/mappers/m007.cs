@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace DirectXEmu.mappers
+namespace EmuoTron.mappers
 {
-    class m070 : Mapper
+    class m007 : Mapper
     {
-        public m070(MemoryStore Memory, MemoryStore PPUMemory, int numPRGRom, int numVRom)
+        public m007(MemoryStore Memory, MemoryStore PPUMemory, int numPRGRom, int numVRom)
         {
             this.numPRGRom = numPRGRom;
             this.numVRom = numVRom;
@@ -16,20 +16,18 @@ namespace DirectXEmu.mappers
         }
         public override void MapperInit()
         {
-            Memory.Swap16kROM(0x8000, 0);
-            Memory.Swap16kROM(0xC000, numPRGRom - 1);
-            PPUMemory.Swap8kROM(0x0000, 0);
+            Memory.Swap32kROM(0x8000, 0);
+            PPUMemory.Swap8kRAM(0, 0);
             PPUMemory.ScreenOneMirroring();
         }
         public override void MapperWrite(ushort address, byte value)
         {
-            if (address >= 0xC000 && address < 0xC100)
+            if (address >= 0x8000)
             {
-                if ((address & 0xFF) == value)
+                //if (Memory[address] == value) Should have bus conflicts on most carts, but this kills marble maddness and doesnt seem to fix anything else, will have to wait for when board types are in.
                 {
-                    Memory.Swap16kROM(0x8000, ((value >> 4) & 7) % numPRGRom);
-                    PPUMemory.Swap8kROM(0x0000, (value & 0xF) % numVRom);
-                    if ((value & 0x80) == 0)
+                    Memory.Swap32kROM(0x8000, (value & 0x07) % (numPRGRom / 2));
+                    if ((value & 0x10) == 0)
                         PPUMemory.ScreenOneMirroring();
                     else
                         PPUMemory.ScreenTwoMirroring();

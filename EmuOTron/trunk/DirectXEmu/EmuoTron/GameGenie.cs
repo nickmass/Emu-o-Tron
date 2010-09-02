@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace DirectXEmu
+namespace EmuoTron
 {
     public class GameGenie
     {
@@ -40,7 +40,7 @@ namespace DirectXEmu
             {
                 for (int i = 0; i < code.Length; i++)
                 {
-                    int charVal = (int)Enum.Parse(typeof(symbols),code[i].ToString());
+                    int charVal = (int)Enum.Parse(typeof(symbols),code[i].ToString(), false);
                     switch(i)
                     {
                         case 0:
@@ -86,7 +86,7 @@ namespace DirectXEmu
             {
                 for (int i = 0; i < code.Length; i++)
                 {
-                    int charVal = (int)Enum.Parse(typeof(symbols), code[i].ToString());
+                    int charVal = (int)Enum.Parse(typeof(symbols), code[i].ToString(), false);
                     switch (i)
                     {
                         case 0:
@@ -212,7 +212,7 @@ namespace DirectXEmu
             {
                 for (int i = 0; i < code.Length; i++)
                 {
-                    int charVal = (int)Enum.Parse(typeof(symbols), code[i].ToString());
+                    int charVal = (int)Enum.Parse(typeof(symbols), code[i].ToString(), false);
                     switch (i)
                     {
                         case 0:
@@ -258,7 +258,7 @@ namespace DirectXEmu
             {
                 for (int i = 0; i < code.Length; i++)
                 {
-                    int charVal = (int)Enum.Parse(typeof(symbols), code[i].ToString());
+                    int charVal = (int)Enum.Parse(typeof(symbols), code[i].ToString(), false);
                     switch (i)
                     {
                         case 0:

@@ -6,11 +6,9 @@ using System.Collections;
 using System.Linq;
 using System.Text;
 using System.IO;
-using System.Windows.Forms;
-using System.Security.Cryptography;
 using System.Xml;
 
-namespace DirectXEmu
+namespace EmuoTron
 {
     public class NESCore
     {
@@ -59,7 +57,6 @@ namespace DirectXEmu
         public int gameGenieCodeNum = 0;
 
         public bool sramPresent = false;
-        public string romHash;
         public UInt32 CRC = 0xffffffff;
         public string filePath;
         public string fileName;
@@ -176,9 +173,18 @@ namespace DirectXEmu
                     case OpInfo.AddrRelative:
                         addr = Read(opAddr + 1);
                         if (addr < 0x80)
+                        {
+                            if ((RegPC & 0xFF00) != ((addr + RegPC) & 0xFF00))
+                                opCycleAdd++;
                             addr += RegPC;
+                        }
                         else
+                        {
+                            if ((RegPC & 0xFF00) != ((addr + RegPC - 256) & 0xFF00))
+                               opCycleAdd++;
                             addr += RegPC - 256;
+                        }
+
                         break;
                     case OpInfo.AddrIndirectX:
                         addr = Read(opAddr + 1);
@@ -573,7 +579,7 @@ namespace DirectXEmu
                         FlagSign = RegA >> 7;
                         break;
                     default:
-                        romInfo.AppendLine("Illegal OP: " + OpInfo.GetOpNames()[OpInfo.GetOps()[op] & 0xFF] + " " + op.ToString("X2") + " Program Counter: " + RegPC.ToString("X4"));
+                        //romInfo.AppendLine("Illegal OP: " + OpInfo.GetOpNames()[OpInfo.GetOps()[op] & 0xFF] + " " + op.ToString("X2") + " Program Counter: " + RegPC.ToString("X4"));
                         switch (instruction) //Illegal Ops
                         {
                             case OpInfo.IllInstrALR:
@@ -666,6 +672,9 @@ namespace DirectXEmu
                                 break;
                             case OpInfo.IllInstrKIL:
                                 //SHOULD crash CPU, but Im going to treat it as a NOP.
+                                break;
+                            case OpInfo.IllInstrLAS:
+                                opCycles += opCycleAdd;
                                 break;
                             case OpInfo.IllInstrLAX:
                                 RegA = RegX = FlagZero = Read(addr);
@@ -821,25 +830,27 @@ namespace DirectXEmu
 #endif
             }
         }
-        public NESCore(SystemType region, String input, String cartDBLocation)
+        public NESCore(SystemType region, String input, String cartDBLocation, bool ignoreFileCheck = false) : 
+            this(region, File.OpenRead(input), cartDBLocation, ignoreFileCheck)
+        {
+            this.filePath = input;
+            romInfo.AppendLine(input);
+            romInfo.AppendLine();
+            this.fileName = Path.GetFileNameWithoutExtension(filePath);
+        }
+        public NESCore(SystemType region, Stream inputStream, String cartDBLocation, bool ignoreFileCheck = false)
         {
             this.nesRegion = region;
             this.cartDBLocation = cartDBLocation;
-            this.filePath = input;
-            this.fileName = Path.GetFileNameWithoutExtension(filePath);
-            FileStream inputStream = File.OpenRead(input);
-            inputStream.Position = 0x10;
-            HashAlgorithm romHash = HashAlgorithm.Create("MD5");
-            byte[] romHashArray = romHash.ComputeHash(inputStream);
-            for (int i = 0; i < 16; i++)
-                this.romHash += romHashArray[i].ToString("X2");
             inputStream.Position = 0;
-            if(inputStream.ReadByte() != 'N' || inputStream.ReadByte() != 'E' || inputStream.ReadByte() != 'S' || inputStream.ReadByte() != 0x1A)
-                if (MessageBox.Show("File appears to be invalid. Attempt load anyway?", "Error", MessageBoxButtons.YesNo) == DialogResult.No)
+            if (!ignoreFileCheck)
+            {
+                if (inputStream.ReadByte() != 'N' || inputStream.ReadByte() != 'E' || inputStream.ReadByte() != 'S' || inputStream.ReadByte() != 0x1A)
                 {
                     inputStream.Close();
                     throw (new Exception("Invalid File"));
                 }
+            }
             inputStream.Position = 0x4;
             int numprgrom = inputStream.ReadByte();
             int numvrom = inputStream.ReadByte();
@@ -859,8 +870,6 @@ namespace DirectXEmu
             Memory.swapOffset = 0x20;
             APU = new APU(this);
             PPU = new PPU(this, numvrom);
-            romInfo.AppendLine(input);
-            romInfo.AppendLine();
             romInfo.AppendLine("Mapper: " + mapper);
             romInfo.AppendLine("PRG-ROM: " + numprgrom.ToString() + " * 16KB");
             romInfo.AppendLine("CHR-ROM: " + numvrom.ToString() + " * 8KB");
@@ -891,7 +900,6 @@ namespace DirectXEmu
                 CRC = CRC32.crc32_adjust(CRC, nextByte);
             }
             CRC = CRC ^ 0xFFFFFFFF;
-            romInfo.AppendLine("ROM MD5: " + this.romHash);
             romInfo.AppendLine("ROM CRC32: " + CRC.ToString("X8"));
             if (PC10)
             {
@@ -1036,7 +1044,7 @@ namespace DirectXEmu
                     romMapper = new mappers.m099(Memory, PPU.PPUMemory, numprgrom, numvrom);
                     break;
                 default:
-                    MessageBox.Show("This game will probably not load, mapper unsupported.\r\nMapper:" + mapper.ToString() + " PRG-ROM:" + numprgrom.ToString() + " CHR-ROM:" + numvrom.ToString());
+                    romInfo.AppendLine("This game will probably not load, mapper unsupported.\r\nMapper:" + mapper.ToString() + " PRG-ROM:" + numprgrom.ToString() + " CHR-ROM:" + numvrom.ToString());
                     goto case 0;
 
             }
@@ -1054,7 +1062,7 @@ namespace DirectXEmu
             RegPC = 0xC000;
 #endif
         }
-        private byte Read(int address)
+        public byte Read(int address)
         {
             address = this.MirrorMap[address & 0xFFFF];
             byte nextByte = this.Memory[address];
@@ -1575,6 +1583,42 @@ namespace DirectXEmu
         NTSC,
         PAL,
         Dendy
+    }
+    public struct Controller
+    {
+        public bool up;
+        public bool down;
+        public bool start;
+        public bool select;
+        public bool left;
+        public bool right;
+        public bool a;
+        public bool b;
+        public bool coin;
+        public AutoFire aTurbo;
+        public AutoFire bTurbo;
+        public Zapper zapper;
+    }
+    public struct Zapper
+    {
+        public bool connected;
+        public bool triggerPulled;
+        public bool lightDetected;
+    }
+    public struct AutoFire
+    {
+        public bool on;
+        public int freq;
+        public int count;
+    }
+    public struct SoundVolume
+    {
+        public float master;
+        public float pulse1;
+        public float pulse2;
+        public float triangle;
+        public float noise;
+        public float dmc;
     }
     [Serializable]
     public struct SaveState

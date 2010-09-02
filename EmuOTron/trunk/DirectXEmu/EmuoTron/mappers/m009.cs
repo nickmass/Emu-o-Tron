@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.IO;
 
-namespace DirectXEmu.mappers
+namespace EmuoTron.mappers
 {
     class m009 : Mapper
     {

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace DirectXEmu.mappers
+namespace EmuoTron.mappers
 {
     class m034 : Mapper
     {

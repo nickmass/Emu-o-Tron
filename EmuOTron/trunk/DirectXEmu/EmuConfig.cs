@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
+using EmuoTron;
 
 namespace DirectXEmu
 {
@@ -75,8 +76,8 @@ namespace DirectXEmu
             defaults["restart"] = "Back";
             defaults["power"] = "Delete";
             defaults["scaler"] = "sizeable";
-            defaults["width"] = "512";
-            defaults["height"] = "480";
+            defaults["width"] = "528";
+            defaults["height"] = "542";
             defaults["rewindEnabled"] = "1";
             defaults["rewindBufferFreq"] = "2";
             defaults["rewindBufferSeconds"] = "10";

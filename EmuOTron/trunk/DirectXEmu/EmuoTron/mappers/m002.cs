@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace DirectXEmu.mappers
+namespace EmuoTron.mappers
 {
-    class m071 : Mapper
+    class m002 : Mapper
     {
-        public m071(MemoryStore Memory, MemoryStore PPUMemory, int numPRGRom, int numVRom)
+        public m002(MemoryStore Memory, MemoryStore PPUMemory, int numPRGRom, int numVRom)
         {
             this.numPRGRom = numPRGRom;
             this.numVRom = numVRom;
@@ -18,22 +18,25 @@ namespace DirectXEmu.mappers
         {
             Memory.Swap16kROM(0x8000, 0);
             Memory.Swap16kROM(0xC000, numPRGRom - 1);
-            PPUMemory.Swap8kRAM(0x0000, 0);
-            //if Fire Hawk
-            //PPUMemory.ScreenOneMirroring();
+            if (numVRom == 0)
+                PPUMemory.Swap8kRAM(0x0000, 0);
+            else
+                PPUMemory.Swap8kROM(0x0000, 0);
         }
         public override void MapperWrite(ushort address, byte value)
         {
-            if (address >= 0xC000 && address <= 0xFFFF)
-                Memory.Swap16kROM(0x8000, value % numPRGRom);
-            //if Fire Hawk
-            /*
-            if (address >= 0x8000 && address <= 0x9FFF)
-                if ((value & 0x10) != 0)
-                    PPUMemory.ScreenOneMirroring();
+            if (address >= 0x8000)
+            {
+                int table;
+                if (numPRGRom <= 8)
+                    table = value & 0x07;
                 else
-                    PPUMemory.ScreenTwoMirroring();
-             */
+                    table = value & 0x0F;
+                if (numPRGRom != 0)
+                    table = table % numPRGRom;
+                if (value == this.Memory[address])//Bus conflict
+                    Memory.Swap16kROM(0x8000, table);
+            }
         }
         public override void MapperIRQ(int scanline, int vblank) { }
         public override void StateLoad(System.IO.MemoryStream buf) { }

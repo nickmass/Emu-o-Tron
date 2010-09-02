@@ -2,19 +2,17 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Windows.Forms;
 using System.IO;
 
-namespace DirectXEmu
+namespace EmuoTron
 {
     public class APU
     {
         NESCore nes;
 
-        public int CPUClock = 1789773; //NTSC
-                             //1662607 PAL
+        public int CPUClock;
 
-        public bool mute = true;
+        public bool mute;
 
         public int frameBuffer = 1;
         public int sampleRate = 44100;
@@ -30,9 +28,8 @@ namespace DirectXEmu
         private MemoryStore Memory;
         public bool frameIRQ;
         private int frameCounter;
-        private int[] frameLengths = { 7457, 7458 }; //to create the true average of 7457.5 cycles per 240hz
-        private bool mode; //flase = mode 0, true = mode 1, mode 0 is 4 clock cycle, mode 1 is 5 clock cycle
-        //In mode 0, the interrupt flag is set every 29830 CPU cycles which is slightly slower than the 29780.5 CPU cycles per NTSC PPU frame.
+        private int[] frameLengths;
+        private bool mode;
         private bool frameIRQInhibit;
 
         private bool pulse1Enable;
@@ -55,6 +52,7 @@ namespace DirectXEmu
         private bool pulse1SweepReload;
         private byte pulse1SweepShift;
         private bool pulse1SweepMute;
+        private int pulse1Freq;
 
 
         private bool pulse2Enable;
@@ -77,6 +75,7 @@ namespace DirectXEmu
         private bool pulse2SweepReload;
         private byte pulse2SweepShift;
         private bool pulse2SweepMute;
+        private int pulse2Freq;
 
         private bool[][] dutyCycles = {new bool[] {false, true, false, false, false, false, false, false},
                                        new bool[] {false, true, true, false, false, false, false, false}, 
@@ -87,10 +86,9 @@ namespace DirectXEmu
 
         private bool noiseEnable;
         private byte noiseLengthCounter;
-        private ushort[] noisePeriods = { 4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068 }; //This is ntsc only
-                                        //{4, 7, 14, 30, 60, 88, 118, 148, 188, 236, 354, 472, 708,  944, 1890, 3778} PAL
-                                        //NTSC Freq ~= 1.79MHz/n+1
-        private ushort noiseShiftReg = 1; //Set to 1 on power up suppposed to be 15 bits wide
+        private ushort[] noisePeriods;
+
+        private ushort noiseShiftReg = 1;
         private bool noiseLoop;
         private bool noiseHaltFlag;
         private byte noiseEnvelope;
@@ -112,6 +110,7 @@ namespace DirectXEmu
         private byte triangleLengthCounter;
         private ushort triangleTimer;
         private int triangleDivider;
+        private int triangleFreq;
 
         public bool dmcInterrupt;
         private bool dmcInterruptEnable;
@@ -127,15 +126,13 @@ namespace DirectXEmu
         private bool dmcSampleBufferEmpty;
         private bool dmcSilence;
         private byte dmcShiftReg;
-
-        private int[] dmcRates = { 428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54 }; //NTSC only
+        private int[] dmcRates;
 
         private float[] pulseTable = new float[32];
         private float[] tndTable = new float[204];
 
         public short[] output;
         public int outputPtr = 0;
-
 
         public APU(NESCore nes)
         {
@@ -153,7 +150,7 @@ namespace DirectXEmu
                     break;
                 case SystemType.PAL:
                     CPUClock = 1662607;
-                    frameLengths = new int[] { 6927, 6928 }; //this is original research and could be very very very wrong, CPUClock / 240hz
+                    frameLengths = new int[] { 8313, 8314 };
                     noisePeriods = new ushort[] { 4, 7, 14, 30, 60, 88, 118, 148, 188, 236, 354, 472, 708, 944, 1890, 3778 };
                     dmcRates = new int[] { 398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118, 98, 78, 66, 50 };
                     output = new short[((sampleRate / 50) + 1) * frameBuffer];
@@ -162,9 +159,9 @@ namespace DirectXEmu
             }
             this.Memory = nes.Memory;
             for (int i = 0; i < 32; i++)
-                pulseTable[i] = ((95.52f / (8128.0f / i + 100f)));
+                pulseTable[i] = 95.52f / (8128.0f / i + 100f);
             for (int i = 0; i < 204; i++)
-                tndTable[i] = ((163.67f / (24329.0f / i + 100f)));
+                tndTable[i] = 163.67f / (24329.0f / i + 100f);
              Write(00, 0x4000); //Start-up values
              Write(00, 0x4001);
              Write(00, 0x4002);
@@ -216,7 +213,6 @@ namespace DirectXEmu
                 pulse1Envelope = (byte)(value & 0xF);
                 pulse1ConstantVolume = (value & 0x10) != 0;
                 pulse1HaltFlag = (value & 0x20) != 0;
-                pulse1EnvelopeLoop = pulse1HaltFlag;
                 pulse1Duty = (byte)(value >> 6);
 
             }
@@ -234,20 +230,21 @@ namespace DirectXEmu
             else if (address == 0x4002) //Pulse 1 Low Timer
             {
                 Update();
-                pulse1Timer = (ushort)((pulse1Timer & 0xFF00) + value);
-                pulse1Divider = pulse1Timer + 1;
+                pulse1Timer = (ushort)((pulse1Timer & 0x700) | value);
+                pulse1Freq = (pulse1Timer + 1) * 2;
+                pulse1Divider = pulse1Freq;
 
             }
             else if (address == 0x4003)//Pulse 1 Length Counter and High Timer
             {
                 Update();
                 if (pulse1Enable)
-                    pulse1LengthCounter = lengthTable[(byte)(value >> 3)];
-                pulse1Timer = (ushort)((pulse1Timer & 0x00FF) + ((value & 0x7) << 8));
-                pulse1Divider = pulse1Timer + 1;
+                    pulse1LengthCounter = lengthTable[value >> 3];
+                pulse1Timer = (ushort)((pulse1Timer & 0x00FF) | ((value & 0x7) << 8));
+                pulse1Freq = (pulse1Timer + 1) * 2;
+                pulse1Divider = pulse1Freq;
                 pulse1DutySequencer = 0;
                 pulse1StartFlag = true;
-                pulse1HaltFlag = true;
             }
             else if (address == 0x4004) //Pulse 2 Duty
             {
@@ -255,7 +252,6 @@ namespace DirectXEmu
                 pulse2Envelope = (byte)(value & 0xF);
                 pulse2ConstantVolume = (value & 0x10) != 0;
                 pulse2HaltFlag = (value & 0x20) != 0;
-                pulse2EnvelopeLoop = pulse2HaltFlag;
                 pulse2Duty = (byte)(value >> 6);
 
             }
@@ -273,20 +269,21 @@ namespace DirectXEmu
             else if (address == 0x4006) //Pulse 2 Low Timer
             {
                 Update();
-                pulse2Timer = (ushort)((pulse2Timer & 0xFF00) + value);
-                pulse2Divider = pulse2Timer + 1;
+                pulse2Timer = (ushort)((pulse2Timer & 0x700) | value);
+                pulse2Freq = (pulse2Timer + 1) * 2;
+                pulse2Divider = pulse2Freq;
 
             }
             else if (address == 0x4007)//Pulse 2 Length Counter and High Timer
             {
                 Update();
                 if (pulse2Enable)
-                    pulse2LengthCounter = lengthTable[(byte)(value >> 3)];
-                pulse2Timer = (ushort)((pulse2Timer & 0x00FF) + ((value & 0x7) << 8));
-                pulse2Divider = pulse2Timer + 1;
+                    pulse2LengthCounter = lengthTable[(value >> 3)];
+                pulse2Timer = (ushort)((pulse2Timer & 0x00FF) | ((value & 0x7) << 8));
+                pulse2Freq = (pulse2Timer + 1) * 2;
+                pulse2Divider = pulse2Freq;
                 pulse2DutySequencer = 0;
                 pulse2StartFlag = true;
-                pulse2HaltFlag = true;
             }
             else if (address == 0x400C) //Noise Envelope
             {
@@ -295,43 +292,42 @@ namespace DirectXEmu
                 noiseEnvelopeDivider = noiseEnvelope + 1;
                 noiseConstantVolume = ((value & 0x10) != 0);
                 noiseHaltFlag = (value & 0x20) != 0;
-                noiseEnvelopeLoop = noiseHaltFlag;
             }
             else if (address == 0x400E) //Noise Timer
             {
                 Update();
                 noiseTimer = noisePeriods[value & 0xF];
-                //noiseDivider = noiseTimer;
+                noiseDivider = noiseTimer;
                 noiseLoop = (value & 0x80) != 0;
             }
             else if (address == 0x400F)//Noise Length Counter
             {
                 Update();
                 if (noiseEnable)
-                    noiseLengthCounter = lengthTable[(byte)(value >> 3)];
+                    noiseLengthCounter = lengthTable[(value >> 3)];
                 noiseStartFlag = true;
-                noiseHaltFlag = true;
             }
             else if (address == 0x4008) //Triangle Linear Counter
             {
                 Update();
                 triangleControlFlag = (value & 0x80) != 0;
-                triangleHaltFlag = triangleControlFlag;
                 triangleLinearCounterReload = (byte)(value & 0x7F);
             }
             else if (address == 0x400A) //Triangle Low Timer
             {
                 Update();
-                triangleTimer = (ushort)((triangleTimer & 0xFF00) + value);
-                triangleDivider = triangleTimer + 1;
+                triangleTimer = (ushort)((triangleTimer & 0x0700) | value);
+                triangleFreq = (triangleTimer + 1);
+                triangleDivider = triangleFreq;
             }
             else if (address == 0x400B)//Triangle Length Counter and High Timer
             {
                 Update();
                 if (triangleEnable)
-                    triangleLengthCounter = lengthTable[(byte)(value >> 3)];
-                triangleTimer = (ushort)((triangleTimer & 0x00FF) + ((value & 0x7) << 8));
-                triangleDivider = triangleTimer + 1;
+                    triangleLengthCounter = lengthTable[(value >> 3)];
+                triangleTimer = (ushort)((triangleTimer & 0x00FF) | ((value & 0x7) << 8));
+                triangleFreq = (triangleTimer + 1);
+                triangleDivider = triangleFreq;
                 triangleHaltFlag = true;
             }
             else if (address == 0x4010) //DMC Flags and Freq
@@ -386,28 +382,24 @@ namespace DirectXEmu
             else if (address == 0x4017)//APU Frame rate/ IRQ control
             {
                 Update();
-                frameCounter = 0;
                 mode = (value & 0x80) != 0;
                 frameIRQInhibit = (value & 0x40) != 0;
                 if (frameIRQInhibit)
                     frameIRQ = false;
                 lastCycleClock = cycles;
                 frameCounter = 0;
-                if (!mode)
+                if (mode)
                 {
+                    Pulse1Envelope();
+                    Pulse2Envelope();
+                    TriangleLinear();
                     Pulse1Length();
                     Pulse1Sweep();
                     Pulse2Length();
                     Pulse2Sweep();
                     NoiseLength();
                     TriangleLength();
-                    if (!frameIRQInhibit)
-                        frameIRQ = true;
                 }
-                Pulse1Envelope();
-                Pulse2Envelope();
-                NoiseEnvelope();
-                TriangleLinear();
 
             }
         }
@@ -424,6 +416,11 @@ namespace DirectXEmu
             if (!triangleControlFlag)
                 triangleHaltFlag = false;
         }
+        public void TriangleLength()
+        {
+            if (!triangleHaltFlag && triangleLengthCounter != 0)
+                triangleLengthCounter--;
+        }
         public void Pulse1Envelope()
         {
             if (pulse1StartFlag)
@@ -439,7 +436,7 @@ namespace DirectXEmu
                 {
                     if (pulse1EnvelopeCounter != 0)
                         pulse1EnvelopeCounter--;
-                    else if (pulse1EnvelopeLoop)
+                    else if (pulse1HaltFlag)
                         pulse1EnvelopeCounter = 0xF;
                     pulse1EnvelopeDivider = pulse1Envelope + 1;
                 }
@@ -457,25 +454,17 @@ namespace DirectXEmu
             {
                 int tmp = pulse1Timer >> pulse1SweepShift;
                 if (pulse1SweepNegate)
-                {
-                    tmp = pulse1Timer - tmp;
-                    tmp--;
-                }
-                else
-                {
-                    tmp = pulse1Timer + tmp;
-                }
-                //if (pulse1SweepNegate)            //This is how nesdev wiki described the porcess, I could not get it to work or sound correct so instead went by everynes
-                //    tmp = (~tmp) & 0xFF;
-                //tmp += pulse1Timer;
+                    tmp = -1 - tmp;
+                tmp += pulse1Timer;
                 pulse1SweepMute = false;
-                if (pulse1Timer < 8 && tmp > 0x7FF)
+                if (pulse1Timer < 8 || tmp > 0x7FF)
                 {
-                    pulse1SweepMute = true;
+                    pulse1SweepMute = false;
                 }
                 else if (pulse1SweepEnable && pulse1SweepShift != 0)
                 {
                     pulse1Timer = (ushort)(tmp & 0x7FF);
+                    pulse1Freq = (pulse1Timer + 1) * 2;
                 }
                 pulse1SweepDivider = (byte)(pulse1SweepTimer + 1);
 
@@ -496,7 +485,7 @@ namespace DirectXEmu
                 {
                     if (pulse2EnvelopeCounter != 0)
                         pulse2EnvelopeCounter--;
-                    else if (pulse2EnvelopeLoop)
+                    else if (pulse2HaltFlag)
                         pulse2EnvelopeCounter = 0xF;
                     pulse2EnvelopeDivider = pulse2Envelope + 1;
                 }
@@ -514,27 +503,19 @@ namespace DirectXEmu
             {
                 int tmp = pulse2Timer >> pulse2SweepShift;
                 if (pulse2SweepNegate)
-                {
-                    tmp = pulse2Timer - tmp;
-                }
-                else
-                {
-                    tmp = pulse2Timer + tmp;
-                }
-                //if (pulse2SweepNegate)            //This is how nesdev wiki described the porcess, I could not get it to work or sound correct so instead went by everynes
-                //    tmp = ((~tmp)+1) & 0x7FF;
-                //tmp += pulse2Timer;
+                    tmp = 0 - tmp;
+                tmp += pulse2Timer;
                 pulse2SweepMute = false;
-                if (pulse2Timer < 8 && tmp > 0x7FF)
+                if (pulse2Timer < 8 || tmp > 0x7FF)
                 {
-                    pulse2SweepMute = true;
+                    pulse2SweepMute = false;
                 }
                 else if (pulse2SweepEnable && pulse2SweepShift != 0)
                 {
                     pulse2Timer = (ushort)(tmp & 0x7FF);
+                    pulse2Freq = (pulse2Timer + 1) * 2;
                 }
                 pulse2SweepDivider = (byte)(pulse2SweepTimer + 1);
-
             }
         }
         public void NoiseEnvelope()
@@ -552,16 +533,11 @@ namespace DirectXEmu
                 {
                     if (noiseEnvelopeCounter != 0)
                         noiseEnvelopeCounter--;
-                    else if (noiseEnvelopeLoop)
+                    else if (noiseHaltFlag)
                         noiseEnvelopeCounter = 0xF;
                     noiseEnvelopeDivider = noiseEnvelope + 1;
                 }
             }
-        }
-        public void TriangleLength()
-        {
-            if (!triangleHaltFlag && triangleLengthCounter != 0)
-                triangleLengthCounter--;
         }
         public void Pulse1Length()
         {
@@ -581,6 +557,7 @@ namespace DirectXEmu
         public void AddCycles(int cycles)
         {
             this.cycles += cycles;
+            //Update();
             if (this.cycles - lastCycleClock > frameLengths[frameCounter % 2])
             {
                 lastCycleClock += frameLengths[frameCounter % 2];
@@ -691,37 +668,41 @@ namespace DirectXEmu
         }
         private int DMCOutput()
         {
-            if (dmcSampleBufferEmpty)
-                dmcSilence = true;
-            else
-            {
-                dmcSilence = false;
-                dmcShiftReg = dmcSampleBuffer;
-                dmcSampleBufferEmpty = true;
-            }
-            if (dmcSampleBufferEmpty && dmcBytesRemaining != 0)
-            {
-                dmcSampleBuffer = Memory[dmcSampleCurrentAddress];
-                dmcSampleBufferEmpty = false;
-                dmcSampleCurrentAddress++;
-                if (dmcSampleCurrentAddress > 0xFFFF)
-                    dmcSampleCurrentAddress = 0x8000;
-                dmcBytesRemaining--;
-                if (dmcBytesRemaining == 0)
-                {
-                    if (dmcLoop)
-                    {
-                        dmcBytesRemaining = dmcSampleLength;
-                        dmcSampleCurrentAddress = dmcSampleAddress;
-                    }
-                    else if (dmcInterruptEnable)
-                        dmcInterrupt = true;
-                }
-            }
             dmcDivider--;
             if (dmcDivider == 0)
             {
-
+                if (dmcSampleBufferEmpty)
+                {
+                    if (dmcBytesRemaining != 0)
+                    {
+                        dmcSampleBuffer = Memory[dmcSampleCurrentAddress];
+                        dmcSampleBufferEmpty = false;
+                        dmcSampleCurrentAddress++;
+                        if (dmcSampleCurrentAddress > 0xFFFF)
+                            dmcSampleCurrentAddress = 0x8000;
+                        dmcBytesRemaining--;
+                        if (dmcBytesRemaining == 0)
+                        {
+                            if (dmcLoop)
+                            {
+                                dmcBytesRemaining = dmcSampleLength;
+                                dmcSampleCurrentAddress = dmcSampleAddress;
+                            }
+                            else if (dmcInterruptEnable)
+                                dmcInterrupt = true;
+                        }
+                    }
+                    else
+                    {
+                        dmcSilence = true;
+                    }
+                }
+                else
+                {
+                    dmcSilence = false;
+                    dmcShiftReg = dmcSampleBuffer;
+                    dmcSampleBufferEmpty = true;
+                }
                 for (int i = 0; i < 8; i++)
                 {
                     if (!dmcSilence && (dmcShiftReg & 1) != 0 && dmcDeltaCounter > 1)
@@ -732,7 +713,6 @@ namespace DirectXEmu
                 }
                 dmcDivider = dmcRate;
             }
-
             return dmcDeltaCounter & 0x7F;
         }
         public void Update()
@@ -742,6 +722,7 @@ namespace DirectXEmu
 
                 for (int updateCycle = lastUpdateCycle; updateCycle < cycles; updateCycle++)
                 {
+                    DMCOutput();
                     sampleRateDivider--;
                     if (sampleRateDivider == 0)
                     {
@@ -807,11 +788,10 @@ namespace DirectXEmu
                         triangleVolume = 0;
                     else
                     {
-
-                        triangleSequenceCounter++;
                         triangleVolume = triangleSequence[triangleSequenceCounter % 32];
+                        triangleSequenceCounter++;
                     }
-                    triangleDivider = triangleTimer + 1;
+                    triangleDivider = triangleFreq;
                 }
                 pulse1Divider--;
                 if (pulse1Divider == 0)
@@ -827,7 +807,7 @@ namespace DirectXEmu
                     else
                         pulse1Volume = pulse1EnvelopeCounter;
                     pulse1DutySequencer++;
-                    pulse1Divider = pulse1Timer + 1;
+                    pulse1Divider = pulse1Freq;
                 }
                 pulse2Divider--;
                 if (pulse2Divider == 0)
@@ -843,7 +823,7 @@ namespace DirectXEmu
                     else
                         pulse2Volume = pulse2EnvelopeCounter;
                     pulse2DutySequencer++;
-                    pulse2Divider = pulse2Timer + 1;
+                    pulse2Divider = pulse2Freq;
                 }
                 noiseDivider--;
                 if (noiseDivider == 0)
@@ -911,6 +891,7 @@ namespace DirectXEmu
             writer.Write(pulse1SweepReload);
             writer.Write(pulse1SweepShift);
             writer.Write(pulse1SweepMute);
+            writer.Write(pulse1Freq);
             writer.Write(pulse2Enable);
             writer.Write(pulse2LengthCounter);
             writer.Write(pulse2DutySequencer);
@@ -931,9 +912,10 @@ namespace DirectXEmu
             writer.Write(pulse2SweepReload);
             writer.Write(pulse2SweepShift);
             writer.Write(pulse2SweepMute);
+            writer.Write(pulse2Freq);
             writer.Write(noiseEnable);
             writer.Write(noiseLengthCounter);
-            writer.Write(noiseShiftReg = 1);
+            writer.Write(noiseShiftReg);
             writer.Write(noiseLoop);
             writer.Write(noiseHaltFlag);
             writer.Write(noiseEnvelope);
@@ -944,7 +926,7 @@ namespace DirectXEmu
             writer.Write(noiseStartFlag);
             writer.Write(noiseEnvelopeLoop);
             writer.Write(noiseDivider);
-            writer.Write(triangleSequenceCounter = 0);
+            writer.Write(triangleSequenceCounter);
             writer.Write(triangleEnable);
             writer.Write(triangleControlFlag);
             writer.Write(triangleHaltFlag);
@@ -953,6 +935,7 @@ namespace DirectXEmu
             writer.Write(triangleLengthCounter);
             writer.Write(triangleTimer);
             writer.Write(triangleDivider);
+            writer.Write(triangleFreq);
             writer.Write(dmcInterrupt);
             writer.Write(dmcInterruptEnable);
             writer.Write(dmcLoop);
@@ -998,6 +981,7 @@ namespace DirectXEmu
             pulse1SweepReload = reader.ReadBoolean();
             pulse1SweepShift = reader.ReadByte();
             pulse1SweepMute = reader.ReadBoolean();
+            pulse1Freq = reader.ReadInt32();
             pulse2Enable = reader.ReadBoolean();
             pulse2LengthCounter = reader.ReadByte();
             pulse2DutySequencer = reader.ReadInt32();
@@ -1018,6 +1002,7 @@ namespace DirectXEmu
             pulse2SweepReload = reader.ReadBoolean();
             pulse2SweepShift = reader.ReadByte();
             pulse2SweepMute = reader.ReadBoolean();
+            pulse2Freq = reader.ReadInt32();
             noiseEnable = reader.ReadBoolean();
             noiseLengthCounter = reader.ReadByte();
             noiseShiftReg = reader.ReadUInt16();
@@ -1040,6 +1025,7 @@ namespace DirectXEmu
             triangleLengthCounter = reader.ReadByte();
             triangleTimer = reader.ReadUInt16();
             triangleDivider = reader.ReadInt32();
+            triangleFreq = reader.ReadInt32();
             dmcInterrupt = reader.ReadBoolean();
             dmcInterruptEnable = reader.ReadBoolean();
             dmcLoop = reader.ReadBoolean();

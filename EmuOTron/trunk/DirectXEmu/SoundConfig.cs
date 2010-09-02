@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
+using EmuoTron;
 
 namespace DirectXEmu
 {
@@ -21,14 +22,5 @@ namespace DirectXEmu
             this.noiseVolume.Value = (int)(volume.noise * 100);
             this.dmcVolume.Value = (int)(volume.dmc * 100);
         }
-    }
-    public struct SoundVolume
-    {
-        public float master;
-        public float pulse1;
-        public float pulse2;
-        public float triangle;
-        public float noise;
-        public float dmc;
     }
 }

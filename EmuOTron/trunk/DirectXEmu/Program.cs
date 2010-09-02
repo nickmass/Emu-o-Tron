@@ -16,6 +16,8 @@ using SlimDX.Multimedia;
 using SlimDX.XInput;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
+using EmuoTron;
+
 namespace DirectXEmu
 {
     enum SystemState
@@ -29,33 +31,6 @@ namespace DirectXEmu
     {
         public Vector4 PositionRhw;
         public Vector2 Texture1;
-    }
-    public struct Controller
-    {
-        public bool up;
-        public bool down;
-        public bool start;
-        public bool select;
-        public bool left;
-        public bool right;
-        public bool a;
-        public bool b;
-        public bool coin;
-        public AutoFire aTurbo;
-        public AutoFire bTurbo;
-        public Zapper zapper;
-    }
-    public struct Zapper
-    {
-        public bool connected;
-        public bool triggerPulled;
-        public bool lightDetected;
-    }
-    public struct AutoFire
-    {
-        public bool on;
-        public int freq;
-        public int count;
     }
     public partial class Program : Form
     {
@@ -77,8 +52,8 @@ namespace DirectXEmu
         Texture texture;
         NESCore cpu;
         Thread thread;
-        Controller player1;
-        Controller player2;
+        EmuoTron.Controller player1;
+        EmuoTron.Controller player2;
         Color[] colorChart = new Color[0x200];
         bool reinitializeD3D = false;
         public int frame = 0;
@@ -162,6 +137,8 @@ namespace DirectXEmu
         [STAThread]
         static void Main(string[] args)
         {
+            Process thisProc = Process.GetCurrentProcess();
+            thisProc.PriorityClass = ProcessPriorityClass.High;
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             if (args.Length == 0)
@@ -192,6 +169,7 @@ namespace DirectXEmu
             this.InitializeCPU();
             this.InitializeDirect3D();
             thread = new Thread(new ThreadStart(Run));
+            thread.Name = "EmulationThread";
             thread.Start();
             System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
             timer.Interval = 100;
@@ -930,7 +908,7 @@ namespace DirectXEmu
         {
             this.generatePatternTables = false;
         }
-        private Controller HandleGamepad(Controller input)
+        private EmuoTron.Controller HandleGamepad(EmuoTron.Controller input)
         {
             Gamepad x360State = x360Controller.GetState().Gamepad;
             Vibration vib = new Vibration();
@@ -1646,7 +1624,23 @@ namespace DirectXEmu
             bool logState = false;
             if(this.cpu != null)
                 logState = this.cpu.logging;
-            this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath);
+            try
+            {
+
+                this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath);
+            }
+            catch (Exception e)
+            {
+                if (e.Message == "Invalid File")
+                {
+                    if (MessageBox.Show("File appears to be invalid. Attempt load anyway?", "Error", MessageBoxButtons.YesNo) == DialogResult.Yes)
+                        this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath, true);
+                    else
+                        throw (e);
+                }
+                else
+                    throw (e);
+            }
             audioFormat.SamplesPerSecond = this.cpu.APU.sampleRate;
             sVoice = new SourceVoice(dAudio, audioFormat, VoiceFlags.None);
             sVoice.Start();

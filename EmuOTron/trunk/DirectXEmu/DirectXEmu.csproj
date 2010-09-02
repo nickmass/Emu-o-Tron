@@ -98,7 +98,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="APU.cs" />
+    <Compile Include="EmuoTron\APU.cs" />
     <Compile Include="ArchiveCallback.cs" />
     <Compile Include="Console.cs">
       <SubType>Form</SubType>
@@ -106,7 +106,7 @@
     <Compile Include="Console.Designer.cs">
       <DependentUpon>Console.cs</DependentUpon>
     </Compile>
-    <Compile Include="CRC32.cs" />
+    <Compile Include="EmuoTron\CRC32.cs" />
     <Compile Include="DipDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -114,28 +114,28 @@
       <DependentUpon>DipDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Fill.cs" />
-    <Compile Include="mappers\m099.cs" />
-    <Compile Include="mappers\m000.cs" />
-    <Compile Include="mappers\m001.cs" />
-    <Compile Include="mappers\m002.cs" />
-    <Compile Include="mappers\m003.cs" />
-    <Compile Include="mappers\m004.cs" />
-    <Compile Include="mappers\m007.cs" />
-    <Compile Include="mappers\m009.cs" />
-    <Compile Include="mappers\m011.cs" />
-    <Compile Include="mappers\m034.cs" />
-    <Compile Include="mappers\m069.cs" />
-    <Compile Include="mappers\m070.cs" />
-    <Compile Include="mappers\m071.cs" />
-    <Compile Include="mappers\Mapper.cs" />
-    <Compile Include="MemoryStore.cs" />
+    <Compile Include="EmuoTron\mappers\m099.cs" />
+    <Compile Include="EmuoTron\mappers\m000.cs" />
+    <Compile Include="EmuoTron\mappers\m001.cs" />
+    <Compile Include="EmuoTron\mappers\m002.cs" />
+    <Compile Include="EmuoTron\mappers\m003.cs" />
+    <Compile Include="EmuoTron\mappers\m004.cs" />
+    <Compile Include="EmuoTron\mappers\m007.cs" />
+    <Compile Include="EmuoTron\mappers\m009.cs" />
+    <Compile Include="EmuoTron\mappers\m011.cs" />
+    <Compile Include="EmuoTron\mappers\m034.cs" />
+    <Compile Include="EmuoTron\mappers\m069.cs" />
+    <Compile Include="EmuoTron\mappers\m070.cs" />
+    <Compile Include="EmuoTron\mappers\m071.cs" />
+    <Compile Include="EmuoTron\mappers\Mapper.cs" />
+    <Compile Include="EmuoTron\MemoryStore.cs" />
     <Compile Include="MemoryViewer.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="MemoryViewer.Designer.cs">
       <DependentUpon>MemoryViewer.cs</DependentUpon>
     </Compile>
-    <Compile Include="NESCore.cs" />
+    <Compile Include="EmuoTron\NESCore.cs" />
     <Compile Include="About.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -155,8 +155,8 @@
       <DependentUpon>Keybind.cs</DependentUpon>
     </Compile>
     <Compile Include="Keybinds.cs" />
-    <Compile Include="OpInfo.cs" />
-    <Compile Include="PPU.cs" />
+    <Compile Include="EmuoTron\OpInfo.cs" />
+    <Compile Include="EmuoTron\PPU.cs" />
     <Compile Include="Program.Designer.cs">
       <DependentUpon>Program.cs</DependentUpon>
     </Compile>
@@ -297,7 +297,7 @@
     <Compile Include="SevenZipInterface.cs" />
     <Compile Include="Sizeable.cs" />
     <Compile Include="EmuConfig.cs" />
-    <Compile Include="GameGenie.cs" />
+    <Compile Include="EmuoTron\GameGenie.cs" />
     <Compile Include="GameGenieWindow.cs">
       <SubType>Form</SubType>
     </Compile>

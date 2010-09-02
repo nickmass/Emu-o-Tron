@@ -10,6 +10,7 @@ using System.Windows.Forms;
 using System.IO;
 using System.Xml;
 using System.Threading;
+using EmuoTron;
 
 namespace DirectXEmu
 {

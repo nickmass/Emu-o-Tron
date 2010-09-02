@@ -9,7 +9,6 @@ namespace DirectXEmu
 {
     class NearestNeighbor2x : Scaler
     {
-        private Bitmap resizedBitmap;
         public override bool resizeable
         {
             get { return this.resize; }
@@ -32,14 +31,12 @@ namespace DirectXEmu
             this.y = 480;
             this.resize = false;
             this.maintainAR = true;
-            resizedBitmap = new Bitmap(x, y);
         }
         public override unsafe void PerformScale(int* origPixels, int* resizePixels)
         {
-            int halfX = x / 2;
             for (int imgY = 0; imgY < y; imgY++)
                 for (int imgX = 0; imgX < x; imgX++)
-                    resizePixels[(imgY * x) + imgX] = origPixels[(imgY / 2 * halfX) + imgX / 2];
+                    resizePixels[(imgY << 9) | imgX] = origPixels[((imgY & -2) << 7) | (imgX >> 1)];
         }
     }
 }

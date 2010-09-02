@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace DirectXEmu.mappers
+namespace EmuoTron.mappers
 {
-    class m000 : Mapper
+    class m099 : Mapper
     {
-        public m000(MemoryStore Memory, MemoryStore PPUMemory, int numPRGRom, int numVRom)
+        public m099(MemoryStore Memory, MemoryStore PPUMemory, int numPRGRom, int numVRom)
         {
             this.numPRGRom = numPRGRom;
             this.numVRom = numVRom;
@@ -23,7 +23,11 @@ namespace DirectXEmu.mappers
             else
                 PPUMemory.Swap8kROM(0x0000, 0);
         }
-        public override void MapperWrite(ushort address, byte value) { }
+        public override void MapperWrite(ushort address, byte value)
+        {
+            if (address == 0x4016)
+                PPUMemory.Swap8kROM(0x0000,((value >> 2) & 0x01));
+        }
         public override void MapperIRQ(int scanline, int vblank) { }
         public override void StateLoad(System.IO.MemoryStream buf) { }
         public override void StateSave(ref System.IO.MemoryStream buf) { }
