@@ -8,7 +8,6 @@ namespace DirectXEmu
 {
     class Scale2x : Scaler
     {
-        Bitmap resizedBitmap;
         public override bool resizeable
         {
             get { return this.resize; }
@@ -31,37 +30,32 @@ namespace DirectXEmu
             this.y = 480;
             this.resize = false;
             this.maintainAR = true;
-            resizedBitmap = new Bitmap(x, y);
         }
-        public unsafe override Bitmap PerformScale(Bitmap orig)
+        public override unsafe void PerformScale(int* origPixels, int* resizePixels)
         {
-            BitmapData origBMD = orig.LockBits(new Rectangle(0, 0, orig.Width, orig.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-            BitmapData resizeBMD = resizedBitmap.LockBits(new Rectangle(0, 0, resizedBitmap.Width, resizedBitmap.Height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
-            int* origPixels = (int*)origBMD.Scan0;
-            int* resizePixels = (int*)resizeBMD.Scan0;
             int b, d, e, f, h;
             int e0, e1, e2, e3;
-            for (int imgY = 0; imgY < origBMD.Height; imgY++)
+            for (int imgY = 0; imgY < 240; imgY++)
             {
-                for (int imgX = 0; imgX < origBMD.Width; imgX++)
+                for (int imgX = 0; imgX < 256; imgX++)
                 {
-                    e = origPixels[(imgY * origBMD.Width) + imgX];
+                    e = origPixels[(imgY * 256) + imgX];
                     if (imgY == 0)
                         b = e;
                     else
-                        b = origPixels[((imgY - 1) * origBMD.Width) + imgX];
+                        b = origPixels[((imgY - 1) * 256) + imgX];
                     if (imgX == 0)
                         d = e;
                     else
-                        d = origPixels[((imgY) * origBMD.Width) + (imgX - 1)];
-                    if (imgX == origBMD.Width - 1)
+                        d = origPixels[((imgY) * 256) + (imgX - 1)];
+                    if (imgX == 255)
                         f = e;
                     else
-                        f = origPixels[((imgY) * origBMD.Width) + (imgX + 1)];
-                    if (imgY == origBMD.Height - 1)
+                        f = origPixels[((imgY) * 256) + (imgX + 1)];
+                    if (imgY == 239)
                         h = e;
                     else
-                        h = origPixels[((imgY + 1) * origBMD.Width) + (imgX)];
+                        h = origPixels[((imgY + 1) * 256) + (imgX)];
                     if (b != h && d != f)
                     {
                         e0 = d == b ? d : e;
@@ -76,15 +70,12 @@ namespace DirectXEmu
                         e2 = e;
                         e3 = e;
                     }
-                    resizePixels[((imgY * 2) * (origBMD.Width * 2)) + (imgX * 2)] = e0;
-                    resizePixels[((imgY * 2) * (origBMD.Width * 2)) + ((imgX * 2) + 1)] = e1;
-                    resizePixels[(((imgY * 2) + 1) * (origBMD.Width * 2)) + (imgX * 2)] = e2;
-                    resizePixels[(((imgY * 2) + 1) * (origBMD.Width * 2)) + ((imgX * 2) + 1)] = e3;
+                    resizePixels[((imgY * 2) * (256 * 2)) + (imgX * 2)] = e0;
+                    resizePixels[((imgY * 2) * (256 * 2)) + ((imgX * 2) + 1)] = e1;
+                    resizePixels[(((imgY * 2) + 1) * (256 * 2)) + (imgX * 2)] = e2;
+                    resizePixels[(((imgY * 2) + 1) * (256 * 2)) + ((imgX * 2) + 1)] = e3;
                 }
             }
-            orig.UnlockBits(origBMD);
-            resizedBitmap.UnlockBits(resizeBMD);
-            return resizedBitmap;
         }
     }
 }

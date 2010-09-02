@@ -25,7 +25,7 @@ namespace DirectXEmu.mappers
         }
         public override void MapperWrite(ushort address, byte value) { }
         public override void MapperIRQ(int scanline, int vblank) { }
-        public override void MapperStateLoad(System.IO.MemoryStream buf) { }
-        public override void MapperStateSave(ref System.IO.MemoryStream buf) { }
+        public override void StateLoad(System.IO.MemoryStream buf) { }
+        public override void StateSave(ref System.IO.MemoryStream buf) { }
     }
 }

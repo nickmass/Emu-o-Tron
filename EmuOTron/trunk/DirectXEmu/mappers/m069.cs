@@ -126,7 +126,7 @@ namespace DirectXEmu.mappers
                 }
             }
         }
-        public override void MapperStateSave(ref MemoryStream buf)
+        public override void StateSave(ref MemoryStream buf)
         {
             BinaryWriter writer = new BinaryWriter(buf);
             writer.Write(indexReg);
@@ -135,7 +135,7 @@ namespace DirectXEmu.mappers
             writer.Write(irqCountdown);
             writer.Flush();
         }
-        public override void MapperStateLoad(MemoryStream buf)
+        public override void StateLoad(MemoryStream buf)
         {
             BinaryReader reader = new BinaryReader(buf);
             indexReg = reader.ReadInt32();

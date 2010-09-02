@@ -28,6 +28,6 @@ namespace DirectXEmu
         {
             get;
         }
-        public abstract Bitmap PerformScale(Bitmap orig); 
+        public unsafe abstract void PerformScale(int* origPixels, int* resizePixels);
     }
 }

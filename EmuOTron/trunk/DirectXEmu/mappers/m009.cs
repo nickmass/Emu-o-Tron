@@ -96,7 +96,7 @@ namespace DirectXEmu.mappers
                     PPUMemory.Swap4kROM(0x1000, fe1);
             }
         }
-        public override void MapperStateLoad(System.IO.MemoryStream buf)
+        public override void StateLoad(System.IO.MemoryStream buf)
         {
             BinaryReader reader = new BinaryReader(buf);
             latch0 = reader.ReadInt32();
@@ -106,7 +106,7 @@ namespace DirectXEmu.mappers
             fd1 = reader.ReadInt32();
             fe1 = reader.ReadInt32();
         }
-        public override void MapperStateSave(ref System.IO.MemoryStream buf)
+        public override void StateSave(ref System.IO.MemoryStream buf)
         {
             BinaryWriter writer = new BinaryWriter(buf);
             writer.Write(latch0);

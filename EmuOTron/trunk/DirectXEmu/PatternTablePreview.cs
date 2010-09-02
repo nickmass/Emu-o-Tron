@@ -45,7 +45,7 @@ namespace DirectXEmu
         {
             this.patternTables = patternTables;
             this.palette = palette;
-            Update();
+            UpdateTables();
         }
 
         private void txtScanLine_TextChanged(object sender, EventArgs e)
@@ -77,7 +77,7 @@ namespace DirectXEmu
             else
                 this.generateLine = Convert.ToInt32(this.txtScanline.Text);
         }
-        private unsafe void Update()
+        private unsafe void UpdateTables()
         {
             if (this.patternTables != null)
             {

@@ -21,24 +21,6 @@ namespace DirectXEmu
             this.noiseVolume.Value = (int)(volume.noise * 100);
             this.dmcVolume.Value = (int)(volume.dmc * 100);
         }
-        public void UpdateLevels(SoundLevels levels)
-        {
-            this.soundLevel.Value = levels.master;
-            this.pulse1Levels.Value = levels.pulse1;
-            this.pulse2Levels.Value = levels.pulse2;
-            this.triangleLevels.Value = levels.triangle;
-            this.noiseLevels.Value = levels.noise;
-            this.dmcLevels.Value = levels.dmc;
-        }
-    }
-    public struct SoundLevels
-    {
-        public int master;
-        public int pulse1;
-        public int pulse2;
-        public int triangle;
-        public int noise;
-        public int dmc;
     }
     public struct SoundVolume
     {

@@ -32,9 +32,11 @@ namespace DirectXEmu
             this.resize = false;
             this.maintainAR = true;
         }
-        public unsafe override Bitmap PerformScale(Bitmap orig)
+        public override unsafe void PerformScale(int* origPixels, int* resizePixels)
         {
-            return orig;
+            int size = x * y;
+            for (int i = 0; i < size; i++)
+                resizePixels[i] = origPixels[i];
         }
     }
 }

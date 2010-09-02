@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
-using System.Windows.Forms;
 
 namespace DirectXEmu
 {
@@ -34,14 +33,10 @@ namespace DirectXEmu
         bool leftmostSprites;
         bool backgroundRendering;
         bool spriteRendering;
-        bool redEmph;
-        bool greenEmph;
-        bool blueEmph;
-
         ushort colorMask;
 
-        public int scanlineCycle;
-        public int scanline = -1;
+        public Int32 scanlineCycle;
+        public Int32 scanline = -1;
 
         private Int32 loopyT;
         private Int32 loopyX;
@@ -64,6 +59,11 @@ namespace DirectXEmu
         public byte[][,] patternTables;
 
         int vblankEnd;
+
+        bool[] zeroBackground;
+        ushort[] spriteLine;
+        bool[] spriteAboveLine;
+        bool[] spriteBelowLine;
 
         public PPU(NESCore nes, int numvrom)
         {
@@ -149,7 +149,6 @@ namespace DirectXEmu
             if (address == 0x2000)
             {
                 loopyT = (loopyT & 0xF3FF) | ((value & 3) << 10);
-                //loopyT = (loopyT & 0x0C00) | ((value) << 10);
                 vramInc = (value & 0x04) != 0;
                 if ((value & 0x08) != 0)
                     spriteTable = 0x1000;
@@ -172,17 +171,7 @@ namespace DirectXEmu
                 leftmostSprites = (value & 0x04) != 0;
                 backgroundRendering = (value & 0x08) != 0;
                 spriteRendering = (value & 0x10) != 0;
-                redEmph = (value & 0x20) != 0;
-                greenEmph = (value & 0x40) != 0;
-                blueEmph = (value & 0x80) != 0;
-                colorMask = 0;
-                if (redEmph)
-                    colorMask |= 1;
-                if (greenEmph)
-                    colorMask |= 2;
-                if (blueEmph)
-                    colorMask |= 4;
-                colorMask <<= 8;
+                colorMask = (ushort)((value << 1) & 0x1C0);
             }
             else if (address == 0x2003) //OAM Address
             {
@@ -286,7 +275,7 @@ namespace DirectXEmu
                             VerticalIncrement();
                             HorizontalReset();
                         }
-                        if (nes.romMapper.mapper == 4 && (spriteRendering | backgroundRendering) && scanline < 240)
+                        if (nes.romMapper.mapper == 4 && scanline < 240)
                             nes.romMapper.MapperIRQ(scanline, 0);
                         if (scanline == -1)
                             VerticalReset();
@@ -298,10 +287,10 @@ namespace DirectXEmu
                     if (scanline < 240 && scanline >= 0)//real scanline
                     {
 
-                        bool[] zeroBackground = new bool[256];
-                        ushort[] spriteLine = new ushort[256];
-                        bool[] spriteAboveLine = new bool[256];
-                        bool[] spriteBelowLine = new bool[256];
+                        zeroBackground = new bool[256];
+                        spriteLine = new ushort[256];
+                        spriteAboveLine = new bool[256];
+                        spriteBelowLine = new bool[256];
                         for (int tile = 0; tile < 34; tile++)//each tile on line
                         {
                             int tileAddr = PPUMirrorMap[0x2000 | (loopyV & 0x0FFF)];
@@ -403,7 +392,7 @@ namespace DirectXEmu
                                     }
                                 }
                             }
-                            if (spritesOnLine >= 9)
+                            if (spritesOnLine > 8)
                                 spriteOverflow = true;
 
                             if (displaySprites)
@@ -430,7 +419,7 @@ namespace DirectXEmu
                         }
                     }
 
-                    if (nes.romMapper.mapper == 4 && (spriteRendering | backgroundRendering) && scanline < 240)
+                    if (nes.romMapper.mapper == 4 && scanline < 240)
                         nes.romMapper.MapperIRQ(scanline, 0);
                     if (scanline == -1)
                     {
@@ -524,27 +513,26 @@ namespace DirectXEmu
             for (int patternTable = 0; patternTable < 2; patternTable++)
             {
                 patternTables[patternTable] = new byte[128, 128];
+                ushort spriteTable = (ushort)(patternTable * 0x1000);
                 for (int line = 0; line < 128; line++)
                 {
-                    ushort backgroundTable = (ushort)(patternTable * 0x1000);
-                    for (int column = 0; column < 128; column++)//For each pixel in scanline
+                    for (int column = 0; column < 16; column++)
                     {
-                        byte tileNumber = (byte)(((line / 8) * 16) + (column / 8));
-                        patternTables[patternTable][column, line] = GetTilePixel(backgroundTable, tileNumber, (byte)(column % 8), (byte)(line % 8));
+                        byte tileNumber = (byte)(((line / 8) * 16) + (column));
+                        int chrAddress = (spriteTable | (tileNumber << 4) | (line & 7));
+                        byte lowChr = PPUMemory[chrAddress];
+                        byte highChr = PPUMemory[chrAddress | 8];
+                        for (int x = 0; x < 8; x++)//each pixel in tile
+                        {
+                            byte color = (byte)(((lowChr & 0x80) >> 7) + ((highChr & 0x80) >> 6));
+                            patternTables[patternTable][(column*8) + x, line] = color;
+                            lowChr <<= 1;
+                            highChr <<= 1;
+                        }
                     }
                 }
             }
             return patternTables;
-        }
-        private byte GetTilePixel(ushort table, byte tile, byte pixelX, byte pixelY)
-        {
-            byte tileColor1 = (byte)((this.PPUMemory[this.PPUMirrorMap[(table + (tile * 16)) + pixelY]] << pixelX) & 0x80);
-            byte tileColor2 = (byte)((this.PPUMemory[this.PPUMirrorMap[(table + (tile * 16) + 8) + pixelY]] << pixelX) & 0x80);
-            if (tileColor1 != 0)
-                tileColor1 = 1;
-            if (tileColor2 != 0)
-                tileColor2 = 1;
-            return (byte)(tileColor1 + (tileColor2 * 2));
         }
         public void StateSave(ref MemoryStream buf)
         {
@@ -566,9 +554,6 @@ namespace DirectXEmu
             writer.Write(leftmostSprites);
             writer.Write(backgroundRendering);
             writer.Write(spriteRendering);
-            writer.Write(redEmph);
-            writer.Write(greenEmph);
-            writer.Write(blueEmph);
             writer.Write(colorMask);
             writer.Write(scanlineCycle);
             writer.Write(scanline);
@@ -598,9 +583,6 @@ namespace DirectXEmu
             leftmostSprites = reader.ReadBoolean();
             backgroundRendering = reader.ReadBoolean();
             spriteRendering = reader.ReadBoolean();
-            redEmph = reader.ReadBoolean();
-            greenEmph = reader.ReadBoolean();
-            blueEmph = reader.ReadBoolean();
             colorMask = reader.ReadUInt16();
             scanlineCycle = reader.ReadInt32();
             scanline = reader.ReadInt32();

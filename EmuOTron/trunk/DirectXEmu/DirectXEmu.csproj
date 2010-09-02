@@ -99,6 +99,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="APU.cs" />
+    <Compile Include="ArchiveCallback.cs" />
     <Compile Include="Console.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -147,7 +148,6 @@
     <Compile Include="ArchiveViewer.Designer.cs">
       <DependentUpon>ArchiveViewer.cs</DependentUpon>
     </Compile>
-    <Compile Include="HQ2x.cs" />
     <Compile Include="Keybind.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -157,14 +157,14 @@
     <Compile Include="Keybinds.cs" />
     <Compile Include="OpInfo.cs" />
     <Compile Include="PPU.cs" />
+    <Compile Include="Program.Designer.cs">
+      <DependentUpon>Program.cs</DependentUpon>
+    </Compile>
     <Compile Include="SoundConfig.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="SoundConfig.Designer.cs">
       <DependentUpon>SoundConfig.cs</DependentUpon>
-    </Compile>
-    <Compile Include="VerticalProgressBar.cs">
-      <SubType>Component</SubType>
     </Compile>
     <Content Include="docs\2C02 technical reference.TXT" />
     <Content Include="docs\everynes.htm" />
@@ -286,12 +286,6 @@
     <Content Include="NesCarts.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Compile Include="OpenRomDialog.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="OpenRomDialog.Designer.cs">
-      <DependentUpon>OpenRomDialog.cs</DependentUpon>
-    </Compile>
     <Compile Include="RomInfoBox.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -354,9 +348,6 @@
     <EmbeddedResource Include="NameTablePreview.resx">
       <DependentUpon>NameTablePreview.cs</DependentUpon>
       <SubType>Designer</SubType>
-    </EmbeddedResource>
-    <EmbeddedResource Include="OpenRomDialog.resx">
-      <DependentUpon>OpenRomDialog.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="PatternTablePreview.resx">
       <DependentUpon>PatternTablePreview.cs</DependentUpon>
@@ -436,11 +427,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <EmbeddedResource Include="images\charSheet.png" />
-    <None Include="Notes.txt" />
     <Content Include="SlimDX.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="SlimDX.xml" />
     <Content Include="nickmass_vista.ico" />
   </ItemGroup>
   <ItemGroup>

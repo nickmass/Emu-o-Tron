@@ -321,7 +321,7 @@ namespace DirectXEmu
             uint crc = 0xFFFFFFFF;
             for (int y = 0; y < 240; y++)
                 for (int x = 0; x < 256; x++)
-                    crc = CRC32.crc32_adjust(crc, (byte)(scanlines[x,y] & 0xFF));
+                    crc = CRC32.crc32_adjust(crc, (byte)(scanlines[x,y] & 0x3F));
             crc ^= 0xFFFFFFFF;
             return crc;
         }

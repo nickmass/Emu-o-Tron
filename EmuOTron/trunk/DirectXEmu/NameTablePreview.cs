@@ -26,10 +26,10 @@ namespace DirectXEmu
         public int UpdateNameTables(byte[][,] nameTables)
         {
             this.nameTables = nameTables;
-            Update();
+            UpdateTables();
             return generateLine;
         }
-        private unsafe void Update()
+        private unsafe void UpdateTables()
         {
             if (this.nameTables != null)
             {

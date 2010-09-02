@@ -29,12 +29,6 @@
         private void InitializeComponent()
         {
             this.soundVolume = new System.Windows.Forms.TrackBar();
-            this.soundLevel = new VerticalProgressBar();
-            this.pulse1Levels = new VerticalProgressBar();
-            this.pulse2Levels = new VerticalProgressBar();
-            this.triangleLevels = new VerticalProgressBar();
-            this.dmcLevels = new VerticalProgressBar();
-            this.noiseLevels = new VerticalProgressBar();
             this.pulse1Volume = new System.Windows.Forms.TrackBar();
             this.noiseVolume = new System.Windows.Forms.TrackBar();
             this.pulse2Volume = new System.Windows.Forms.TrackBar();
@@ -63,58 +57,6 @@
             this.soundVolume.Size = new System.Drawing.Size(45, 119);
             this.soundVolume.TabIndex = 0;
             this.soundVolume.TickFrequency = 10;
-            // 
-            // soundLevel
-            // 
-            this.soundLevel.Location = new System.Drawing.Point(13, 25);
-            this.soundLevel.Name = "soundLevel";
-            this.soundLevel.Size = new System.Drawing.Size(16, 121);
-            this.soundLevel.TabIndex = 1;
-            // 
-            // pulse1Levels
-            // 
-            this.pulse1Levels.Location = new System.Drawing.Point(86, 25);
-            this.pulse1Levels.Maximum = 15;
-            this.pulse1Levels.Name = "pulse1Levels";
-            this.pulse1Levels.Size = new System.Drawing.Size(16, 121);
-            this.pulse1Levels.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
-            this.pulse1Levels.TabIndex = 2;
-            // 
-            // pulse2Levels
-            // 
-            this.pulse2Levels.Location = new System.Drawing.Point(159, 25);
-            this.pulse2Levels.Maximum = 15;
-            this.pulse2Levels.Name = "pulse2Levels";
-            this.pulse2Levels.Size = new System.Drawing.Size(16, 121);
-            this.pulse2Levels.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
-            this.pulse2Levels.TabIndex = 3;
-            // 
-            // triangleLevels
-            // 
-            this.triangleLevels.Location = new System.Drawing.Point(232, 25);
-            this.triangleLevels.Maximum = 15;
-            this.triangleLevels.Name = "triangleLevels";
-            this.triangleLevels.Size = new System.Drawing.Size(16, 121);
-            this.triangleLevels.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
-            this.triangleLevels.TabIndex = 4;
-            // 
-            // dmcLevels
-            // 
-            this.dmcLevels.Location = new System.Drawing.Point(378, 25);
-            this.dmcLevels.Maximum = 127;
-            this.dmcLevels.Name = "dmcLevels";
-            this.dmcLevels.Size = new System.Drawing.Size(16, 121);
-            this.dmcLevels.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
-            this.dmcLevels.TabIndex = 5;
-            // 
-            // noiseLevels
-            // 
-            this.noiseLevels.Location = new System.Drawing.Point(305, 25);
-            this.noiseLevels.Maximum = 15;
-            this.noiseLevels.Name = "noiseLevels";
-            this.noiseLevels.Size = new System.Drawing.Size(16, 121);
-            this.noiseLevels.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
-            this.noiseLevels.TabIndex = 6;
             // 
             // pulse1Volume
             // 
@@ -236,13 +178,7 @@
             this.Controls.Add(this.pulse2Volume);
             this.Controls.Add(this.noiseVolume);
             this.Controls.Add(this.pulse1Volume);
-            this.Controls.Add(this.noiseLevels);
-            this.Controls.Add(this.dmcLevels);
-            this.Controls.Add(this.triangleLevels);
-            this.Controls.Add(this.pulse2Levels);
-            this.Controls.Add(this.pulse1Levels);
             this.Controls.Add(this.soundVolume);
-            this.Controls.Add(this.soundLevel);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
             this.Name = "SoundConfig";
@@ -262,12 +198,6 @@
         #endregion
 
         public System.Windows.Forms.TrackBar soundVolume;
-        private VerticalProgressBar soundLevel;
-        private VerticalProgressBar pulse1Levels;
-        private VerticalProgressBar pulse2Levels;
-        private VerticalProgressBar triangleLevels;
-        private VerticalProgressBar dmcLevels;
-        private VerticalProgressBar noiseLevels;
         public System.Windows.Forms.TrackBar pulse1Volume;
         public System.Windows.Forms.TrackBar noiseVolume;
         public System.Windows.Forms.TrackBar pulse2Volume;

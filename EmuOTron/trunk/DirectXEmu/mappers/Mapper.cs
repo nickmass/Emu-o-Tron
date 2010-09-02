@@ -17,7 +17,7 @@ namespace DirectXEmu.mappers
         public abstract void MapperInit();
         public abstract void MapperWrite(ushort address, byte value);
         public abstract void MapperIRQ(int scanline, int vblank);
-        public abstract void MapperStateSave(ref MemoryStream buf);
-        public abstract void MapperStateLoad(MemoryStream buf);
+        public abstract void StateSave(ref MemoryStream buf);
+        public abstract void StateLoad(MemoryStream buf);
     }
 }

@@ -34,19 +34,12 @@ namespace DirectXEmu
             this.maintainAR = true;
             resizedBitmap = new Bitmap(x, y);
         }
-        public unsafe override Bitmap PerformScale(Bitmap orig)
+        public override unsafe void PerformScale(int* origPixels, int* resizePixels)
         {
-            BitmapData origBMD = orig.LockBits(new Rectangle(0, 0, orig.Width, orig.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-            BitmapData resizeBMD = resizedBitmap.LockBits(new Rectangle(0, 0, resizedBitmap.Width, resizedBitmap.Height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
-            int* origPixels = (int*)origBMD.Scan0;
-            int* resizePixels = (int*)resizeBMD.Scan0;
             int halfX = x / 2;
             for (int imgY = 0; imgY < y; imgY++)
                 for (int imgX = 0; imgX < x; imgX++)
-                     resizePixels[(imgY * x) + imgX] = origPixels[(imgY/2 * halfX) + imgX/2];
-            orig.UnlockBits(origBMD);
-            resizedBitmap.UnlockBits(resizeBMD);
-            return resizedBitmap;
+                    resizePixels[(imgY * x) + imgX] = origPixels[(imgY / 2 * halfX) + imgX / 2];
         }
     }
 }

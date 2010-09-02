@@ -22,7 +22,6 @@ namespace DirectXEmu
         public int[] sampleDividers = { 40, 41 };
         public int sampleDividersCounter;
 
-        public SoundLevels levels;
         public SoundVolume volume;
 
         private int cycles;
@@ -134,8 +133,7 @@ namespace DirectXEmu
         private float[] pulseTable = new float[32];
         private float[] tndTable = new float[204];
 
-        public float[] output;
-        public byte[] outBytes;
+        public short[] output;
         public int outputPtr = 0;
 
 
@@ -151,17 +149,17 @@ namespace DirectXEmu
                     frameLengths = new int[] { 7457, 7458 };
                     noisePeriods = new ushort[] { 4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068 };
                     dmcRates = new int[] { 428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54 };
+                    output = new short[((sampleRate / 60) + 1) * frameBuffer];
                     break;
                 case SystemType.PAL:
                     CPUClock = 1662607;
                     frameLengths = new int[] { 6927, 6928 }; //this is original research and could be very very very wrong, CPUClock / 240hz
                     noisePeriods = new ushort[] { 4, 7, 14, 30, 60, 88, 118, 148, 188, 236, 354, 472, 708, 944, 1890, 3778 };
                     dmcRates = new int[] { 398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118, 98, 78, 66, 50 };
+                    output = new short[((sampleRate / 50) + 1) * frameBuffer];
                     break;
 
             }
-            output = new float[sampleRate * frameBuffer];
-            outBytes = new byte[(sampleRate * 4) * frameBuffer];
             this.Memory = nes.Memory;
             for (int i = 0; i < 32; i++)
                 pulseTable[i] = ((95.52f / (8128.0f / i + 100f)));
@@ -415,16 +413,7 @@ namespace DirectXEmu
         }
         public void ResetBuffer()
         {
-            if (outputPtr != 0)
-            {
-                levels.pulse1 /= outputPtr;
-                levels.pulse2 /= outputPtr;
-                levels.triangle /= outputPtr;
-                levels.noise /= outputPtr;
-                levels.dmc /= outputPtr;
-                levels.master /= outputPtr;
-                outputPtr = 0;
-            }
+            outputPtr = 0;
         }
         public void TriangleLinear()
         {
@@ -756,10 +745,7 @@ namespace DirectXEmu
                     sampleRateDivider--;
                     if (sampleRateDivider == 0)
                     {
-                        outBytes[(outputPtr * 4) + 0] = 0;
-                        outBytes[(outputPtr * 4) + 1] = 0;
-                        outBytes[(outputPtr * 4) + 2] = 0;
-                        outBytes[(outputPtr * 4) + 3] = 0;
+                        output[outputPtr] = 0;
                         outputPtr++;
                         sampleRateDivider = sampleDividers[sampleDividersCounter++ % 2];
                     }
@@ -877,18 +863,18 @@ namespace DirectXEmu
                 sampleRateDivider--;
                 if (sampleRateDivider == 0)
                 {
-                    levels.pulse1 += pulse1Volume;
-                    levels.pulse2 += pulse2Volume;
-                    levels.triangle += triangleVolume;
-                    levels.noise += noiseVolume;
-                    levels.dmc += dmcVolume;
-                    output[outputPtr] = ((tndTable[(3 * (int)(triangleVolume * volume.triangle)) + (2 * (int)(noiseVolume * volume.noise)) + (int)(dmcVolume * volume.dmc)] + pulseTable[(int)(pulse1Volume * volume.pulse1) + (int)(pulse2Volume * volume.pulse2)]));
-                    levels.master += (int)(output[outputPtr] * 100);
-                    byte[] tmp = BitConverter.GetBytes(output[outputPtr]);
-                    outBytes[(outputPtr * 4) + 0] = tmp[0];
-                    outBytes[(outputPtr * 4) + 1] = tmp[1];
-                    outBytes[(outputPtr * 4) + 2] = tmp[2];
-                    outBytes[(outputPtr * 4) + 3] = tmp[3];
+                    triangleVolume = (byte)(triangleVolume * volume.triangle);
+                    pulse1Volume = (byte)(pulse1Volume * volume.pulse1);
+                    pulse2Volume = (byte)(pulse2Volume * volume.pulse2);
+                    noiseVolume = (byte)(noiseVolume * volume.noise);
+                    dmcVolume = (byte)(dmcVolume * volume.dmc);
+                    output[outputPtr] = (short)(((
+                                                        tndTable[   (3 * triangleVolume) +
+                                                                    (2 * noiseVolume) +
+                                                                    dmcVolume] + 
+                                                        pulseTable[ pulse1Volume +
+                                                                    pulse2Volume]
+                                                    ) - 0.5 ) * (short.MaxValue * 2));
                     outputPtr++;
                     sampleRateDivider = sampleDividers[sampleDividersCounter++ % 2];
                 }

@@ -285,7 +285,7 @@ namespace DirectXEmu.mappers
             if (irqLatch != 0)
                 irqReload = false;
         }
-        public override void MapperStateSave(ref MemoryStream buf)
+        public override void StateSave(ref MemoryStream buf)
         {
             BinaryWriter writer = new BinaryWriter(buf);
             writer.Write(bankSelect);
@@ -295,7 +295,7 @@ namespace DirectXEmu.mappers
             writer.Write(irqEnable);
             writer.Flush();
         }
-        public override void MapperStateLoad(MemoryStream buf)
+        public override void StateLoad(MemoryStream buf)
         {
             BinaryReader reader = new BinaryReader(buf);
             bankSelect = reader.ReadByte();

@@ -25,6 +25,11 @@ namespace DirectXEmu
         Paused,
         SystemPause
     }
+    struct VertexPositionRhwTexture
+    {
+        public Vector4 PositionRhw;
+        public Vector2 Texture1;
+    }
     public struct Controller
     {
         public bool up;
@@ -52,7 +57,7 @@ namespace DirectXEmu
         public int freq;
         public int count;
     }
-    class Program : Form
+    public partial class Program : Form
     {
         string appPath = "";
         string romPath = "";
@@ -65,8 +70,8 @@ namespace DirectXEmu
         MasteringVoice mVoice;
         SourceVoice sVoice;
         WaveFormat audioFormat;
-        WaveFormat outWavFormat;
         AudioBuffer audioBuffer = new AudioBuffer();
+        BinaryWriter audioWriter;
         PresentParameters pps = new PresentParameters();
         Sprite messageSprite;
         Texture texture;
@@ -74,7 +79,7 @@ namespace DirectXEmu
         Thread thread;
         Controller player1;
         Controller player2;
-        Color[][] colorChart = new Color[0x8][];
+        Color[] colorChart = new Color[0x200];
         bool reinitializeD3D = false;
         public int frame = 0;
         public int frameSkipper = 1;
@@ -105,6 +110,9 @@ namespace DirectXEmu
 
         EmuConfig config;
 
+        SoundVolume volume;
+        SoundConfig soundConfig;
+
         int frames = 0;
         int lastTickCount = 0;
         int lastFrameRate = 0;
@@ -116,7 +124,6 @@ namespace DirectXEmu
 
         Scaler imageScaler;
         Bitmap frameBuffer;
-        Bitmap scaledFrameBuffer;
 
         int quickSaveSlot = 0;
         SaveState[] saveSlots;
@@ -135,35 +142,33 @@ namespace DirectXEmu
         private bool buttonDown = false;
         private int vibTimer = 0;
 
-        private ToolStripMenuItem romInfoToolStripMenuItem;
-        private ToolStripMenuItem keyBindingsToolStripMenuItem;
-        private ToolStripMenuItem displayToolStripMenuItem;
-        private ToolStripMenuItem spritesToolStripMenuItem;
-        private ToolStripMenuItem backgroundToolStripMenuItem;
-        private ToolStripSeparator toolStripSeparator5;
-        private ToolStripMenuItem showInputToolStripMenuItem;
-        private ToolStripMenuItem videoModeToolStripMenuItem;
-        private ToolStripMenuItem sizeableToolStripMenuItem;
-        private ToolStripMenuItem fillToolStripMenuItem;
-        private ToolStripMenuItem xToolStripMenuItem;
-        private ToolStripMenuItem xToolStripMenuItem1;
-        private ToolStripMenuItem scale2xToolStripMenuItem;
-        private ToolStripMenuItem scale3xToolStripMenuItem;
-        private ToolStripMenuItem spriteLimitToolStripMenuItem;
-        private ToolStripMenuItem recordToolStripMenuItem;
-        private ToolStripMenuItem recordWAVToolStripMenuItem;
-        private ToolStripMenuItem stopWAVToolStripMenuItem;
-        private SaveFileDialog recordDialog;
-        private ToolStripMenuItem enableSoundToolStripMenuItem;
-        private ToolStripMenuItem soundToolStripMenuItem;
-        private ToolStripMenuItem memoryViewerToolStripMenuItem;
-        private ToolStripMenuItem pPUMemoryViewerToolStripMenuItem;
-        private ToolStripMenuItem testConsoleToolStripMenuItem;
-        private ToolStripMenuItem regionToolStripMenuItem;
-        private ToolStripMenuItem nTSCToolStripMenuItem;
-        private ToolStripMenuItem pALToolStripMenuItem;
+
+        uint CRC;
+        VertexBuffer vertexBuffer;
+        private bool fullScreen = false;
+        private Point smallLocation;
+        private Size smallSize;
+        int memoryViewerMem = 0;
+        FileStream wavFile;
+        BinaryWriter wavWriter;
+        bool wavRecord;
+        int wavSamples;
+        Dictionary<char, int> charSheetSprites = new Dictionary<char, int>();
+        Texture charSheet;
+        int charSize;
 
         bool controlStrobe = false;
+
+        [STAThread]
+        static void Main(string[] args)
+        {
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            if (args.Length == 0)
+                Application.Run(new Program());
+            else
+                Application.Run(new Program(args[0]));
+        }
         public Program()
         {
             InitializeComponent();
@@ -197,18 +202,6 @@ namespace DirectXEmu
             this.toolStripSeparator3.Dispose();
 #endif
         }
-
-        void timer_Tick(object sender, EventArgs e)
-        {
-            if (soundConfig != null)
-                soundConfig.UpdateLevels(levels);
-            if (reinitializeD3D)
-            {
-                InitializeDirect3D();
-                reinitializeD3D = false;
-            }
-
-        }
         public void Run()
         {
             while (!this.closed) // This is our message loop
@@ -229,6 +222,300 @@ namespace DirectXEmu
                         this.frame--;
                     this.Render(); // Keep rendering until the program terminates
                 }
+            }
+        }
+        private unsafe void RunCPU()
+        {
+            if (this.storeState)
+            {
+                this.storeState = false;
+                saveSlots[quickSaveSlot] = cpu.getState();
+                IFormatter formatter = new BinaryFormatter();
+                Directory.CreateDirectory(config["savestateDir"]);
+                Stream stream = new FileStream(Path.Combine(config["savestateDir"], cpu.fileName + ".s" + quickSaveSlot.ToString("D2")), FileMode.Create, FileAccess.Write, FileShare.None);
+                formatter.Serialize(stream, saveSlots[quickSaveSlot]);
+                stream.Close();
+                this.message = "State " + quickSaveSlot.ToString() + " Saved";
+                this.messageDuration = 90;
+            }
+            if (this.loadState)
+            {
+                this.loadState = false;
+                if (saveSlots[quickSaveSlot].isStored)
+                {
+                    cpu.loadState(saveSlots[quickSaveSlot]);
+                    this.message = "State " + quickSaveSlot.ToString() + " Loaded";
+                }
+                else
+                {
+                    message = "Empty Save Slot";
+                }
+                messageDuration = 90;
+            }
+            HandleKeyboard();
+            if (x360Controller.IsConnected)
+                player1 = HandleGamepad(player1);
+            if (controlStrobe)
+            {
+                if (player1.a)
+                    player1.a = (frame % 2) == 1;
+                if (player1.b)
+                    player1.b = (frame % 2) == 1;
+                if (player1.select)
+                    player1.select = (frame % 2) == 1;
+                if (player1.start)
+                    player1.start = (frame % 2) == 1;
+                if (player1.left)
+                    player1.left = (frame % 2) == 1;
+                if (player1.right)
+                    player1.right = (frame % 2) == 1;
+                if (player1.up)
+                    player1.up = (frame % 2) == 1;
+                if (player1.down)
+                    player1.down = (frame % 2) == 1;
+            }
+            if (player1.aTurbo.on)
+                player1.a = player1.aTurbo.count++ % player1.aTurbo.freq == 0;
+            if (player1.bTurbo.on)
+                player1.b = player1.bTurbo.count++ % player1.bTurbo.freq == 0;
+            if (player2.aTurbo.on)
+                player2.a = player2.aTurbo.count++ % player2.aTurbo.freq == 0;
+            if (player2.bTurbo.on)
+                player2.b = player2.bTurbo.count++ % player2.bTurbo.freq == 0;
+            if (this.playMovie)
+                this.Fm2Reader();
+
+            if (rewindingEnabled)
+            {
+                if (rewinding)
+                {
+
+                    if (frame % ((saveBufferFreq == 1 ? 2 : saveBufferFreq) / 2) == 0)
+                    {
+                        if (saveBufferAvaliable != 0)
+                        {
+                            saveBufferAvaliable--;
+                            saveBufferCounter--;
+                            if (saveBufferCounter < 0)
+                                saveBufferCounter = ((60 / saveBufferFreq) * saveBufferSeconds) - 1;
+
+                        }
+                        saveSafeRewind = true;
+                    }
+                    if (saveSafeRewind)
+                        cpu.loadState(saveBuffer[saveBufferCounter]);
+                }
+                else
+                {
+                    saveSafeRewind = false;
+                    if (frame % saveBufferFreq == 0)
+                    {
+                        saveBuffer[saveBufferCounter] = cpu.getState();
+                        saveBufferCounter++;
+                        if (saveBufferCounter >= ((60 / saveBufferFreq) * saveBufferSeconds))
+                            saveBufferCounter = 0;
+                        if (saveBufferAvaliable != ((60 / saveBufferFreq) * saveBufferSeconds))
+                            saveBufferAvaliable++;
+                    }
+
+                }
+            }
+            if (player2.zapper.connected)
+            {
+                Point curPoint = LocateMouse();
+                player2.zapper.triggerPulled = dMouse.GetCurrentState().IsPressed(0) && (curPoint.X != 0 || curPoint.Y != 0);
+                player2.zapper.lightDetected = colorChart[cpu.PPU.screen[curPoint.X, curPoint.Y]].GetBrightness() >= 0.9;
+            }
+            cpu.Start(player1, player2, (this.frame % this.frameSkipper != 0));
+            UpdateFramerate();
+
+            if (memoryViewerMem == 1)
+                memoryViewer.updateMemory(cpu.Memory, cpu.MirrorMap);
+            else if (memoryViewerMem == 2)
+                memoryViewer.updateMemory(cpu.PPU.PPUMemory, cpu.PPU.PPUMirrorMap);
+
+
+            if (frame % cpu.APU.frameBuffer == 0)
+            {
+                if (frameSkipper == 1)
+                {
+                    if (wavRecord)
+                    {
+                        for (int i = 0; i < cpu.APU.outputPtr; i++)
+                            wavWriter.Write(cpu.APU.output[i]);
+                        wavSamples += cpu.APU.outputPtr;
+                    }
+                    cpu.APU.volume = volume;
+                    audioWriter.BaseStream.SetLength(0);
+                    if (rewinding)
+                    {
+                        for (int i = cpu.APU.outputPtr - 1; i >= 0; i--)
+                            audioWriter.Write(cpu.APU.output[i]);
+                    }
+                    else
+                    {
+                        for (int i = 0; i < cpu.APU.outputPtr; i++)
+                            audioWriter.Write(cpu.APU.output[i]);
+                    }
+                    audioWriter.BaseStream.Position = 0;
+                    audioBuffer.AudioBytes = cpu.APU.outputPtr * (audioFormat.BitsPerSample / 8);
+                    while (sVoice.State.BuffersQueued > 1) //Keep this set as 1 or prepare for clicking
+                        Thread.Sleep(1);
+                    sVoice.SubmitSourceBuffer(audioBuffer);
+                }
+                cpu.APU.ResetBuffer();
+            }
+            if (this.generatePatternTables && this.frame % this.patternTableUpdate == 0)
+            {
+                this.patternTablePreview.UpdatePatternTables(cpu.PPU.patternTables, cpu.PPU.patternTablesPalette);
+                cpu.PPU.generatePatternLine = this.patternTablePreview.generateLine;
+                cpu.PPU.generatePatternTables = true;
+            }
+            if (this.generateNameTables && this.frame % this.nameTableUpdate == 0)
+            {
+                cpu.PPU.generateLine = this.nameTablePreview.UpdateNameTables(cpu.PPU.nameTables);
+                cpu.PPU.generateNameTables = true;
+            }
+            if (this.frame % this.frameSkipper == 0)
+            {
+                BitmapData frameBMD = frameBuffer.LockBits(new Rectangle(0, 0, frameBuffer.Width, frameBuffer.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                int* framePixels = (int*)frameBMD.Scan0;
+                for (int i = 0, y = 0; y < 240; y++)
+                    for (int x = 0; x < 256; x++, i++)
+                        framePixels[i] = this.colorChart[cpu.PPU.screen[x, y]].ToArgb();
+                frameBuffer.UnlockBits(frameBMD);
+                //frameBuffer.SetPixel(LocateMouse().X, LocateMouse().Y, Color.Magenta);
+            }
+        }
+        private unsafe void Render()
+        {
+            if (device == null) // If the device is empty don't bother rendering
+            {
+                return;
+            }
+            try
+            {
+                if (state == SystemState.Playing)
+                {
+                    BitmapData frameBMD = frameBuffer.LockBits(new Rectangle(0, 0, frameBuffer.Width, frameBuffer.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                    DataRectangle drt = texture.LockRectangle(0, LockFlags.None);
+                    imageScaler.PerformScale((int*)frameBMD.Scan0, (int*)drt.Data.DataPointer);
+                    frameBuffer.UnlockBits(frameBMD);
+                    texture.UnlockRectangle(0);
+                }
+                device.Clear(ClearFlags.Target, Color.Black, 1.0f, 0);
+                device.BeginScene();
+                device.DrawPrimitives(PrimitiveType.TriangleList, 0, 2);
+                if (this.messageDuration > 0)
+                    DrawString(this.message, 4, 4);
+                if (this.showFPS)
+                    DrawString(lastFrameRate.ToString(), this.surfaceControl.Width - ((charSize * lastFrameRate.ToString().Length) + 4), 4);
+                if (config["showDebug"] == "1")
+                {
+                    DrawString(frame.ToString(), this.surfaceControl.Width - ((charSize * frame.ToString().Length) + 4), 24);
+                    if (cpu != null)
+                    {
+                        CRC = GetScreenCRC(cpu.PPU.screen);
+                        DrawString(CRC.ToString("X8"), this.surfaceControl.Width - ((charSize * CRC.ToString("X8").Length) + 4), 44);
+                    }
+                }
+                if (this.showInput)
+                {
+                    string inputString = "";
+                    if (this.player1.up)
+                        inputString += "^";
+                    else
+                        inputString += " ";
+                    if (this.player1.down)
+                        inputString += "_";
+                    else
+                        inputString += " ";
+                    if (this.player1.left)
+                        inputString += "<";
+                    else
+                        inputString += " ";
+                    if (this.player1.right)
+                        inputString += ">";
+                    else
+                        inputString += " ";
+                    if (this.player1.start)
+                        inputString += "*&";
+                    else
+                        inputString += "  ";
+                    if (this.player1.select)
+                        inputString += "*$";
+                    else
+                        inputString += "  ";
+                    if (this.player1.a)
+                        inputString += "A";
+                    else
+                        inputString += " ";
+                    if (this.player1.b)
+                        inputString += "B";
+                    else
+                        inputString += " ";
+                    inputString += " ";
+                    if (this.player2.up)
+                        inputString += "^";
+                    else
+                        inputString += " ";
+                    if (this.player2.down)
+                        inputString += "_";
+                    else
+                        inputString += " ";
+                    if (this.player2.left)
+                        inputString += "<";
+                    else
+                        inputString += " ";
+                    if (this.player2.right)
+                        inputString += ">";
+                    else
+                        inputString += " ";
+                    if (this.player2.start)
+                        inputString += "*&";
+                    else
+                        inputString += "  ";
+                    if (this.player2.select)
+                        inputString += "*$";
+                    else
+                        inputString += "  ";
+                    if (this.player2.a)
+                        inputString += "A";
+                    else
+                        inputString += " ";
+                    if (this.player2.b)
+                        inputString += "B";
+                    else
+                        inputString += " ";
+                    DrawString(inputString, 4, this.surfaceControl.Height - (charSize + 4));
+                }
+                device.EndScene();
+                device.Present();
+            }
+            catch (Direct3D9Exception e)
+            {
+                if (!this.closed)
+                {
+                    if (e.ResultCode == SlimDX.Direct3D9.ResultCode.DeviceLost)
+                    {
+                        reinitializeD3D = true;
+                    }
+#if DEBUG
+                    else
+                        MessageBox.Show(e.Message, "D3D ON CLOSING");
+#endif
+                }
+#if DEBUG
+                else
+                    MessageBox.Show(e.Message, "D3D");
+#endif
+            }
+            catch (Exception e)
+            {
+#if DEBUG
+                MessageBox.Show(e.Message, "OTHER EXCEP");
+#endif
+
             }
         }
         public bool InitializeDirect3D()
@@ -266,18 +553,16 @@ namespace DirectXEmu
             this.config.replacements["{APP-PATH}"] = this.appPath;
             this.LoadKeys();
             FileStream palFile = File.OpenRead(this.config["palette"]);
-            for (int i = 0; i < 0x08; i++)
-                this.colorChart[i] = new Color[0x100];
-            for (int i = 0; i < 64; i++)
-                this.colorChart[0][i] = Color.FromArgb(palFile.ReadByte(), palFile.ReadByte(), palFile.ReadByte());
-            if (palFile.Length > 64 * 3) //shitty hack for vs palette because im LAZY
+            for (int i = 0; i < 0x40; i++)
+                this.colorChart[i] = Color.FromArgb(palFile.ReadByte(), palFile.ReadByte(), palFile.ReadByte());
+            if (palFile.Length > 0x40 * 3) //shitty hack for vs palette because im LAZY
             {
-                Color[] vsColor = new Color[0x100];
+                Color[] vsColor = new Color[0x40];
                 for (int i = 0; palFile.Position < palFile.Length; i++)
                 {
-                    vsColor[i] = colorChart[0][palFile.ReadByte()];
+                    vsColor[i] = colorChart[palFile.ReadByte()];
                 }
-                colorChart[0] = vsColor;
+                colorChart = vsColor;
             }
             palFile.Close();
             CreateEmphasisTables();
@@ -344,7 +629,6 @@ namespace DirectXEmu
                     break;
             }
             this.frameBuffer = new Bitmap(256, 240);
-            this.scaledFrameBuffer = new Bitmap(this.imageScaler.xSize, this.imageScaler.ySize);
             if (this.imageScaler.resizeable)
             {
                 this.FormBorderStyle = FormBorderStyle.Sizable;
@@ -379,27 +663,21 @@ namespace DirectXEmu
             player2.zapper.connected = false;
             state = SystemState.Empty;
             surfaceControl.Visible = false;
+
             audioFormat = new WaveFormat();
-            audioFormat.BitsPerSample = 32;
+            audioFormat.BitsPerSample = 16;
             audioFormat.Channels = 1;
             audioFormat.SamplesPerSecond = 44100;
             audioFormat.BlockAlignment = (short)(audioFormat.BitsPerSample * audioFormat.Channels / 8);
             audioFormat.AverageBytesPerSecond = (audioFormat.BitsPerSample / 8) * audioFormat.SamplesPerSecond;
-            audioFormat.FormatTag = WaveFormatTag.IeeeFloat;
-
-            outWavFormat = new WaveFormat();
-            outWavFormat.BitsPerSample = 32;
-            outWavFormat.Channels = 1;
-            outWavFormat.SamplesPerSecond = 44100;
-            outWavFormat.BlockAlignment = (short)(outWavFormat.BitsPerSample * outWavFormat.Channels / 8);
-            outWavFormat.AverageBytesPerSecond = (outWavFormat.BitsPerSample / 8) * outWavFormat.SamplesPerSecond;
-            outWavFormat.FormatTag = WaveFormatTag.IeeeFloat;
+            audioFormat.FormatTag = WaveFormatTag.Pcm;
 
             dAudio = new XAudio2();
             mVoice = new MasteringVoice(dAudio);
             mVoice.Volume = Convert.ToInt32(config["volume"]) / 100f;
             audioBuffer = new AudioBuffer();
             audioBuffer.AudioData = new MemoryStream();
+            audioWriter = new BinaryWriter(audioBuffer.AudioData);
             volume.master = mVoice.Volume;
             volume.pulse1 = 1;
             volume.pulse2 = 1;
@@ -409,8 +687,6 @@ namespace DirectXEmu
             if (this.romPath != "")
                 this.OpenFile(romPath);
         }
-        SoundLevels levels;
-        SoundVolume volume;
         void soundVolume_ValueChanged(object sender, EventArgs e)
         {
             config["volume"] = soundConfig.soundVolume.Value.ToString();
@@ -422,7 +698,6 @@ namespace DirectXEmu
             volume.noise = soundConfig.noiseVolume.Value / 100f;
             volume.dmc = soundConfig.dmcVolume.Value / 100f;
         }
-        SoundConfig soundConfig;
         private void LoadSaveStateFiles()
         {
             saveSlots = new SaveState[10];
@@ -443,7 +718,7 @@ namespace DirectXEmu
             byte finalRed;
             byte finalGreen;
             byte finalBlue;
-            double emphasis = 0;
+            double emphasis = 0.1;
             double demphasis = 0.25;
             for (int i = 1; i < 0x08; i++)
             {
@@ -468,18 +743,15 @@ namespace DirectXEmu
                     green -= demphasis;
                     red -= demphasis;
                 }
-                //red = (red > 1) ? 1 : red;
-                //green = (green > 1) ? 1 : green;
-                //blue = (blue > 1) ? 1 : blue;
                 red = (red < 0) ? 0 : red;
                 green = (green < 0) ? 0 : green;
                 blue = (blue < 0) ? 0 : blue;
-                for (int j = 0; j < 0x100; j++)
+                for (int j = 0; j < 0x40; j++)
                 {
-                    finalRed = (((byte)(this.colorChart[0][j].R * red)) > 255) ? (byte)255 : ((byte)(this.colorChart[0][j].R * red));
-                    finalGreen = (((byte)(this.colorChart[0][j].G * green)) > 255) ? (byte)255 : ((byte)(this.colorChart[0][j].G * green));
-                    finalBlue = (((byte)(this.colorChart[0][j].B * blue)) > 255) ? (byte)255 : ((byte)(this.colorChart[0][j].B * blue));
-                    this.colorChart[i][j] = Color.FromArgb(finalRed, finalGreen, finalBlue);
+                    finalRed = Math.Round(colorChart[j].R * red) > 0xFF ? (byte)0xFF : (byte)Math.Round(colorChart[j].R * red);
+                    finalGreen = Math.Round(colorChart[j].G * green) > 0xFF ? (byte)0xFF : (byte)Math.Round(colorChart[j].G * green);
+                    finalBlue = Math.Round(colorChart[j].B * blue) > 0xFF ? (byte)0xFF : (byte)Math.Round(colorChart[j].B * blue);
+                    colorChart[j | (i << 6)] = Color.FromArgb(finalRed, finalGreen, finalBlue);
                 }
             }
         }
@@ -607,6 +879,30 @@ namespace DirectXEmu
                 this.recentFileMenu5.Enabled = true;
             }
         }
+        private void recentFileMenu1_Click(object sender, EventArgs e)
+        {
+            this.OpenFile(this.config["recentFile1"], false);
+        }
+
+        private void recentFileMenu2_Click(object sender, EventArgs e)
+        {
+            this.OpenFile(this.config["recentFile2"], false);
+        }
+
+        private void recentFileMenu3_Click(object sender, EventArgs e)
+        {
+            this.OpenFile(this.config["recentFile3"], false);
+        }
+
+        private void recentFileMenu4_Click(object sender, EventArgs e)
+        {
+            this.OpenFile(this.config["recentFile4"], false);
+        }
+
+        private void recentFileMenu5_Click(object sender, EventArgs e)
+        {
+            this.OpenFile(this.config["recentFile5"], false);
+        }
         private void UpdateFramerate()
         {
             frames++;
@@ -616,6 +912,15 @@ namespace DirectXEmu
                 lastTickCount = Environment.TickCount;
                 frames = 0;
             }
+        }
+        void timer_Tick(object sender, EventArgs e)
+        {
+            if (reinitializeD3D)
+            {
+                InitializeDirect3D();
+                reinitializeD3D = false;
+            }
+
         }
         private void nameTablePreviewForm_Closed(object sender, FormClosedEventArgs e)
         {
@@ -745,225 +1050,12 @@ namespace DirectXEmu
                 dKeyboard.Acquire();
             }
         }
-        private unsafe void RunCPU()
-        {
-            bool zapStatLight = false;
-            bool zapStatTrig = false;
-            if (this.storeState)
-            {
-                this.storeState = false;
-                saveSlots[quickSaveSlot] = cpu.getState();
-                IFormatter formatter = new BinaryFormatter();
-                Directory.CreateDirectory(config["savestateDir"]);
-                Stream stream = new FileStream( Path.Combine(config["savestateDir"],cpu.fileName + ".s" + quickSaveSlot.ToString("D2")), FileMode.Create, FileAccess.Write, FileShare.None);
-                formatter.Serialize(stream, saveSlots[quickSaveSlot]);
-                stream.Close();
-                this.message = "State " + quickSaveSlot.ToString() + " Saved";
-                this.messageDuration = 90;
-            }
-            if (this.loadState)
-            {
-                this.loadState = false;
-                if (saveSlots[quickSaveSlot].isStored)
-                {
-                    cpu.loadState(saveSlots[quickSaveSlot]);
-                    this.message = "State " + quickSaveSlot.ToString() + " Loaded";
-                }
-                else
-                {
-                    message = "Empty Save Slot";
-                }
-                messageDuration = 90;
-            }
-            HandleKeyboard();
-            if (x360Controller.IsConnected)
-                player1 = HandleGamepad(player1);
-            if (controlStrobe)
-            {
-                if (player1.a)
-                    player1.a = (frame % 2) == 1;
-                if (player1.b)
-                    player1.b = (frame % 2) == 1;
-                if (player1.select)
-                    player1.select = (frame % 2) == 1;
-                if (player1.start)
-                    player1.start = (frame % 2) == 1;
-                if (player1.left)
-                    player1.left = (frame % 2) == 1;
-                if (player1.right)
-                    player1.right = (frame % 2) == 1;
-                if (player1.up)
-                    player1.up = (frame % 2) == 1;
-                if (player1.down)
-                    player1.down = (frame % 2) == 1;
-            }
-            if (player1.aTurbo.on)
-                player1.a = player1.aTurbo.count++ % player1.aTurbo.freq == 0;
-            if (player1.bTurbo.on)
-                player1.b = player1.bTurbo.count++ % player1.bTurbo.freq == 0;
-            if (player2.aTurbo.on)
-                player2.a = player2.aTurbo.count++ % player2.aTurbo.freq == 0;
-            if (player2.bTurbo.on)
-                player2.b = player2.bTurbo.count++ % player2.bTurbo.freq == 0;
-            if (this.playMovie)
-                this.Fm2Reader();
-            if (this.generatePatternTables && this.frame % this.patternTableUpdate == 0)
-            {
-                cpu.PPU.generatePatternLine = this.generatePatternLine;
-                cpu.PPU.generatePatternTables = true;
-            }
-            if (this.generateNameTables && this.frame % this.nameTableUpdate == 0)
-            {
-                cpu.PPU.generateLine = this.generateLine;
-                cpu.PPU.generateNameTables = true;
-            }
-
-            if (rewindingEnabled)
-            {
-                if (rewinding)
-                {
-
-                    if (frame % ((saveBufferFreq == 1 ? 2 : saveBufferFreq) / 2) == 0)
-                    {
-                        if (saveBufferAvaliable != 0)
-                        {
-                            saveBufferAvaliable--;
-                            saveBufferCounter--;
-                            if (saveBufferCounter < 0)
-                                saveBufferCounter = ((60 / saveBufferFreq) * saveBufferSeconds) - 1;
-
-                        }
-                        saveSafeRewind = true;
-                    }
-                    if (saveSafeRewind)
-                        cpu.loadState(saveBuffer[saveBufferCounter]);
-                }
-                else
-                {
-                    saveSafeRewind = false;
-                    if (frame % saveBufferFreq == 0)
-                    {
-                        saveBuffer[saveBufferCounter] = cpu.getState();
-                        saveBufferCounter++;
-                        if (saveBufferCounter >= ((60 / saveBufferFreq) * saveBufferSeconds))
-                            saveBufferCounter = 0;
-                        if (saveBufferAvaliable != ((60 / saveBufferFreq) * saveBufferSeconds))
-                            saveBufferAvaliable++;
-                    }
-
-                }
-            }
-
-
-
-            /*if (player2Zap.triggerPulled)
-            {
-
-                frameBuffer.SetPixel(screenPoint.X, screenPoint.Y, Color.Magenta);
-                frameBuffer.Save(frame.ToString() + ".png", ImageFormat.Png);
-            }*/
-            if (player2.zapper.connected)
-            {
-                Point curPoint = LocateMouse();
-                player2.zapper.triggerPulled = dMouse.GetCurrentState().IsPressed(0) && (curPoint.X != 0 || curPoint.Y != 0);
-                player2.zapper.lightDetected = colorChart[cpu.PPU.screen[curPoint.X, curPoint.Y] >> 8][cpu.PPU.screen[curPoint.X, curPoint.Y] & 0xFF].GetBrightness() >= 0.9;
-                zapStatLight = player2.zapper.lightDetected;
-                zapStatTrig = player2.zapper.triggerPulled;
-            }
-            cpu.Start(player1, player2, (this.frame % this.frameSkipper != 0));
-            UpdateFramerate();
-
-            if(memoryViewerMem == 1)
-                memoryViewer.updateMemory(cpu.Memory, cpu.MirrorMap);
-            else if (memoryViewerMem == 2)
-                memoryViewer.updateMemory(cpu.PPU.PPUMemory, cpu.PPU.PPUMirrorMap);
-
-
-            if (frame % cpu.APU.frameBuffer == 0)
-            {
-                if (frameSkipper == 1)
-                {
-                    if (wavRecord)
-                    {
-                        wavFile.Write(cpu.APU.outBytes, 0, cpu.APU.outputPtr * 4);
-                        wavSamples += cpu.APU.outputPtr;
-                        //wavSamples += WriteToWav(cpu.APU.output, cpu.APU.outputPtr, audioFormat.SamplesPerSecond);
-                    }
-                    if (rewinding)
-                    {
-                        byte[] tmp = new byte[4];
-                        for (int i = 0; i < cpu.APU.outputPtr; i++)
-                        {
-                            int reverseIndex = cpu.APU.outputPtr - i;
-                            tmp[0] = cpu.APU.outBytes[(i * 4)];
-                            tmp[1] = cpu.APU.outBytes[(i * 4) + 1];
-                            tmp[2] = cpu.APU.outBytes[(i * 4) + 2];
-                            tmp[3] = cpu.APU.outBytes[(i * 4) + 3];
-                            cpu.APU.outBytes[(i * 4)] = cpu.APU.outBytes[(reverseIndex * 4)];
-                            cpu.APU.outBytes[(i * 4) + 1] = cpu.APU.outBytes[(reverseIndex * 4) + 1];
-                            cpu.APU.outBytes[(i * 4) + 2] = cpu.APU.outBytes[(reverseIndex * 4) + 2];
-                            cpu.APU.outBytes[(i * 4) + 3] = cpu.APU.outBytes[(reverseIndex * 4) + 3];
-                            cpu.APU.outBytes[(reverseIndex * 4)] = tmp[0];
-                            cpu.APU.outBytes[(reverseIndex * 4) + 1] = tmp[1];
-                            cpu.APU.outBytes[(reverseIndex * 4) + 2] = tmp[2];
-                            cpu.APU.outBytes[(reverseIndex * 4) + 3] = tmp[3];
-                        }
-                    }
-                    cpu.APU.volume = volume;
-                    audioBuffer.AudioData.SetLength(0);
-                    audioBuffer.AudioData.Write(cpu.APU.outBytes, 0, cpu.APU.outputPtr * 4);
-                    audioBuffer.AudioData.Position = 0;
-                    audioBuffer.AudioBytes = cpu.APU.outputPtr * 4;
-                    audioBuffer.Flags = BufferFlags.None;
-                    while (sVoice.State.BuffersQueued > 1) //Keep this set as 1 or prepare for clicking
-                        Thread.Sleep(1);
-                    sVoice.SubmitSourceBuffer(audioBuffer);
-                }
-                cpu.APU.ResetBuffer();
-                levels = cpu.APU.levels;
-                cpu.APU.levels = new SoundLevels();
-            }
-            if (this.generatePatternTables && this.frame % this.patternTableUpdate == 0)
-            {
-                this.patternTablePreview.UpdatePatternTables(cpu.PPU.patternTables, cpu.PPU.patternTablesPalette);
-                this.generatePatternLine = this.patternTablePreview.generateLine;
-            }
-            if (this.generateNameTables && this.frame % this.nameTableUpdate == 0)
-            {
-                this.generateLine = this.nameTablePreview.UpdateNameTables(cpu.PPU.nameTables);
-            }
-            if (this.frame % this.frameSkipper == 0)
-            {
-                BitmapData frameBMD = frameBuffer.LockBits(new Rectangle(0, 0, frameBuffer.Width, frameBuffer.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-                byte* framePixels = (byte*)frameBMD.Scan0;
-                ushort[,] screen = cpu.PPU.screen;
-                for (int y = 0; y < 240; y++)
-                {
-                    for (int x = 0; x < 256; x++)
-                    {
-                        framePixels[(((y * 4) * 256) + (x * 4))] = this.colorChart[screen[x, y] >> 8][screen[x, y] & 0xFF].B;
-                        framePixels[(((y * 4) * 256) + (x * 4)) + 1] = this.colorChart[screen[x, y] >> 8][screen[x, y] & 0xFF].G;
-                        framePixels[(((y * 4) * 256) + (x * 4)) + 2] = this.colorChart[screen[x, y] >> 8][screen[x, y] & 0xFF].R;
-                        framePixels[(((y * 4) * 256) + (x * 4)) + 3] = 255;
-                    }
-                }
-                frameBuffer.UnlockBits(frameBMD);
-                //frameBuffer.Save(,ImageCodecInfo.GetImageEncoders()[1]..
-                //frameBuffer.SetPixel(curPoint.X, curPoint.Y, Color.Magenta);
-                /*if (zapStatLight)
-                    frameBuffer.SetPixel(2, 2, Color.Orange);
-                if (zapStatTrig)
-                    frameBuffer.SetPixel(4, 4, Color.Teal);
-                frameBuffer.Save(frame.ToString() + ".png", ImageFormat.Png);*/
-            }
-        }
-        uint CRC;
         private uint GetScreenCRC(ushort[,] scanlines)
         {
             uint crc = 0xFFFFFFFF;
             for (int y = 0; y < 240; y++)
                 for (int x = 0; x < 256; x++)
-                    crc = CRC32.crc32_adjust(crc, (byte)(scanlines[x, y] & 0xFF));
+                    crc = CRC32.crc32_adjust(crc, (byte)(scanlines[x, y] & 0x3F));
             crc ^= 0xFFFFFFFF;
             return crc;
         }
@@ -994,9 +1086,6 @@ namespace DirectXEmu
             }
             return screenPoint;
         }
-        Dictionary<char, int> charSheetSprites = new Dictionary<char, int>();
-        Texture charSheet;
-        int charSize;
         private void LoadCharSheet()
         {
             messageSprite = new Sprite(device);
@@ -1067,143 +1156,6 @@ namespace DirectXEmu
             }
             messageSprite.End();
         }
-        private unsafe void Render()
-        {
-            if (device == null) // If the device is empty don't bother rendering
-            {
-                return;
-            }
-            try
-            {
-                if (state == SystemState.Playing)
-                {
-                    scaledFrameBuffer = imageScaler.PerformScale(frameBuffer);
-                    DataRectangle drt = texture.LockRectangle(0, LockFlags.None);
-                    BitmapData frameBMD = scaledFrameBuffer.LockBits(new Rectangle(0, 0, scaledFrameBuffer.Width, scaledFrameBuffer.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-                    int* framePixels = (int*)frameBMD.Scan0;
-                    int* textPixels = (int*)drt.Data.DataPointer;
-                    int size = this.imageScaler.xSize * this.imageScaler.ySize;
-                    for (int i = 0; i < size; i++)
-                        textPixels[i] = framePixels[i];
-                    texture.UnlockRectangle(0);
-                    scaledFrameBuffer.UnlockBits(frameBMD);
-                }
-                device.Clear(ClearFlags.Target, Color.Black, 1.0f, 0);
-                device.BeginScene();
-                device.DrawPrimitives(PrimitiveType.TriangleList, 0, 2);
-                if (this.messageDuration > 0)
-                    DrawString(this.message, 4, 4);
-                if (this.showFPS)
-                    DrawString(lastFrameRate.ToString(), this.surfaceControl.Width - ((charSize * lastFrameRate.ToString().Length) + 4), 4);
-                if (config["showDebug"] == "1")
-                {
-                    DrawString(frame.ToString(), this.surfaceControl.Width - ((charSize * frame.ToString().Length) + 4), 24);
-                    if (cpu != null)
-                    {
-                        CRC = GetScreenCRC(cpu.PPU.screen);
-                        DrawString(CRC.ToString("X8"), this.surfaceControl.Width - ((charSize * CRC.ToString("X8").Length) + 4), 44);
-                    }
-                }
-                if(this.showInput)
-                {
-                    string inputString = "";
-                    if(this.player1.up)
-                        inputString += "^";
-                    else
-                        inputString += " ";
-                    if(this.player1.down)
-                        inputString += "_";
-                    else
-                        inputString += " ";
-                    if(this.player1.left)
-                        inputString += "<";
-                    else
-                        inputString += " ";
-                    if(this.player1.right)
-                        inputString += ">";
-                    else
-                        inputString += " ";
-                    if(this.player1.start)
-                        inputString += "*&";
-                    else
-                        inputString += "  ";
-                    if(this.player1.select)
-                        inputString += "*$";
-                    else
-                        inputString += "  ";
-                    if(this.player1.a)
-                        inputString += "A";
-                    else
-                        inputString += " ";
-                    if(this.player1.b)
-                        inputString += "B";
-                    else
-                        inputString += " ";
-                    inputString += " ";
-                    if (this.player2.up)
-                        inputString += "^";
-                    else
-                        inputString += " ";
-                    if (this.player2.down)
-                        inputString += "_";
-                    else
-                        inputString += " ";
-                    if (this.player2.left)
-                        inputString += "<";
-                    else
-                        inputString += " ";
-                    if (this.player2.right)
-                        inputString += ">";
-                    else
-                        inputString += " ";
-                    if (this.player2.start)
-                        inputString += "*&";
-                    else
-                        inputString += "  ";
-                    if (this.player2.select)
-                        inputString += "*$";
-                    else
-                        inputString += "  ";
-                    if (this.player2.a)
-                        inputString += "A";
-                    else
-                        inputString += " ";
-                    if (this.player2.b)
-                        inputString += "B";
-                    else
-                        inputString += " ";
-                    DrawString(inputString, 4, this.surfaceControl.Height - (charSize + 4));
-                }
-                device.EndScene();
-                device.Present();
-            }
-            catch (Direct3D9Exception e)
-            {
-                if (!this.closed)
-                {
-                    if (e.ResultCode == SlimDX.Direct3D9.ResultCode.DeviceLost)
-                    {
-                        reinitializeD3D = true;
-                    }
-#if DEBUG
-                    else
-                        MessageBox.Show(e.Message,"D3D ON CLOSING");
-#endif
-                }
-#if DEBUG
-                else
-                    MessageBox.Show(e.Message,"D3D");
-#endif
-            }
-            catch (Exception e)
-            {
-#if DEBUG
-                MessageBox.Show(e.Message,"OTHER EXCEP");
-#endif
-
-            }
-        }
-        VertexBuffer vertexBuffer;
         private void CreateScreenBuffer()
         {
             vertexBuffer = new VertexBuffer(device, 6 * Marshal.SizeOf(typeof(VertexPositionRhwTexture)), Usage.WriteOnly, VertexFormat.PositionRhw | VertexFormat.Texture1, Pool.Managed);
@@ -1235,16 +1187,6 @@ namespace DirectXEmu
             device.VertexFormat = VertexFormat.PositionRhw | VertexFormat.Texture1;
             device.SetStreamSource(0, vertexBuffer, 0, Marshal.SizeOf(typeof(VertexPositionRhwTexture)));
             device.SetTexture(0, texture);
-        }
-        [STAThread]
-        static void Main(string[] args)
-        {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            if (args.Length == 0)
-                Application.Run(new Program());
-            else
-                Application.Run(new Program(args[0]));
         }
         private void exitToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -1335,9 +1277,6 @@ namespace DirectXEmu
 
             }
         }
-        private bool fullScreen = false;
-        private Point smallLocation;
-        private Size smallSize;
         private void ToggleFullScreen()
         {
             if (this.imageScaler.resizeable)
@@ -1487,16 +1426,16 @@ namespace DirectXEmu
             {
                 FileStream palFile = File.OpenRead(this.openPaletteDialog.FileName);
                 this.config["palette"] = this.openPaletteDialog.FileName;
-                for (int i = 0; i < 64; i++)
-                    this.colorChart[0][i] = Color.FromArgb(palFile.ReadByte(), palFile.ReadByte(), palFile.ReadByte());
-                if (palFile.Length > 64 * 3) //shitty hack for vs palette because im LAZY
+                for (int i = 0; i < 0x40; i++)
+                    this.colorChart[i] = Color.FromArgb(palFile.ReadByte(), palFile.ReadByte(), palFile.ReadByte());
+                if (palFile.Length > 0x40 * 3) //shitty hack for vs palette because im LAZY
                 {
-                    Color[] vsColor = new Color[0x100];
+                    Color[] vsColor = new Color[0x40];
                     for (int i = 0; palFile.Position < palFile.Length; i++)
                     {
-                        vsColor[i] = colorChart[0][palFile.ReadByte()];
+                        vsColor[i] = colorChart[palFile.ReadByte()];
                     }
-                    colorChart[0] = vsColor;
+                    colorChart = vsColor;
                 }
                 palFile.Close();
                 CreateEmphasisTables();
@@ -1531,642 +1470,6 @@ namespace DirectXEmu
                 this.cpu.gameGenieCodes = this.gameGenieCodes;
             }
         }
-        #region Windows Form Designer generated code
-
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
-        private void InitializeComponent()
-        {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Program));
-            this.menuStrip = new System.Windows.Forms.MenuStrip();
-            this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.loadToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.closeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
-            this.recentFileMenu1 = new System.Windows.Forms.ToolStripMenuItem();
-            this.recentFileMenu2 = new System.Windows.Forms.ToolStripMenuItem();
-            this.recentFileMenu3 = new System.Windows.Forms.ToolStripMenuItem();
-            this.recentFileMenu4 = new System.Windows.Forms.ToolStripMenuItem();
-            this.recentFileMenu5 = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
-            this.exitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
-            this.recordToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.recordWAVToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.stopWAVToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.openWithFXCEUToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.optionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.enableSoundToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.loadPaletteToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.videoModeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.sizeableToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.fillToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.xToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.xToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
-            this.scale2xToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.scale3xToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.regionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.nTSCToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.pALToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.displayToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.showFPSToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.showInputToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator5 = new System.Windows.Forms.ToolStripSeparator();
-            this.spriteLimitToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.spritesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.backgroundToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.keyBindingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.gameGenieCodesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.soundToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.moiveToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.openMovieToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.playMovieToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.logToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.enableLoggingToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.openLogToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.nameTablesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.patternTablesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.memoryViewerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.pPUMemoryViewerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.testConsoleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.helpToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
-            this.romInfoToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
-            this.aboutEmuoTronToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.openFile = new System.Windows.Forms.OpenFileDialog();
-            this.surfaceControl = new System.Windows.Forms.Panel();
-            this.insideSize = new System.Windows.Forms.Panel();
-            this.openPaletteDialog = new System.Windows.Forms.OpenFileDialog();
-            this.openMovieDialog = new System.Windows.Forms.OpenFileDialog();
-            this.recordDialog = new System.Windows.Forms.SaveFileDialog();
-            this.menuStrip.SuspendLayout();
-            this.insideSize.SuspendLayout();
-            this.SuspendLayout();
-            // 
-            // menuStrip
-            // 
-            this.menuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.fileToolStripMenuItem,
-            this.optionsToolStripMenuItem,
-            this.moiveToolStripMenuItem,
-            this.logToolStripMenuItem,
-            this.helpToolStripMenuItem});
-            this.menuStrip.Location = new System.Drawing.Point(0, 0);
-            this.menuStrip.Name = "menuStrip";
-            this.menuStrip.Size = new System.Drawing.Size(512, 24);
-            this.menuStrip.TabIndex = 2;
-            // 
-            // fileToolStripMenuItem
-            // 
-            this.fileToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.loadToolStripMenuItem,
-            this.closeToolStripMenuItem,
-            this.toolStripSeparator1,
-            this.recentFileMenu1,
-            this.recentFileMenu2,
-            this.recentFileMenu3,
-            this.recentFileMenu4,
-            this.recentFileMenu5,
-            this.toolStripSeparator2,
-            this.exitToolStripMenuItem,
-            this.toolStripSeparator3,
-            this.recordToolStripMenuItem,
-            this.openWithFXCEUToolStripMenuItem});
-            this.fileToolStripMenuItem.Name = "fileToolStripMenuItem";
-            this.fileToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
-            this.fileToolStripMenuItem.Text = "File";
-            // 
-            // loadToolStripMenuItem
-            // 
-            this.loadToolStripMenuItem.Name = "loadToolStripMenuItem";
-            this.loadToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.O)));
-            this.loadToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.loadToolStripMenuItem.Text = "Open...";
-            this.loadToolStripMenuItem.Click += new System.EventHandler(this.loadToolStripMenuItem_Click);
-            // 
-            // closeToolStripMenuItem
-            // 
-            this.closeToolStripMenuItem.Name = "closeToolStripMenuItem";
-            this.closeToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.X)));
-            this.closeToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.closeToolStripMenuItem.Text = "Close";
-            this.closeToolStripMenuItem.Click += new System.EventHandler(this.closeToolStripMenuItem_Click);
-            // 
-            // toolStripSeparator1
-            // 
-            this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(177, 6);
-            // 
-            // recentFileMenu1
-            // 
-            this.recentFileMenu1.Enabled = false;
-            this.recentFileMenu1.Name = "recentFileMenu1";
-            this.recentFileMenu1.Size = new System.Drawing.Size(180, 22);
-            this.recentFileMenu1.Text = "Recent Files";
-            this.recentFileMenu1.Click += new System.EventHandler(this.recentFileMenu1_Click);
-            // 
-            // recentFileMenu2
-            // 
-            this.recentFileMenu2.Name = "recentFileMenu2";
-            this.recentFileMenu2.Size = new System.Drawing.Size(180, 22);
-            this.recentFileMenu2.Text = "toolStripMenuItem3";
-            this.recentFileMenu2.Visible = false;
-            this.recentFileMenu2.Click += new System.EventHandler(this.recentFileMenu2_Click);
-            // 
-            // recentFileMenu3
-            // 
-            this.recentFileMenu3.Name = "recentFileMenu3";
-            this.recentFileMenu3.Size = new System.Drawing.Size(180, 22);
-            this.recentFileMenu3.Text = "toolStripMenuItem4";
-            this.recentFileMenu3.Visible = false;
-            this.recentFileMenu3.Click += new System.EventHandler(this.recentFileMenu3_Click);
-            // 
-            // recentFileMenu4
-            // 
-            this.recentFileMenu4.Name = "recentFileMenu4";
-            this.recentFileMenu4.Size = new System.Drawing.Size(180, 22);
-            this.recentFileMenu4.Text = "toolStripMenuItem5";
-            this.recentFileMenu4.Visible = false;
-            this.recentFileMenu4.Click += new System.EventHandler(this.recentFileMenu4_Click);
-            // 
-            // recentFileMenu5
-            // 
-            this.recentFileMenu5.Name = "recentFileMenu5";
-            this.recentFileMenu5.Size = new System.Drawing.Size(180, 22);
-            this.recentFileMenu5.Text = "toolStripMenuItem1";
-            this.recentFileMenu5.Visible = false;
-            this.recentFileMenu5.Click += new System.EventHandler(this.recentFileMenu5_Click);
-            // 
-            // toolStripSeparator2
-            // 
-            this.toolStripSeparator2.Name = "toolStripSeparator2";
-            this.toolStripSeparator2.Size = new System.Drawing.Size(177, 6);
-            // 
-            // exitToolStripMenuItem
-            // 
-            this.exitToolStripMenuItem.Name = "exitToolStripMenuItem";
-            this.exitToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Alt | System.Windows.Forms.Keys.X)));
-            this.exitToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.exitToolStripMenuItem.Text = "Exit";
-            this.exitToolStripMenuItem.Click += new System.EventHandler(this.exitToolStripMenuItem_Click);
-            // 
-            // toolStripSeparator3
-            // 
-            this.toolStripSeparator3.Name = "toolStripSeparator3";
-            this.toolStripSeparator3.Size = new System.Drawing.Size(177, 6);
-            // 
-            // recordToolStripMenuItem
-            // 
-            this.recordToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.recordWAVToolStripMenuItem,
-            this.stopWAVToolStripMenuItem});
-            this.recordToolStripMenuItem.Name = "recordToolStripMenuItem";
-            this.recordToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.recordToolStripMenuItem.Text = "Record";
-            // 
-            // recordWAVToolStripMenuItem
-            // 
-            this.recordWAVToolStripMenuItem.Name = "recordWAVToolStripMenuItem";
-            this.recordWAVToolStripMenuItem.Size = new System.Drawing.Size(140, 22);
-            this.recordWAVToolStripMenuItem.Text = "Record WAV";
-            this.recordWAVToolStripMenuItem.Click += new System.EventHandler(this.recordWAVToolStripMenuItem_Click);
-            // 
-            // stopWAVToolStripMenuItem
-            // 
-            this.stopWAVToolStripMenuItem.Enabled = false;
-            this.stopWAVToolStripMenuItem.Name = "stopWAVToolStripMenuItem";
-            this.stopWAVToolStripMenuItem.Size = new System.Drawing.Size(140, 22);
-            this.stopWAVToolStripMenuItem.Text = "Stop WAV";
-            this.stopWAVToolStripMenuItem.Click += new System.EventHandler(this.stopWAVToolStripMenuItem_Click);
-            // 
-            // openWithFXCEUToolStripMenuItem
-            // 
-            this.openWithFXCEUToolStripMenuItem.Name = "openWithFXCEUToolStripMenuItem";
-            this.openWithFXCEUToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.openWithFXCEUToolStripMenuItem.Text = "Open with FCEUX";
-            this.openWithFXCEUToolStripMenuItem.Click += new System.EventHandler(this.openWithFCEUXToolStripMenuItem_Click);
-            // 
-            // optionsToolStripMenuItem
-            // 
-            this.optionsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.enableSoundToolStripMenuItem,
-            this.loadPaletteToolStripMenuItem,
-            this.videoModeToolStripMenuItem,
-            this.regionToolStripMenuItem,
-            this.displayToolStripMenuItem,
-            this.keyBindingsToolStripMenuItem,
-            this.gameGenieCodesToolStripMenuItem,
-            this.soundToolStripMenuItem});
-            this.optionsToolStripMenuItem.Name = "optionsToolStripMenuItem";
-            this.optionsToolStripMenuItem.Size = new System.Drawing.Size(61, 20);
-            this.optionsToolStripMenuItem.Text = "Options";
-            // 
-            // enableSoundToolStripMenuItem
-            // 
-            this.enableSoundToolStripMenuItem.Name = "enableSoundToolStripMenuItem";
-            this.enableSoundToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.S)));
-            this.enableSoundToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
-            this.enableSoundToolStripMenuItem.Text = "Enable Sound";
-            this.enableSoundToolStripMenuItem.Click += new System.EventHandler(this.enableSoundToolStripMenuItem_Click);
-            // 
-            // loadPaletteToolStripMenuItem
-            // 
-            this.loadPaletteToolStripMenuItem.Name = "loadPaletteToolStripMenuItem";
-            this.loadPaletteToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
-            this.loadPaletteToolStripMenuItem.Text = "Load Palette...";
-            this.loadPaletteToolStripMenuItem.Click += new System.EventHandler(this.loadPaletteToolStripMenuItem_Click);
-            // 
-            // videoModeToolStripMenuItem
-            // 
-            this.videoModeToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.sizeableToolStripMenuItem,
-            this.fillToolStripMenuItem,
-            this.xToolStripMenuItem,
-            this.xToolStripMenuItem1,
-            this.scale2xToolStripMenuItem,
-            this.scale3xToolStripMenuItem});
-            this.videoModeToolStripMenuItem.Name = "videoModeToolStripMenuItem";
-            this.videoModeToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
-            this.videoModeToolStripMenuItem.Text = "Video Mode";
-            // 
-            // sizeableToolStripMenuItem
-            // 
-            this.sizeableToolStripMenuItem.Name = "sizeableToolStripMenuItem";
-            this.sizeableToolStripMenuItem.Size = new System.Drawing.Size(122, 22);
-            this.sizeableToolStripMenuItem.Text = "Resizable";
-            this.sizeableToolStripMenuItem.Click += new System.EventHandler(this.sizeableToolStripMenuItem_Click);
-            // 
-            // fillToolStripMenuItem
-            // 
-            this.fillToolStripMenuItem.Name = "fillToolStripMenuItem";
-            this.fillToolStripMenuItem.Size = new System.Drawing.Size(122, 22);
-            this.fillToolStripMenuItem.Text = "Fill";
-            this.fillToolStripMenuItem.Click += new System.EventHandler(this.fillToolStripMenuItem_Click);
-            // 
-            // xToolStripMenuItem
-            // 
-            this.xToolStripMenuItem.Name = "xToolStripMenuItem";
-            this.xToolStripMenuItem.Size = new System.Drawing.Size(122, 22);
-            this.xToolStripMenuItem.Text = "1x";
-            this.xToolStripMenuItem.Click += new System.EventHandler(this.xToolStripMenuItem_Click);
-            // 
-            // xToolStripMenuItem1
-            // 
-            this.xToolStripMenuItem1.Name = "xToolStripMenuItem1";
-            this.xToolStripMenuItem1.Size = new System.Drawing.Size(122, 22);
-            this.xToolStripMenuItem1.Text = "2x";
-            this.xToolStripMenuItem1.Click += new System.EventHandler(this.xToolStripMenuItem1_Click);
-            // 
-            // scale2xToolStripMenuItem
-            // 
-            this.scale2xToolStripMenuItem.Name = "scale2xToolStripMenuItem";
-            this.scale2xToolStripMenuItem.Size = new System.Drawing.Size(122, 22);
-            this.scale2xToolStripMenuItem.Text = "Scale2x";
-            this.scale2xToolStripMenuItem.Click += new System.EventHandler(this.scale2xToolStripMenuItem_Click);
-            // 
-            // scale3xToolStripMenuItem
-            // 
-            this.scale3xToolStripMenuItem.Name = "scale3xToolStripMenuItem";
-            this.scale3xToolStripMenuItem.Size = new System.Drawing.Size(122, 22);
-            this.scale3xToolStripMenuItem.Text = "Scale3x";
-            this.scale3xToolStripMenuItem.Click += new System.EventHandler(this.scale3xToolStripMenuItem_Click);
-            // 
-            // regionToolStripMenuItem
-            // 
-            this.regionToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.nTSCToolStripMenuItem,
-            this.pALToolStripMenuItem});
-            this.regionToolStripMenuItem.Name = "regionToolStripMenuItem";
-            this.regionToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
-            this.regionToolStripMenuItem.Text = "Region";
-            // 
-            // nTSCToolStripMenuItem
-            // 
-            this.nTSCToolStripMenuItem.Name = "nTSCToolStripMenuItem";
-            this.nTSCToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
-            this.nTSCToolStripMenuItem.Text = "NTSC";
-            this.nTSCToolStripMenuItem.Click += new System.EventHandler(this.nTSCToolStripMenuItem_Click);
-            // 
-            // pALToolStripMenuItem
-            // 
-            this.pALToolStripMenuItem.Name = "pALToolStripMenuItem";
-            this.pALToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
-            this.pALToolStripMenuItem.Text = "PAL";
-            this.pALToolStripMenuItem.Click += new System.EventHandler(this.pALToolStripMenuItem_Click);
-            // 
-            // displayToolStripMenuItem
-            // 
-            this.displayToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.showFPSToolStripMenuItem,
-            this.showInputToolStripMenuItem,
-            this.toolStripSeparator5,
-            this.spriteLimitToolStripMenuItem,
-            this.spritesToolStripMenuItem,
-            this.backgroundToolStripMenuItem});
-            this.displayToolStripMenuItem.Name = "displayToolStripMenuItem";
-            this.displayToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
-            this.displayToolStripMenuItem.Text = "Display";
-            // 
-            // showFPSToolStripMenuItem
-            // 
-            this.showFPSToolStripMenuItem.CheckOnClick = true;
-            this.showFPSToolStripMenuItem.Name = "showFPSToolStripMenuItem";
-            this.showFPSToolStripMenuItem.Size = new System.Drawing.Size(175, 22);
-            this.showFPSToolStripMenuItem.Text = "Show FPS";
-            this.showFPSToolStripMenuItem.CheckedChanged += new System.EventHandler(this.showFPSToolStripMenuItem_CheckedChanged);
-            // 
-            // showInputToolStripMenuItem
-            // 
-            this.showInputToolStripMenuItem.Name = "showInputToolStripMenuItem";
-            this.showInputToolStripMenuItem.Size = new System.Drawing.Size(175, 22);
-            this.showInputToolStripMenuItem.Text = "Show Input";
-            this.showInputToolStripMenuItem.Click += new System.EventHandler(this.showInputToolStripMenuItem_Click);
-            // 
-            // toolStripSeparator5
-            // 
-            this.toolStripSeparator5.Name = "toolStripSeparator5";
-            this.toolStripSeparator5.Size = new System.Drawing.Size(172, 6);
-            // 
-            // spriteLimitToolStripMenuItem
-            // 
-            this.spriteLimitToolStripMenuItem.Checked = true;
-            this.spriteLimitToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.spriteLimitToolStripMenuItem.Name = "spriteLimitToolStripMenuItem";
-            this.spriteLimitToolStripMenuItem.Size = new System.Drawing.Size(175, 22);
-            this.spriteLimitToolStripMenuItem.Text = "Disable Sprite Limit";
-            this.spriteLimitToolStripMenuItem.Click += new System.EventHandler(this.spriteLimitToolStripMenuItem_Click);
-            // 
-            // spritesToolStripMenuItem
-            // 
-            this.spritesToolStripMenuItem.Checked = true;
-            this.spritesToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.spritesToolStripMenuItem.Name = "spritesToolStripMenuItem";
-            this.spritesToolStripMenuItem.Size = new System.Drawing.Size(175, 22);
-            this.spritesToolStripMenuItem.Text = "Sprites";
-            this.spritesToolStripMenuItem.Click += new System.EventHandler(this.spritesToolStripMenuItem_Click);
-            // 
-            // backgroundToolStripMenuItem
-            // 
-            this.backgroundToolStripMenuItem.Checked = true;
-            this.backgroundToolStripMenuItem.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.backgroundToolStripMenuItem.Name = "backgroundToolStripMenuItem";
-            this.backgroundToolStripMenuItem.Size = new System.Drawing.Size(175, 22);
-            this.backgroundToolStripMenuItem.Text = "Background";
-            this.backgroundToolStripMenuItem.Click += new System.EventHandler(this.backgroundToolStripMenuItem_Click);
-            // 
-            // keyBindingsToolStripMenuItem
-            // 
-            this.keyBindingsToolStripMenuItem.Name = "keyBindingsToolStripMenuItem";
-            this.keyBindingsToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
-            this.keyBindingsToolStripMenuItem.Text = "Key Bindings...";
-            this.keyBindingsToolStripMenuItem.Click += new System.EventHandler(this.keyBindingsToolStripMenuItem_Click);
-            // 
-            // gameGenieCodesToolStripMenuItem
-            // 
-            this.gameGenieCodesToolStripMenuItem.Name = "gameGenieCodesToolStripMenuItem";
-            this.gameGenieCodesToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
-            this.gameGenieCodesToolStripMenuItem.Text = "Game Genie Codes...";
-            this.gameGenieCodesToolStripMenuItem.Click += new System.EventHandler(this.gameGenieCodesToolStripMenuItem_Click);
-            // 
-            // soundToolStripMenuItem
-            // 
-            this.soundToolStripMenuItem.Name = "soundToolStripMenuItem";
-            this.soundToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
-            this.soundToolStripMenuItem.Text = "Sound...";
-            this.soundToolStripMenuItem.Click += new System.EventHandler(this.soundToolStripMenuItem_Click);
-            // 
-            // moiveToolStripMenuItem
-            // 
-            this.moiveToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.openMovieToolStripMenuItem,
-            this.playMovieToolStripMenuItem});
-            this.moiveToolStripMenuItem.Name = "moiveToolStripMenuItem";
-            this.moiveToolStripMenuItem.Size = new System.Drawing.Size(52, 20);
-            this.moiveToolStripMenuItem.Text = "Moive";
-            // 
-            // openMovieToolStripMenuItem
-            // 
-            this.openMovieToolStripMenuItem.Name = "openMovieToolStripMenuItem";
-            this.openMovieToolStripMenuItem.Size = new System.Drawing.Size(148, 22);
-            this.openMovieToolStripMenuItem.Text = "Open Movie...";
-            this.openMovieToolStripMenuItem.Click += new System.EventHandler(this.openMovieToolStripMenuItem_Click);
-            // 
-            // playMovieToolStripMenuItem
-            // 
-            this.playMovieToolStripMenuItem.Enabled = false;
-            this.playMovieToolStripMenuItem.Name = "playMovieToolStripMenuItem";
-            this.playMovieToolStripMenuItem.Size = new System.Drawing.Size(148, 22);
-            this.playMovieToolStripMenuItem.Text = "Play Movie";
-            this.playMovieToolStripMenuItem.Click += new System.EventHandler(this.playMovieToolStripMenuItem_Click);
-            // 
-            // logToolStripMenuItem
-            // 
-            this.logToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.enableLoggingToolStripMenuItem,
-            this.openLogToolStripMenuItem,
-            this.nameTablesToolStripMenuItem,
-            this.patternTablesToolStripMenuItem,
-            this.memoryViewerToolStripMenuItem,
-            this.pPUMemoryViewerToolStripMenuItem,
-            this.testConsoleToolStripMenuItem});
-            this.logToolStripMenuItem.Name = "logToolStripMenuItem";
-            this.logToolStripMenuItem.Size = new System.Drawing.Size(54, 20);
-            this.logToolStripMenuItem.Text = "Debug";
-            // 
-            // enableLoggingToolStripMenuItem
-            // 
-            this.enableLoggingToolStripMenuItem.Name = "enableLoggingToolStripMenuItem";
-            this.enableLoggingToolStripMenuItem.Size = new System.Drawing.Size(191, 22);
-            this.enableLoggingToolStripMenuItem.Text = "Enable Logging";
-            this.enableLoggingToolStripMenuItem.Click += new System.EventHandler(this.enableLoggingToolStripMenuItem_Click);
-            // 
-            // openLogToolStripMenuItem
-            // 
-            this.openLogToolStripMenuItem.Name = "openLogToolStripMenuItem";
-            this.openLogToolStripMenuItem.Size = new System.Drawing.Size(191, 22);
-            this.openLogToolStripMenuItem.Text = "Open Log...";
-            this.openLogToolStripMenuItem.Click += new System.EventHandler(this.openLogToolStripMenuItem_Click);
-            // 
-            // nameTablesToolStripMenuItem
-            // 
-            this.nameTablesToolStripMenuItem.Name = "nameTablesToolStripMenuItem";
-            this.nameTablesToolStripMenuItem.Size = new System.Drawing.Size(191, 22);
-            this.nameTablesToolStripMenuItem.Text = "Name Tables...";
-            this.nameTablesToolStripMenuItem.Click += new System.EventHandler(this.nameTablesToolStripMenuItem_Click);
-            // 
-            // patternTablesToolStripMenuItem
-            // 
-            this.patternTablesToolStripMenuItem.Name = "patternTablesToolStripMenuItem";
-            this.patternTablesToolStripMenuItem.Size = new System.Drawing.Size(191, 22);
-            this.patternTablesToolStripMenuItem.Text = "Pattern Tables...";
-            this.patternTablesToolStripMenuItem.Click += new System.EventHandler(this.patternTablesToolStripMenuItem_Click);
-            // 
-            // memoryViewerToolStripMenuItem
-            // 
-            this.memoryViewerToolStripMenuItem.Name = "memoryViewerToolStripMenuItem";
-            this.memoryViewerToolStripMenuItem.Size = new System.Drawing.Size(191, 22);
-            this.memoryViewerToolStripMenuItem.Text = "Memory Viewer...";
-            this.memoryViewerToolStripMenuItem.Click += new System.EventHandler(this.memoryViewerToolStripMenuItem_Click);
-            // 
-            // pPUMemoryViewerToolStripMenuItem
-            // 
-            this.pPUMemoryViewerToolStripMenuItem.Name = "pPUMemoryViewerToolStripMenuItem";
-            this.pPUMemoryViewerToolStripMenuItem.Size = new System.Drawing.Size(191, 22);
-            this.pPUMemoryViewerToolStripMenuItem.Text = "PPU Memory Viewer...";
-            this.pPUMemoryViewerToolStripMenuItem.Click += new System.EventHandler(this.pPUMemoryViewerToolStripMenuItem_Click);
-            // 
-            // testConsoleToolStripMenuItem
-            // 
-            this.testConsoleToolStripMenuItem.Name = "testConsoleToolStripMenuItem";
-            this.testConsoleToolStripMenuItem.Size = new System.Drawing.Size(191, 22);
-            this.testConsoleToolStripMenuItem.Text = "Test Console...";
-            this.testConsoleToolStripMenuItem.Click += new System.EventHandler(this.testConsoleToolStripMenuItem_Click);
-            // 
-            // helpToolStripMenuItem
-            // 
-            this.helpToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.helpToolStripMenuItem1,
-            this.romInfoToolStripMenuItem,
-            this.toolStripSeparator4,
-            this.aboutEmuoTronToolStripMenuItem});
-            this.helpToolStripMenuItem.Name = "helpToolStripMenuItem";
-            this.helpToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
-            this.helpToolStripMenuItem.Text = "Help";
-            // 
-            // helpToolStripMenuItem1
-            // 
-            this.helpToolStripMenuItem1.Name = "helpToolStripMenuItem1";
-            this.helpToolStripMenuItem1.ShortcutKeys = System.Windows.Forms.Keys.F1;
-            this.helpToolStripMenuItem1.Size = new System.Drawing.Size(176, 22);
-            this.helpToolStripMenuItem1.Text = "Help...";
-            this.helpToolStripMenuItem1.Click += new System.EventHandler(this.helpToolStripMenuItem1_Click);
-            // 
-            // romInfoToolStripMenuItem
-            // 
-            this.romInfoToolStripMenuItem.Name = "romInfoToolStripMenuItem";
-            this.romInfoToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
-            this.romInfoToolStripMenuItem.Text = "Rom Info...";
-            this.romInfoToolStripMenuItem.Click += new System.EventHandler(this.romInfoToolStripMenuItem_Click);
-            // 
-            // toolStripSeparator4
-            // 
-            this.toolStripSeparator4.Name = "toolStripSeparator4";
-            this.toolStripSeparator4.Size = new System.Drawing.Size(173, 6);
-            // 
-            // aboutEmuoTronToolStripMenuItem
-            // 
-            this.aboutEmuoTronToolStripMenuItem.Name = "aboutEmuoTronToolStripMenuItem";
-            this.aboutEmuoTronToolStripMenuItem.Size = new System.Drawing.Size(176, 22);
-            this.aboutEmuoTronToolStripMenuItem.Text = "About Emu-o-Tron";
-            this.aboutEmuoTronToolStripMenuItem.Click += new System.EventHandler(this.aboutEmuoTronToolStripMenuItem_Click);
-            // 
-            // openFile
-            // 
-            this.openFile.DefaultExt = "nes";
-            this.openFile.Filter = "Supported File Types|*.nes;*.rar;*.zip;*.7z;*.ips;*.ups|NES Roms|*.nes|Archives|*" +
-                ".rar;*.zip;*.7z|Patches|*.ips;*.ups|All Files|*.*";
-            this.openFile.Title = "Load Rom";
-            // 
-            // surfaceControl
-            // 
-            this.surfaceControl.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.surfaceControl.BackColor = System.Drawing.Color.Black;
-            this.surfaceControl.Location = new System.Drawing.Point(0, 24);
-            this.surfaceControl.Name = "surfaceControl";
-            this.surfaceControl.Size = new System.Drawing.Size(512, 480);
-            this.surfaceControl.TabIndex = 3;
-            // 
-            // insideSize
-            // 
-            this.insideSize.BackColor = System.Drawing.Color.Black;
-            this.insideSize.Controls.Add(this.surfaceControl);
-            this.insideSize.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.insideSize.Location = new System.Drawing.Point(0, 0);
-            this.insideSize.Name = "insideSize";
-            this.insideSize.Size = new System.Drawing.Size(512, 504);
-            this.insideSize.TabIndex = 0;
-            // 
-            // openPaletteDialog
-            // 
-            this.openPaletteDialog.DefaultExt = "pal";
-            this.openPaletteDialog.Filter = "Palette Files (*.pal)|*.pal|All Files (*.*)|*.*";
-            this.openPaletteDialog.Title = "Load Palette";
-            // 
-            // openMovieDialog
-            // 
-            this.openMovieDialog.DefaultExt = "fm2";
-            this.openMovieDialog.Filter = "FM2 Files (*.fm2)|*.fm2|All Files (*.*)|*.*";
-            this.openMovieDialog.Title = "Open Movie";
-            // 
-            // recordDialog
-            // 
-            this.recordDialog.DefaultExt = "wav";
-            this.recordDialog.Filter = "Wav files (*.wav)|*.wav";
-            // 
-            // Program
-            // 
-            this.AllowDrop = true;
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.BackColor = System.Drawing.Color.Black;
-            this.ClientSize = new System.Drawing.Size(512, 504);
-            this.Controls.Add(this.menuStrip);
-            this.Controls.Add(this.insideSize);
-            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
-            this.MainMenuStrip = this.menuStrip;
-            this.MinimumSize = new System.Drawing.Size(272, 302);
-            this.Name = "Program";
-            this.Text = "Emu-o-Tron";
-            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Program_FormClosing);
-            this.ResizeEnd += new System.EventHandler(this.Program_Resize);
-            this.DragDrop += new System.Windows.Forms.DragEventHandler(this.Program_DragDrop);
-            this.DragEnter += new System.Windows.Forms.DragEventHandler(this.Program_DragEnter);
-            this.KeyUp += new System.Windows.Forms.KeyEventHandler(this.EmuWindow_KeyUp);
-            this.menuStrip.ResumeLayout(false);
-            this.menuStrip.PerformLayout();
-            this.insideSize.ResumeLayout(false);
-            this.ResumeLayout(false);
-            this.PerformLayout();
-
-        }
-
-        #endregion
-
-        private System.Windows.Forms.MenuStrip menuStrip;
-        private System.Windows.Forms.ToolStripMenuItem fileToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem loadToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem exitToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem optionsToolStripMenuItem;
-        private System.Windows.Forms.OpenFileDialog openFile;
-        private System.Windows.Forms.Panel surfaceControl;
-        private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
-        private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
-        private System.Windows.Forms.ToolStripMenuItem openWithFXCEUToolStripMenuItem;
-        private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
-        private System.Windows.Forms.ToolStripMenuItem moiveToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem openMovieToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem playMovieToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem logToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem loadPaletteToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem enableLoggingToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem openLogToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem gameGenieCodesToolStripMenuItem;
-        private Panel insideSize;
-        private ToolStripMenuItem helpToolStripMenuItem;
-        private ToolStripMenuItem aboutEmuoTronToolStripMenuItem;
-        private ToolStripMenuItem helpToolStripMenuItem1;
-        private ToolStripSeparator toolStripSeparator4;
-        private ToolStripMenuItem showFPSToolStripMenuItem;
-        private ToolStripMenuItem recentFileMenu1;
-        private ToolStripMenuItem recentFileMenu2;
-        private ToolStripMenuItem recentFileMenu3;
-        private ToolStripMenuItem recentFileMenu4;
-        private ToolStripMenuItem recentFileMenu5;
-        private ToolStripMenuItem nameTablesToolStripMenuItem;
-        private ToolStripMenuItem patternTablesToolStripMenuItem;
 
         private void Program_Resize(object sender, EventArgs e)
         {
@@ -2345,7 +1648,6 @@ namespace DirectXEmu
                 logState = this.cpu.logging;
             this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath);
             audioFormat.SamplesPerSecond = this.cpu.APU.sampleRate;
-            outWavFormat.SamplesPerSecond = audioFormat.SamplesPerSecond;
             sVoice = new SourceVoice(dAudio, audioFormat, VoiceFlags.None);
             sVoice.Start();
             this.frame = 0;
@@ -2385,6 +1687,7 @@ namespace DirectXEmu
             this.state = SystemState.Playing;
             
         }
+        
         private void helpToolStripMenuItem1_Click(object sender, EventArgs e)
         {
             Help.ShowHelp(this.ActiveControl, this.config["helpFile"]);
@@ -2394,7 +1697,7 @@ namespace DirectXEmu
         {
             if (!this.generateNameTables)
             {
-                this.nameTablePreview = new NameTablePreview(this.colorChart[0], this.generateLine);
+                this.nameTablePreview = new NameTablePreview(this.colorChart, this.generateLine);
                 this.nameTablePreview.FormClosed += new FormClosedEventHandler(this.nameTablePreviewForm_Closed);
                 this.generateNameTables = true;
                 nameTablePreview.Show();
@@ -2407,7 +1710,7 @@ namespace DirectXEmu
         {
             if (!this.generatePatternTables)
             {
-                this.patternTablePreview = new PatternTablePreview(this.colorChart[0], this.generatePatternLine);
+                this.patternTablePreview = new PatternTablePreview(this.colorChart, this.generatePatternLine);
                 this.patternTablePreview.FormClosed += new FormClosedEventHandler(this.patternTablePreviewForm_Closed);
                 this.generatePatternTables = true;
                 patternTablePreview.Show();
@@ -2451,7 +1754,6 @@ namespace DirectXEmu
             }
 
         }
-        int memoryViewerMem = 0;
         void memoryViewer_FormClosed(object sender, FormClosedEventArgs e)
         {
             this.memoryViewerMem = 0;
@@ -2465,30 +1767,6 @@ namespace DirectXEmu
                 this.config["showFPS"] = "0";
         }
 
-        private void recentFileMenu1_Click(object sender, EventArgs e)
-        {
-            this.OpenFile(this.config["recentFile1"], false);
-        }
-
-        private void recentFileMenu2_Click(object sender, EventArgs e)
-        {
-            this.OpenFile(this.config["recentFile2"], false);
-        }
-
-        private void recentFileMenu3_Click(object sender, EventArgs e)
-        {
-            this.OpenFile(this.config["recentFile3"], false);
-        }
-
-        private void recentFileMenu4_Click(object sender, EventArgs e)
-        {
-            this.OpenFile(this.config["recentFile4"], false);
-        }
-
-        private void recentFileMenu5_Click(object sender, EventArgs e)
-        {
-            this.OpenFile(this.config["recentFile5"], false);
-        }
 
         private void closeToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -2535,6 +1813,9 @@ namespace DirectXEmu
             }
             this.closed = true;
             Thread.Sleep(32);
+            audioWriter.Close();
+            if (wavRecord)
+                wavWriter.Close();
         }
 
         private void romInfoToolStripMenuItem_Click(object sender, EventArgs e)
@@ -2738,7 +2019,6 @@ namespace DirectXEmu
         {
 
             frameBuffer = new Bitmap(256, 240);
-            scaledFrameBuffer = new Bitmap(this.imageScaler.xSize, this.imageScaler.ySize);
             if (imageScaler.maintainAspectRatio)
             {
                 if (imageScaler.resizeable)
@@ -2896,9 +2176,6 @@ namespace DirectXEmu
             }
             return offset;
         }
-        FileStream wavFile;
-        bool wavRecord;
-        int wavSamples;
         private void recordWAVToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (state != SystemState.Empty)
@@ -2914,6 +2191,7 @@ namespace DirectXEmu
                         if (wavRecord)
                             wavFile.Close();
                         wavFile = File.Create(recordDialog.FileName);
+                        wavWriter = new BinaryWriter(wavFile);
                         for (int i = 0; i < 44; i++)
                             wavFile.WriteByte(0);
                         wavRecord = true;
@@ -2927,7 +2205,7 @@ namespace DirectXEmu
         {
             wavRecord = false;
             wavFile.Seek(0, SeekOrigin.Begin);
-            int Subchunk2Size = wavSamples * outWavFormat.Channels * (outWavFormat.BitsPerSample / 8);
+            int Subchunk2Size = wavSamples * audioFormat.Channels * (audioFormat.BitsPerSample / 8);
             wavFile.WriteByte((byte)'R');
             wavFile.WriteByte((byte)'I');
             wavFile.WriteByte((byte)'F');
@@ -2942,12 +2220,12 @@ namespace DirectXEmu
             wavFile.WriteByte((byte)'t');
             wavFile.WriteByte((byte)' ');
             wavFile.Write(BitConverter.GetBytes((int)16), 0, 4);
-            wavFile.Write(BitConverter.GetBytes((short)outWavFormat.FormatTag), 0, 2);
-            wavFile.Write(BitConverter.GetBytes(outWavFormat.Channels), 0, 2);
-            wavFile.Write(BitConverter.GetBytes(outWavFormat.SamplesPerSecond), 0, 4);
-            wavFile.Write(BitConverter.GetBytes(outWavFormat.AverageBytesPerSecond), 0, 4);
-            wavFile.Write(BitConverter.GetBytes(outWavFormat.BlockAlignment), 0, 2);
-            wavFile.Write(BitConverter.GetBytes(outWavFormat.BitsPerSample), 0, 2);
+            wavFile.Write(BitConverter.GetBytes((short)audioFormat.FormatTag), 0, 2);
+            wavFile.Write(BitConverter.GetBytes(audioFormat.Channels), 0, 2);
+            wavFile.Write(BitConverter.GetBytes(audioFormat.SamplesPerSecond), 0, 4);
+            wavFile.Write(BitConverter.GetBytes(audioFormat.AverageBytesPerSecond), 0, 4);
+            wavFile.Write(BitConverter.GetBytes(audioFormat.BlockAlignment), 0, 2);
+            wavFile.Write(BitConverter.GetBytes(audioFormat.BitsPerSample), 0, 2);
             wavFile.WriteByte((byte)'d');
             wavFile.WriteByte((byte)'a');
             wavFile.WriteByte((byte)'t');
@@ -2956,54 +2234,6 @@ namespace DirectXEmu
             wavFile.Close();
 
 
-        }
-        private int Gcd(int a, int b)
-        {
-            int t = 0;
-            while (b != 0)
-            {
-                t = b;
-                b = a % b;
-                a = t;
-            }
-            return a;
-        }
-        private int Lcm(int a, int b)
-        {
-            return (Math.Abs(a) *  Math.Abs(b)) / Gcd(a,b);
-        }
-        private int ResampleAudio(float[] inBuff, int inSampleRate, int inSize, out float[] outBuff, int outSampleRate)
-        {
-            int lcm = Lcm(inSampleRate, outSampleRate);
-            int inRateDivsor = (lcm / inSampleRate);
-            int outRateDivsor = (lcm / outSampleRate);
-            float[] lcmBuffer = new float[inSize * inRateDivsor];
-            int outBuffSize = (lcmBuffer.Length / outRateDivsor) +1;
-            outBuff = new float[outBuffSize];
-            for (int i = 0; i < lcmBuffer.Length; i++)
-            {
-                if (i % inRateDivsor == 0)
-                    lcmBuffer[i] = inBuff[i / inRateDivsor];
-                else
-                    lcmBuffer[i] = 0;
-            } //Need to run FIR filter at this point
-            for (int i = 0; i < lcmBuffer.Length; i++)
-            {
-                if (i % outRateDivsor == 0)
-                    outBuff[i / outRateDivsor] = lcmBuffer[i];
-            }
-            return outBuffSize;
-        }
-        private int WriteToWav(float[] inBuff, int inSize, int inSampleRate)
-        {
-            float[] resampledBuffer;
-            int outSize = ResampleAudio(inBuff, inSampleRate, inSize, out resampledBuffer, outWavFormat.SamplesPerSecond);
-            for (int i = 0; i < outSize; i++)
-            {
-                byte[] tmp = BitConverter.GetBytes(resampledBuffer[i]);
-                wavFile.Write(tmp, 0, 4);
-            }
-            return outSize;
         }
         private void enableSoundToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -3046,71 +2276,5 @@ namespace DirectXEmu
             pALToolStripMenuItem.Checked = true;
             config["region"] = ((int)SystemType.PAL).ToString();
         }
-    }
-    class ArchiveCallback : IArchiveExtractCallback
-    {
-        private uint FileNumber;
-        private string FileName;
-        private OutStreamWrapper FileStream;
-        private int index = 0;
-
-        public ArchiveCallback(uint fileNumber, string fileName)
-        {
-            this.FileNumber = fileNumber;
-            this.FileName = fileName;
-        }
-
-        #region IArchiveExtractCallback Members
-
-        public void SetTotal(ulong total)
-        {
-        }
-
-        public void SetCompleted(ref ulong completeValue)
-        {
-        }
-
-        public int GetStream(uint index, out ISequentialOutStream outStream, AskMode askExtractMode)
-        {
-            if ((index == FileNumber) && (askExtractMode == AskMode.kExtract))
-            {
-                string FileDir = Path.GetDirectoryName(FileName);
-                if (!string.IsNullOrEmpty(FileDir))
-                    Directory.CreateDirectory(FileDir);
-                FileStream = new OutStreamWrapper(File.Create(FileName));
-
-                outStream = FileStream;
-            }
-            else
-                outStream = null;
-            return 0;
-        }
-
-        public void PrepareOperation(AskMode askExtractMode)
-        {
-        }
-
-        public void SetOperationResult(OperationResult resultEOperationResult)
-        {
-            try
-            {
-                if(index == FileNumber)
-                    FileStream.Dispose();
-                index++;
-                if (index == 1)
-                    FileStream.Dispose(); //Stupid stupid hack to make both 7z and zip dispose the stream
-            }
-            catch (Exception e) //7zip exectues this function once for each file until the one requested, zip will only execute the one time for needed file. Possibly use a counter until it == index?
-            {
-                //MessageBox.Show(e.Message);
-            }
-        }
-        #endregion
-        
-    }
-    struct VertexPositionRhwTexture
-    {
-        public Vector4 PositionRhw;
-        public Vector2 Texture1;
     }
 }

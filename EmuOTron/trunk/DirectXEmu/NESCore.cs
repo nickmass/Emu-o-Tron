@@ -53,7 +53,7 @@ namespace DirectXEmu
         private int controlReg1;
         private int controlReg2;
         private bool controlReady;
-        public bool fourScore = true;
+        public bool fourScore;
 
         public GameGenie[] gameGenieCodes = new GameGenie[0xFF];
         public int gameGenieCodeNum = 0;
@@ -79,19 +79,30 @@ namespace DirectXEmu
         private OpInfo OpCodes = new OpInfo();
         public APU APU;
         public PPU PPU;
+        public void Start(Controller player1, Controller player2, Controller player3, Controller player4, bool turbo)
+        {
+            this.player1 = player1;
+            this.player2 = player2;
+            this.player3 = player3;
+            this.player4 = player4;
+            fourScore = true;
+            PPU.turbo = turbo;
+            this.Start();
+        }
 
         public void Start(Controller player1, Controller player2, bool turbo)
         {
             this.player1 = player1;
             this.player2 = player2;
-            player3 = player1;
-            player4 = player1;
+            fourScore = false;
             PPU.turbo = turbo;
             this.Start();
         }
-        public void Start(Controller player1)
+        public void Start(Controller player1, bool turbo)
         {
             this.player1 = player1;
+            fourScore = false;
+            PPU.turbo = turbo;
             this.Start();
         }
         public void Start()
@@ -171,8 +182,6 @@ namespace DirectXEmu
                         break;
                     case OpInfo.AddrIndirectX:
                         addr = Read(opAddr + 1);
-                        //if ((addr & 0xFF00) != ((addr + RegX) & 0xFF00))
-                        //    opCycleAdd++;
                         addr += RegX;
                         addr &= 0xFF;
                         addr = ReadWordWrap(addr);
@@ -1048,7 +1057,7 @@ namespace DirectXEmu
         private byte Read(int address)
         {
             address = this.MirrorMap[address & 0xFFFF];
-            byte nextByte = this.Memory[this.MirrorMap[address]];
+            byte nextByte = this.Memory[address];
             if (address == 0x4016) //Player1 Controller
             {
                 nextByte = 0;
@@ -1500,7 +1509,7 @@ namespace DirectXEmu
             writer.Write(controlReg2);
             writer.Write(controlReady);
             writer.Flush();
-            romMapper.MapperStateSave(ref newState.stateStream);
+            romMapper.StateSave(ref newState.stateStream);
             PPU.StateSave(ref newState.stateStream);
             APU.StateSave(ref newState.stateStream);
             newState.isStored = true;
@@ -1528,7 +1537,7 @@ namespace DirectXEmu
             controlReg1 = reader.ReadInt32();
             controlReg2 = reader.ReadInt32();
             controlReady = reader.ReadBoolean();
-            romMapper.MapperStateLoad(oldState.stateStream);
+            romMapper.StateLoad(oldState.stateStream);
             PPU.StateLoad(oldState.stateStream);
             APU.StateLoad(oldState.stateStream);
         }
