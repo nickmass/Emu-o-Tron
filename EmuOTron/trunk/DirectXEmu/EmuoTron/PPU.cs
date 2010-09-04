@@ -98,6 +98,25 @@ namespace EmuoTron
 
             }
         }
+        public void Power()
+        {
+            Write(0, 0x2000);
+            Write(0, 0x2001);
+            Write(0, 0x2003);
+            Write(0, 0x2005);
+            Write(0, 0x2006);
+            Write(0, 0x2007);
+            addrLatch = false;
+        }
+        public void Reset()
+        {
+            Write(0, 0x2000);
+            Write(0, 0x2001);
+            Write(0, 0x2005);
+            Write(0, 0x2007);
+            addrLatch = false;
+
+        }
         private void PPUMirror(ushort address, ushort mirrorAddress, ushort length, int repeat)
         {
             for (int j = 0; j < repeat; j++)
@@ -148,6 +167,7 @@ namespace EmuoTron
         {
             if (address == 0x2000)
             {
+                bool wasEnabled = nmiEnable;
                 loopyT = (loopyT & 0xF3FF) | ((value & 3) << 10);
                 vramInc = (value & 0x04) != 0;
                 if ((value & 0x08) != 0)
@@ -160,6 +180,8 @@ namespace EmuoTron
                     backgroundTable = 0x0000;
                 tallSprites = (value & 0x20) != 0;
                 nmiEnable = (value & 0x80) != 0;
+                if (inVblank && nmiEnable && !wasEnabled)
+                    interruptNMI = true;
             }
             else if (address == 0x2001) //PPU Mask
             {
@@ -451,7 +473,7 @@ namespace EmuoTron
                     spriteOverflow = false;
                     spriteZeroHit = false;
                     frameComplete = true;
-                    inVblank = false;
+                    inVblank = false; //Blarggs test claims this is about 37 frames too late, but I have no idea how that can be. EDIT, passes Blarggs more recent ppu_vbl_nmi clear test so I guess its alright (kinda)
                     scanline = -1;
                 }
             }

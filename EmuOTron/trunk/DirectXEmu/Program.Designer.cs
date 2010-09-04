@@ -86,13 +86,11 @@
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.aboutEmuoTronToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.openFile = new System.Windows.Forms.OpenFileDialog();
-            this.surfaceControl = new System.Windows.Forms.Panel();
-            this.insideSize = new System.Windows.Forms.Panel();
             this.openPaletteDialog = new System.Windows.Forms.OpenFileDialog();
             this.openMovieDialog = new System.Windows.Forms.OpenFileDialog();
             this.recordDialog = new System.Windows.Forms.SaveFileDialog();
+            this.surfaceControl = new System.Windows.Forms.Panel();
             this.menuStrip.SuspendLayout();
-            this.insideSize.SuspendLayout();
             this.SuspendLayout();
             // 
             // menuStrip
@@ -559,25 +557,6 @@
                 ".rar;*.zip;*.7z|Patches|*.ips;*.ups|All Files|*.*";
             this.openFile.Title = "Load Rom";
             // 
-            // surfaceControl
-            // 
-            this.surfaceControl.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.surfaceControl.BackColor = System.Drawing.Color.Black;
-            this.surfaceControl.Location = new System.Drawing.Point(0, 24);
-            this.surfaceControl.Name = "surfaceControl";
-            this.surfaceControl.Size = new System.Drawing.Size(512, 480);
-            this.surfaceControl.TabIndex = 3;
-            // 
-            // insideSize
-            // 
-            this.insideSize.BackColor = System.Drawing.Color.Black;
-            this.insideSize.Controls.Add(this.surfaceControl);
-            this.insideSize.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.insideSize.Location = new System.Drawing.Point(0, 0);
-            this.insideSize.Name = "insideSize";
-            this.insideSize.Size = new System.Drawing.Size(512, 504);
-            this.insideSize.TabIndex = 0;
-            // 
             // openPaletteDialog
             // 
             this.openPaletteDialog.DefaultExt = "pal";
@@ -595,6 +574,15 @@
             this.recordDialog.DefaultExt = "wav";
             this.recordDialog.Filter = "Wav files (*.wav)|*.wav";
             // 
+            // surfaceControl
+            // 
+            this.surfaceControl.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this.surfaceControl.BackColor = System.Drawing.Color.Black;
+            this.surfaceControl.Location = new System.Drawing.Point(0, 24);
+            this.surfaceControl.Name = "surfaceControl";
+            this.surfaceControl.Size = new System.Drawing.Size(512, 480);
+            this.surfaceControl.TabIndex = 3;
+            // 
             // Program
             // 
             this.AllowDrop = true;
@@ -603,7 +591,7 @@
             this.BackColor = System.Drawing.Color.Black;
             this.ClientSize = new System.Drawing.Size(512, 504);
             this.Controls.Add(this.menuStrip);
-            this.Controls.Add(this.insideSize);
+            this.Controls.Add(this.surfaceControl);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.MainMenuStrip = this.menuStrip;
             this.MinimumSize = new System.Drawing.Size(272, 302);
@@ -616,7 +604,6 @@
             this.KeyUp += new System.Windows.Forms.KeyEventHandler(this.EmuWindow_KeyUp);
             this.menuStrip.ResumeLayout(false);
             this.menuStrip.PerformLayout();
-            this.insideSize.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -630,7 +617,6 @@
         private System.Windows.Forms.ToolStripMenuItem exitToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem optionsToolStripMenuItem;
         private System.Windows.Forms.OpenFileDialog openFile;
-        private System.Windows.Forms.Panel surfaceControl;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
         private System.Windows.Forms.ToolStripMenuItem openWithFXCEUToolStripMenuItem;
@@ -643,7 +629,6 @@
         private System.Windows.Forms.ToolStripMenuItem enableLoggingToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem openLogToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem gameGenieCodesToolStripMenuItem;
-        private System.Windows.Forms.Panel insideSize;
         private System.Windows.Forms.ToolStripMenuItem helpToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem aboutEmuoTronToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem helpToolStripMenuItem1;
@@ -683,5 +668,7 @@
         private System.Windows.Forms.ToolStripMenuItem regionToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem nTSCToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem pALToolStripMenuItem;
+        private System.Windows.Forms.Panel surfaceControl;
+        private System.Windows.Forms.Panel insideSize;
     }
 }

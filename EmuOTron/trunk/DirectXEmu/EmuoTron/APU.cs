@@ -16,19 +16,22 @@ namespace EmuoTron
 
         public int frameBuffer = 1;
         public int sampleRate = 44100;
-        public int sampleRateDivider = 1;
-        public int[] sampleDividers = { 40, 41 };
-        public int sampleDividersCounter;
+        private int sampleRateDivider = 41;
+        private int[] sampleDividers;
+        private int sampleDividersCounter;
 
         public SoundVolume volume;
 
         private int cycles;
         private int lastUpdateCycle;
         private int lastCycleClock;
-        private MemoryStore Memory;
         public bool frameIRQ;
         private int frameCounter;
-        private int[] frameLengths;
+        private int timeToClock;
+        private int modeZeroDelay;
+        private int[] modeZeroFrameLengths;
+        private int modeOneDelay;
+        private int[] modeOneFrameLengths;
         private bool mode;
         private bool frameIRQInhibit;
 
@@ -101,7 +104,7 @@ namespace EmuoTron
         private int noiseDivider;
 
         private byte[] triangleSequence = {15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-        private byte triangleSequenceCounter = 0;
+        private byte triangleSequenceCounter;
         private bool triangleEnable;
         private bool triangleControlFlag;
         private bool triangleHaltFlag;
@@ -124,16 +127,20 @@ namespace EmuoTron
         private int dmcBytesRemaining;
         private byte dmcSampleBuffer;
         private bool dmcSampleBufferEmpty;
-        private bool dmcSilence;
+        private int dmcShiftCount;
         private byte dmcShiftReg;
         private int[] dmcRates;
+        private int dmcSampleRateDivider = 41;
+        private int dmcSampleDividersCounter;
 
-        private float[] pulseTable = new float[32];
-        private float[] tndTable = new float[204];
+        private double[] pulseTable = new double[32];
+        private double[] tndTable = new double[204];
 
         public short[] output;
-        public int outputPtr = 0;
-
+        public int outputPtr;
+        private byte[] dmcBuffer;
+        private int dmcPtr;
+        
         public APU(NESCore nes)
         {
             this.nes = nes;
@@ -142,26 +149,34 @@ namespace EmuoTron
                 default:
                 case SystemType.NTSC:
                     CPUClock = 1789773;
-                    //40.58
-                    frameLengths = new int[] { 7457, 7458 };
+                    modeZeroDelay = 7459;//http://nesdev.parodius.com/bbs/viewtopic.php?p=64281#64281
+                    modeZeroFrameLengths = new int[] { 7456, 7458, 7458, 7458};
+                    modeOneDelay = 1;
+                    modeOneFrameLengths = new int[] { 7458, 7456, 7458, 7458, 7452};
                     noisePeriods = new ushort[] { 4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068 };
                     dmcRates = new int[] { 428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54 };
-                    output = new short[((sampleRate / 60) + 1) * frameBuffer];
+                    sampleDividers = new int[] { 40, 40, 41, 41, 41 };
+                    output = new short[((sampleRate / 60) + 1) * frameBuffer * 2];
+                    dmcBuffer = new byte[((sampleRate / 60) + 1) * frameBuffer * 2];
                     break;
                 case SystemType.PAL:
                     CPUClock = 1662607;
-                    frameLengths = new int[] { 8313, 8314 };
+                    modeZeroDelay = 8315;
+                    modeZeroFrameLengths = new int[] { 8314, 8312, 8314, 8314 };
+                    modeOneDelay = 1;
+                    modeOneFrameLengths = new int[] { 8314, 8314, 8312, 8314, 8312 };
                     noisePeriods = new ushort[] { 4, 7, 14, 30, 60, 88, 118, 148, 188, 236, 354, 472, 708, 944, 1890, 3778 };
                     dmcRates = new int[] { 398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118, 98, 78, 66, 50 };
-                    output = new short[((sampleRate / 50) + 1) * frameBuffer];
+                    sampleDividers = new int[] { 40, 40, 41, 41, 41 };// = new int[] { 37, 37, 38, 38, 38 };
+                    output = new short[((sampleRate / 50) + 1) * frameBuffer * 2];
+                    dmcBuffer = new byte[((sampleRate / 50) + 1) * frameBuffer * 2];
                     break;
 
             }
-            this.Memory = nes.Memory;
             for (int i = 0; i < 32; i++)
-                pulseTable[i] = 95.52f / (8128.0f / i + 100f);
+                pulseTable[i] = 95.52 / (8128.0 / i + 100);
             for (int i = 0; i < 204; i++)
-                tndTable[i] = 163.67f / (24329.0f / i + 100f);
+                tndTable[i] = 163.67 / (24329.0 / i + 100);
              Write(00, 0x4000); //Start-up values
              Write(00, 0x4001);
              Write(00, 0x4002);
@@ -180,6 +195,24 @@ namespace EmuoTron
              Write(00, 0x400F);
              Write(00, 0x4015);
              Write(00, 0x4017);
+             timeToClock = modeZeroDelay - 12;
+        }
+        public void Reset()
+        {
+            Write(00, 0x4015);
+            Update();
+            if (frameIRQInhibit)
+                frameIRQ = false;
+            frameCounter = 0;
+            lastCycleClock = cycles;
+            if (mode)
+                timeToClock = modeOneDelay;
+            else
+                timeToClock = modeZeroDelay;
+            if (cycles % 2 == 0) //jitter, apu_test 4-jitter.nes
+                timeToClock++;
+            timeToClock -= 12;
+            frameIRQ = false;
         }
         public byte Read(byte value, ushort address)
         {
@@ -348,7 +381,7 @@ namespace EmuoTron
             else if (address == 0x4012) //DMC Sample Address
             {
                 Update();
-                dmcSampleAddress = 0xC000 + (value << 6);
+                dmcSampleAddress = 0xC000 | (value << 6);
             }
             else if (address == 0x4013) //DMC Sample Length
             {
@@ -386,26 +419,20 @@ namespace EmuoTron
                 frameIRQInhibit = (value & 0x40) != 0;
                 if (frameIRQInhibit)
                     frameIRQ = false;
-                lastCycleClock = cycles;
                 frameCounter = 0;
+                lastCycleClock = cycles;
                 if (mode)
-                {
-                    Pulse1Envelope();
-                    Pulse2Envelope();
-                    TriangleLinear();
-                    Pulse1Length();
-                    Pulse1Sweep();
-                    Pulse2Length();
-                    Pulse2Sweep();
-                    NoiseLength();
-                    TriangleLength();
-                }
-
+                    timeToClock = modeOneDelay;
+                else
+                    timeToClock = modeZeroDelay;
+                if (cycles % 2 == 0) //jitter, apu_test 4-jitter.nes
+                    timeToClock++;
             }
         }
         public void ResetBuffer()
         {
             outputPtr = 0;
+            dmcPtr = 0;
         }
         public void TriangleLinear()
         {
@@ -557,15 +584,17 @@ namespace EmuoTron
         public void AddCycles(int cycles)
         {
             this.cycles += cycles;
-            //Update();
-            if (this.cycles - lastCycleClock > frameLengths[frameCounter % 2])
+            for (int i = 0; i < cycles; i++ )
+                DMCOutput();
+            if (this.cycles - lastCycleClock >= timeToClock)
             {
-                lastCycleClock += frameLengths[frameCounter % 2];
-                frameCounter++;
+                lastCycleClock += timeToClock;
                 Update();
                 if (!mode) //Mode 0
                 {
+                    timeToClock = modeZeroFrameLengths[frameCounter % 4];
                     int step = frameCounter % 4;
+                    frameCounter++;
                     if (step == 0) //Envelopes + Triangle Linear Counter
                     {
                         Pulse1Envelope();
@@ -575,15 +604,15 @@ namespace EmuoTron
                     }
                     else if (step == 1) //Envelopes + Triangle Linear Counter + Length Counters + Sweep Units
                     {
-                        Pulse1Envelope();
-                        Pulse1Length();
                         Pulse1Sweep();
-                        Pulse2Envelope();
-                        Pulse2Length();
                         Pulse2Sweep();
+                        Pulse1Envelope();
+                        Pulse2Envelope();
                         NoiseEnvelope();
-                        NoiseLength();
                         TriangleLinear();
+                        Pulse1Length();
+                        Pulse2Length();
+                        NoiseLength();
                         TriangleLength();
                     }
                     else if (step == 2) //Envelopes + Triangle Linear Counter
@@ -595,15 +624,15 @@ namespace EmuoTron
                     }
                     else if (step == 3) //Envelopes + Triangle Linear Counter + Length Counters + Sweep Units + Interrupt
                     {
-                        Pulse1Envelope();
-                        Pulse1Length();
                         Pulse1Sweep();
-                        Pulse2Envelope();
-                        Pulse2Length();
                         Pulse2Sweep();
+                        Pulse1Envelope();
+                        Pulse2Envelope();
                         NoiseEnvelope();
-                        NoiseLength();
                         TriangleLinear();
+                        Pulse1Length();
+                        Pulse2Length();
+                        NoiseLength();
                         TriangleLength();
                         if (!frameIRQInhibit)
                             frameIRQ = true;
@@ -612,18 +641,20 @@ namespace EmuoTron
                 }
                 else //Mode 1
                 {
+                    timeToClock = modeOneFrameLengths[frameCounter % 5];
                     int step = frameCounter % 5;
+                    frameCounter++;
                     if (step == 0)//Envelopes + Triangle Linear Counter + Length Counters + Sweep Units
                     {
-                        Pulse1Envelope();
-                        Pulse1Length();
                         Pulse1Sweep();
-                        Pulse2Envelope();
-                        Pulse2Length();
                         Pulse2Sweep();
+                        Pulse1Envelope();
+                        Pulse2Envelope();
                         NoiseEnvelope();
-                        NoiseLength();
                         TriangleLinear();
+                        Pulse1Length();
+                        Pulse2Length();
+                        NoiseLength();
                         TriangleLength();
                     }
                     else if (step == 1)//Envelopes + Triangle Linear Counter
@@ -635,15 +666,15 @@ namespace EmuoTron
                     }
                     else if (step == 2)//Envelopes + Triangle Linear Counter + Length Counters + Sweep Units
                     {
-                        Pulse1Envelope();
-                        Pulse1Length();
                         Pulse1Sweep();
-                        Pulse2Envelope();
-                        Pulse2Length();
                         Pulse2Sweep();
+                        Pulse1Envelope();
+                        Pulse2Envelope();
                         NoiseEnvelope();
-                        NoiseLength();
                         TriangleLinear();
+                        Pulse1Length();
+                        Pulse2Length();
+                        NoiseLength();
                         TriangleLength();
                     }
                     else if (step == 3)//Envelopes + Triangle Linear Counter
@@ -666,69 +697,81 @@ namespace EmuoTron
             noiseShiftReg >>= 1;
             noiseShiftReg = (ushort)(noiseShiftReg | (feedback << 14));
         }
-        private int DMCOutput()
+        private bool dmcDelay;
+        private void DMCOutput()
         {
+            if (dmcSampleBufferEmpty && !dmcDelay)
+            {
+                if (dmcBytesRemaining != 0)
+                {
+                    dmcSampleBuffer = nes.Memory[dmcSampleCurrentAddress];
+                    dmcDelay = true;
+                    nes.PPU.AddCycles(4);
+                    AddCycles(4);
+                    dmcDelay = false;
+                    dmcSampleBufferEmpty = false;
+                    dmcSampleCurrentAddress++;
+                    if (dmcSampleCurrentAddress > 0xFFFF)
+                        dmcSampleCurrentAddress = 0x8000;
+                    dmcBytesRemaining--;
+                    if (dmcBytesRemaining == 0)
+                    {
+                        if (dmcLoop)
+                        {
+                            dmcBytesRemaining = dmcSampleLength;
+                            dmcSampleCurrentAddress = dmcSampleAddress;
+                        }
+                        else if (dmcInterruptEnable)
+                            dmcInterrupt = true;
+                    }
+                }
+            }
             dmcDivider--;
             if (dmcDivider == 0)
             {
-                if (dmcSampleBufferEmpty)
+                if (dmcShiftCount != 0)
                 {
-                    if (dmcBytesRemaining != 0)
-                    {
-                        dmcSampleBuffer = Memory[dmcSampleCurrentAddress];
-                        dmcSampleBufferEmpty = false;
-                        dmcSampleCurrentAddress++;
-                        if (dmcSampleCurrentAddress > 0xFFFF)
-                            dmcSampleCurrentAddress = 0x8000;
-                        dmcBytesRemaining--;
-                        if (dmcBytesRemaining == 0)
-                        {
-                            if (dmcLoop)
-                            {
-                                dmcBytesRemaining = dmcSampleLength;
-                                dmcSampleCurrentAddress = dmcSampleAddress;
-                            }
-                            else if (dmcInterruptEnable)
-                                dmcInterrupt = true;
-                        }
-                    }
-                    else
-                    {
-                        dmcSilence = true;
-                    }
-                }
-                else
-                {
-                    dmcSilence = false;
-                    dmcShiftReg = dmcSampleBuffer;
-                    dmcSampleBufferEmpty = true;
-                }
-                for (int i = 0; i < 8; i++)
-                {
-                    if (!dmcSilence && (dmcShiftReg & 1) != 0 && dmcDeltaCounter > 1)
+                    if ((dmcShiftReg & 1) != 0 && dmcDeltaCounter > 1)
                         dmcDeltaCounter -= 2;
-                    else if (!dmcSilence && (dmcShiftReg & 1) == 0 && dmcDeltaCounter < 126)
+                    else if ((dmcShiftReg & 1) == 0 && dmcDeltaCounter < 126)
                         dmcDeltaCounter += 2;
                     dmcShiftReg >>= 1;
+                    dmcShiftCount--;
+                }
+                else if (!dmcSampleBufferEmpty)
+                {
+                    dmcShiftReg = dmcSampleBuffer;
+                    dmcSampleBufferEmpty = true;
+                    dmcShiftCount = 8;
+                    if ((dmcShiftReg & 1) != 0 && dmcDeltaCounter > 1)
+                        dmcDeltaCounter -= 2;
+                    else if ((dmcShiftReg & 1) == 0 && dmcDeltaCounter < 126)
+                        dmcDeltaCounter += 2;
+                    dmcShiftReg >>= 1;
+                    dmcShiftCount--;
                 }
                 dmcDivider = dmcRate;
             }
-            return dmcDeltaCounter & 0x7F;
+            dmcSampleRateDivider--;
+            if(dmcSampleRateDivider == 0)
+            {
+                dmcBuffer[dmcPtr] = dmcDeltaCounter;
+                dmcPtr++;
+                dmcSampleRateDivider = sampleDividers[dmcSampleDividersCounter++ % 5];
+            }
         }
         public void Update()
         {
             if (mute)
             {
-
                 for (int updateCycle = lastUpdateCycle; updateCycle < cycles; updateCycle++)
                 {
-                    DMCOutput();
                     sampleRateDivider--;
                     if (sampleRateDivider == 0)
                     {
                         output[outputPtr] = 0;
                         outputPtr++;
-                        sampleRateDivider = sampleDividers[sampleDividersCounter++ % 2];
+                        sampleRateDivider = sampleDividers[sampleDividersCounter++ % 5];
                     }
                 }
                 lastUpdateCycle = cycles;
@@ -839,7 +882,6 @@ namespace EmuoTron
                         noiseVolume = noiseEnvelopeCounter;
                     noiseDivider = noiseTimer;
                 }
-                dmcVolume = DMCOutput();
                 sampleRateDivider--;
                 if (sampleRateDivider == 0)
                 {
@@ -847,16 +889,16 @@ namespace EmuoTron
                     pulse1Volume = (byte)(pulse1Volume * volume.pulse1);
                     pulse2Volume = (byte)(pulse2Volume * volume.pulse2);
                     noiseVolume = (byte)(noiseVolume * volume.noise);
-                    dmcVolume = (byte)(dmcVolume * volume.dmc);
-                    output[outputPtr] = (short)(((
+                    dmcVolume = (byte)(dmcBuffer[outputPtr] * volume.dmc);
+                    output[outputPtr] = (short)((
                                                         tndTable[   (3 * triangleVolume) +
                                                                     (2 * noiseVolume) +
                                                                     dmcVolume] + 
                                                         pulseTable[ pulse1Volume +
                                                                     pulse2Volume]
-                                                    ) - 0.5 ) * (short.MaxValue * 2));
+                                                    ) * short.MaxValue);
                     outputPtr++;
-                    sampleRateDivider = sampleDividers[sampleDividersCounter++ % 2];
+                    sampleRateDivider = sampleDividers[sampleDividersCounter++ % 5];
                 }
             }
             lastUpdateCycle = cycles;
@@ -948,8 +990,9 @@ namespace EmuoTron
             writer.Write(dmcBytesRemaining);
             writer.Write(dmcSampleBuffer);
             writer.Write(dmcSampleBufferEmpty);
-            writer.Write(dmcSilence);
+            writer.Write(dmcShiftCount);
             writer.Write(dmcShiftReg);
+            writer.Write(timeToClock);
         }
         public void StateLoad(MemoryStream buf)
         {
@@ -1038,8 +1081,9 @@ namespace EmuoTron
             dmcBytesRemaining = reader.ReadInt32();
             dmcSampleBuffer = reader.ReadByte();
             dmcSampleBufferEmpty = reader.ReadBoolean();
-            dmcSilence = reader.ReadBoolean();
+            dmcShiftCount = reader.ReadInt32();
             dmcShiftReg = reader.ReadByte();
+            timeToClock = reader.ReadInt32();
         }
     }
 }

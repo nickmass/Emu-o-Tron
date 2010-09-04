@@ -207,7 +207,7 @@ namespace DirectXEmu
             if (this.storeState)
             {
                 this.storeState = false;
-                saveSlots[quickSaveSlot] = cpu.getState();
+                saveSlots[quickSaveSlot] = cpu.StateSave();
                 IFormatter formatter = new BinaryFormatter();
                 Directory.CreateDirectory(config["savestateDir"]);
                 Stream stream = new FileStream(Path.Combine(config["savestateDir"], cpu.fileName + ".s" + quickSaveSlot.ToString("D2")), FileMode.Create, FileAccess.Write, FileShare.None);
@@ -221,7 +221,7 @@ namespace DirectXEmu
                 this.loadState = false;
                 if (saveSlots[quickSaveSlot].isStored)
                 {
-                    cpu.loadState(saveSlots[quickSaveSlot]);
+                    cpu.StateLoad(saveSlots[quickSaveSlot]);
                     this.message = "State " + quickSaveSlot.ToString() + " Loaded";
                 }
                 else
@@ -231,6 +231,7 @@ namespace DirectXEmu
                 messageDuration = 90;
             }
             HandleKeyboard();
+            HandleMouse();
             if (x360Controller.IsConnected)
                 player1 = HandleGamepad(player1);
             if (controlStrobe)
@@ -281,14 +282,14 @@ namespace DirectXEmu
                         saveSafeRewind = true;
                     }
                     if (saveSafeRewind)
-                        cpu.loadState(saveBuffer[saveBufferCounter]);
+                        cpu.StateLoad(saveBuffer[saveBufferCounter]);
                 }
                 else
                 {
                     saveSafeRewind = false;
                     if (frame % saveBufferFreq == 0)
                     {
-                        saveBuffer[saveBufferCounter] = cpu.getState();
+                        saveBuffer[saveBufferCounter] = cpu.StateSave();
                         saveBufferCounter++;
                         if (saveBufferCounter >= ((60 / saveBufferFreq) * saveBufferSeconds))
                             saveBufferCounter = 0;
@@ -297,12 +298,6 @@ namespace DirectXEmu
                     }
 
                 }
-            }
-            if (player2.zapper.connected)
-            {
-                Point curPoint = LocateMouse();
-                player2.zapper.triggerPulled = dMouse.GetCurrentState().IsPressed(0) && (curPoint.X != 0 || curPoint.Y != 0);
-                player2.zapper.lightDetected = colorChart[cpu.PPU.screen[curPoint.X, curPoint.Y]].GetBrightness() >= 0.9;
             }
             cpu.Start(player1, player2, (this.frame % this.frameSkipper != 0));
             UpdateFramerate();
@@ -362,7 +357,7 @@ namespace DirectXEmu
                     for (int x = 0; x < 256; x++, i++)
                         framePixels[i] = this.colorChart[cpu.PPU.screen[x, y]].ToArgb();
                 frameBuffer.UnlockBits(frameBMD);
-                //frameBuffer.SetPixel(LocateMouse().X, LocateMouse().Y, Color.Magenta);
+                //frameBuffer.SetPixel(player2.zapper.x, player2.zapper.y, Color.Magenta);
             }
         }
         private unsafe void Render()
@@ -514,8 +509,9 @@ namespace DirectXEmu
                 dKeyboard.SetCooperativeLevel(this, CooperativeLevel.Foreground | CooperativeLevel.Nonexclusive);
                 dKeyboard.Acquire();
                 dMouse = new Mouse(dInput);
+                dMouse.SetCooperativeLevel(this, CooperativeLevel.Foreground | CooperativeLevel.Nonexclusive);
                 dMouse.Acquire();
-                this.Program_Resize(this, new EventArgs());
+                Program_Resize(this, new EventArgs());
                 return true;
             }
             catch (Exception e)
@@ -577,6 +573,8 @@ namespace DirectXEmu
                 if(this.config["romPath" + i.ToString()] != "")
                     this.openFile.CustomPlaces.Add(this.config["romPath" + i.ToString()]);
             this.LoadRecentFiles();
+            this.Width = Convert.ToInt32(this.config["width"]);
+            this.Height = Convert.ToInt32(this.config["height"]);
             switch (this.config["scaler"].ToLower())
             {
                 default:
@@ -606,25 +604,8 @@ namespace DirectXEmu
                     this.imageScaler = new Fill();
                     break;
             }
-            this.frameBuffer = new Bitmap(256, 240);
-            if (this.imageScaler.resizeable)
-            {
-                this.FormBorderStyle = FormBorderStyle.Sizable;
-                this.MaximizeBox = true;
-                this.Width = Convert.ToInt32(this.config["width"]);
-                this.Height = Convert.ToInt32(this.config["height"]);
-                
-                pps.BackBufferHeight = this.surfaceControl.Height;
-                pps.BackBufferWidth = this.surfaceControl.Width;
-                ResetDevice();
-            }
-            else
-            {
-                this.FormBorderStyle = FormBorderStyle.Fixed3D;
-                this.MaximizeBox = false;
-                this.Width = (this.Width - this.insideSize.Width) + this.imageScaler.xSize;
-                this.Height = (this.Height - (this.insideSize.Height - this.menuStrip.Height)) + this.imageScaler.ySize;
-            }
+            frameBuffer = new Bitmap(256, 240);
+            PrepareScaler();
             rewindingEnabled = this.config["rewindEnabled"] == "1" ? true : false;
             saveBufferFreq = Convert.ToInt32(this.config["rewindBufferFreq"]);
             saveBufferSeconds = Convert.ToInt32(this.config["rewindBufferSeconds"]);
@@ -638,7 +619,7 @@ namespace DirectXEmu
             player2.aTurbo.count = 1;
             player2.bTurbo.freq = 2;
             player2.bTurbo.count = 1;
-            player2.zapper.connected = false;
+            player2.zapper.connected = true;
             state = SystemState.Empty;
             surfaceControl.Visible = false;
 
@@ -977,6 +958,45 @@ namespace DirectXEmu
             return input;
             
         }
+        private void HandleMouse()
+        {
+            if (dMouse.Acquire().IsFailure)
+                return;
+            if (dMouse.Poll().IsFailure)
+                return;
+            try
+            {
+                MouseState mouseState = dMouse.GetCurrentState();
+                player2.zapper.triggerPulled = mouseState.IsPressed(0);
+                Point tmpPoint = Cursor.Position;
+                tmpPoint.X -= this.Location.X;
+                tmpPoint.Y -= this.Location.Y;
+                int borderWidth = (Width - ClientSize.Width) / 2;
+                int titlebarHeight = (Height - ClientSize.Height) - borderWidth;
+                tmpPoint.X -= borderWidth;
+                tmpPoint.Y -= titlebarHeight;
+                tmpPoint.X -= surfaceControl.Location.X;
+                tmpPoint.Y -= surfaceControl.Location.Y;
+                tmpPoint.X = (int)((frameBuffer.Width * tmpPoint.X) / (surfaceControl.Width * 1.0));
+                tmpPoint.Y = (int)((frameBuffer.Height * tmpPoint.Y) / (surfaceControl.Height * 1.0));
+                if (tmpPoint.X < 0 || tmpPoint.X >= this.frameBuffer.Width)
+                {
+                    tmpPoint.X = 0;
+                    tmpPoint.Y = 0;
+                }
+                if (tmpPoint.Y < 0 || tmpPoint.Y >= this.frameBuffer.Height)
+                {
+                    tmpPoint.X = 0;
+                    tmpPoint.Y = 0;
+                }
+                player2.zapper.x = (byte)tmpPoint.X;
+                player2.zapper.y = (byte)tmpPoint.Y;
+            }
+            catch
+            {
+                dMouse.Acquire();
+            }
+        }
         private void HandleKeyboard()
         {
             if (dKeyboard.Acquire().IsFailure)
@@ -1036,33 +1056,6 @@ namespace DirectXEmu
                     crc = CRC32.crc32_adjust(crc, (byte)(scanlines[x, y] & 0x3F));
             crc ^= 0xFFFFFFFF;
             return crc;
-        }
-        private Point LocateMouse()
-        {
-            Point curPoint = Cursor.Position;
-            if (fullScreen)
-            {
-                curPoint.Offset(-this.Location.X, -this.Location.Y);
-                curPoint.Offset(-(this.surfaceControl.Location.X), -(this.surfaceControl.Location.Y));
-            }
-            else
-            {
-                curPoint.Offset(-this.Location.X, -this.Location.Y);
-                curPoint.Offset(-(this.surfaceControl.Location.X + SystemInformation.FrameBorderSize.Width), -(this.surfaceControl.Location.Y + SystemInformation.CaptionHeight + SystemInformation.FrameBorderSize.Width));
-            }
-
-            Point screenPoint = new Point((int)((curPoint.X * 1.0) / ((this.surfaceControl.Width * 1.0) / (this.frameBuffer.Width * 1.0))), (int)((curPoint.Y * 1.0) / ((this.surfaceControl.Height * 1.0) / (this.frameBuffer.Height * 1.0))));
-            if (screenPoint.X < 0 || screenPoint.X >= this.frameBuffer.Width)
-            {
-                screenPoint.X = 0;
-                screenPoint.Y = 0;
-            }
-            if (screenPoint.Y < 0 || screenPoint.Y >= this.frameBuffer.Height)
-            {
-                screenPoint.X = 0;
-                screenPoint.Y = 0;
-            }
-            return screenPoint;
         }
         private void LoadCharSheet()
         {
@@ -1206,7 +1199,7 @@ namespace DirectXEmu
             else if (e.KeyCode == keyBindings.Reset)
             {
                 this.SaveGame();
-                this.cpu.restart();
+                this.cpu.Reset();
                 this.LoadGame();
                 this.message = "Reset";
                 this.messageDuration = 90;
@@ -1257,53 +1250,21 @@ namespace DirectXEmu
         }
         private void ToggleFullScreen()
         {
-            if (this.imageScaler.resizeable)
+            if (fullScreen)
             {
-                if (fullScreen)
-                {
-                    this.menuStrip.Show();
-                    this.FormBorderStyle = FormBorderStyle.Sizable;
-                    this.Size = this.smallSize;
-                    this.Location = this.smallLocation;
-                    this.fullScreen = false;
-                }
-                else
-                {
-                    this.smallLocation = this.Location;
-                    this.smallSize = this.Size;
-                    this.menuStrip.Hide();
-                    this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
-                    this.Location = new Point(0, 0);
-                    this.Size = SystemInformation.PrimaryMonitorSize;
-                    if (this.imageScaler.maintainAspectRatio)
-                    {
-                        int height = this.insideSize.Height;
-                        int width = this.insideSize.Width;
-                        if (height / 15.0 > width / 16.0)
-                        {
-                            this.surfaceControl.Width = width;
-                            this.surfaceControl.Height = (int)(width * (15.0 / 16.0));
-                            this.surfaceControl.Location = new Point(0, (int)(((height - (width * (15.0 / 16.0))) / 2.0)));
-                        }
-                        else
-                        {
-                            this.surfaceControl.Height = height;
-                            this.surfaceControl.Width = (int)(height * (16.0 / 15.0));
-                            this.surfaceControl.Location = new Point((int)((width - (height * (16.0 / 15.0))) / 2.0), 0);
-                        }
-                    }
-                    else
-                    {
-                        this.surfaceControl.Width = this.insideSize.Width;
-                        this.surfaceControl.Height = this.insideSize.Height;
-                        this.surfaceControl.Location = new Point(0, 0);
-                    }
-                    this.fullScreen = true;
-                }
-                pps.BackBufferHeight = this.surfaceControl.Height;
-                pps.BackBufferWidth = this.surfaceControl.Width;
-                ResetDevice();
+                this.menuStrip.Show();
+                this.Size = this.smallSize;
+                this.Location = this.smallLocation;
+                this.fullScreen = false;
             }
+            else
+            {
+                this.menuStrip.Hide();
+                this.smallLocation = this.Location;
+                this.smallSize = this.Size;
+                this.fullScreen = true;
+            }
+            PrepareScaler();
         }
         private void ResetDevice()
         {
@@ -1323,7 +1284,7 @@ namespace DirectXEmu
                     state = old;
                 }
             }
-            catch(Exception e)
+            catch
             {
             }
         }
@@ -1451,34 +1412,9 @@ namespace DirectXEmu
 
         private void Program_Resize(object sender, EventArgs e)
         {
-            if (this.imageScaler.maintainAspectRatio)
-            {
-                int height = this.insideSize.Height - this.menuStrip.Height;
-                int width = this.insideSize.Width;
-                if (height / 15.0 > width / 16.0)
-                {
-                    this.surfaceControl.Width = width;
-                    this.surfaceControl.Height = (int)(width * (15.0 / 16.0));
-                    this.surfaceControl.Location = new Point(0, (int)(((height - (width * (15.0 / 16.0))) / 2.0)) + this.menuStrip.Height);
-                }
-                else
-                {
-                    this.surfaceControl.Height = height;
-                    this.surfaceControl.Width = (int)(height * (16.0 / 15.0));
-                    this.surfaceControl.Location = new Point((int)((width - (height * (16.0 / 15.0))) / 2.0), this.menuStrip.Height);
-                }
-            }
-            else
-            {
-                this.surfaceControl.Width = this.insideSize.Width;
-                this.surfaceControl.Height = this.insideSize.Height - this.menuStrip.Height;
-                this.surfaceControl.Location = new Point(0, this.menuStrip.Height);
-            }
+            PrepareScaler();
             this.config["width"] = this.Width.ToString();
             this.config["height"] = this.Height.ToString();
-            pps.BackBufferHeight = this.surfaceControl.Height;
-            pps.BackBufferWidth = this.surfaceControl.Width;
-            ResetDevice();
         }
 
         private void aboutEmuoTronToolStripMenuItem_Click(object sender, EventArgs e)
@@ -2011,35 +1947,94 @@ namespace DirectXEmu
         }
         private void PrepareScaler()
         {
-
-            frameBuffer = new Bitmap(256, 240);
-            if (imageScaler.maintainAspectRatio)
+            int oldWidth = Width;
+            int oldHeight = Height;
+            if (fullScreen)
+            {
+                this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
+                this.Location = new Point(0, 0);
+                this.Size = SystemInformation.PrimaryMonitorSize;
+                if (this.imageScaler.maintainAspectRatio)
+                {
+                    int height = this.insideSize.Height;
+                    int width = this.insideSize.Width;
+                    if (height / 15.0 > width / 16.0)
+                    {
+                        this.surfaceControl.Width = width;
+                        this.surfaceControl.Height = (int)(width * (15.0 / 16.0));
+                        this.surfaceControl.Location = new Point(0, (int)(((height - (width * (15.0 / 16.0))) / 2.0)));
+                    }
+                    else
+                    {
+                        this.surfaceControl.Height = height;
+                        this.surfaceControl.Width = (int)(height * (16.0 / 15.0));
+                        this.surfaceControl.Location = new Point((int)((width - (height * (16.0 / 15.0))) / 2.0), 0);
+                    }
+                }
+                else
+                {
+                    this.surfaceControl.Width = this.insideSize.Width;
+                    this.surfaceControl.Height = this.insideSize.Height;
+                    this.surfaceControl.Location = new Point(0, 0);
+                }
+            }
+            else if (imageScaler.maintainAspectRatio)
             {
                 if (imageScaler.resizeable)
                 {
                     this.FormBorderStyle = FormBorderStyle.Sizable;
                     this.MaximizeBox = true;
-                    this.Width = Convert.ToInt32(config["width"]);
-                    this.Height = Convert.ToInt32(config["height"]);
                 }
                 else
                 {
                     this.FormBorderStyle = FormBorderStyle.Fixed3D;
                     this.MaximizeBox = false;
-                    this.Width = (this.Width - this.insideSize.Width) + this.imageScaler.xSize;
-                    this.Height = (this.Height - (this.insideSize.Height - this.menuStrip.Height)) + this.imageScaler.ySize;
+                    int borderWidth = (Width - ClientSize.Width);
+                    int titlebarHeight = (Height - ClientSize.Height);
+                    this.Width = borderWidth + this.imageScaler.xSize;
+                    this.Height = titlebarHeight + this.menuStrip.Height + this.imageScaler.ySize;
+                }
+                int height = ClientSize.Height - this.menuStrip.Height;
+                int width = ClientSize.Width;
+                if (height / 15.0 > width / 16.0)
+                {
+                    this.surfaceControl.Width = width;
+                    this.surfaceControl.Height = (int)(width * (15.0 / 16.0));
+                    this.surfaceControl.Location = new Point(0, (int)(((height - (width * (15.0 / 16.0))) / 2.0)) + this.menuStrip.Height);
+                }
+                else
+                {
+                    this.surfaceControl.Height = height;
+                    this.surfaceControl.Width = (int)(height * (16.0 / 15.0));
+                    this.surfaceControl.Location = new Point((int)((width - (height * (16.0 / 15.0))) / 2.0), this.menuStrip.Height);
                 }
             }
             else
             {
-                this.surfaceControl.Width = this.insideSize.Width;
-                this.surfaceControl.Height = this.insideSize.Height - this.menuStrip.Height;
+                if (imageScaler.resizeable)
+                {
+                    this.FormBorderStyle = FormBorderStyle.Sizable;
+                    this.MaximizeBox = true;
+                }
+                else
+                {
+                    this.FormBorderStyle = FormBorderStyle.Fixed3D;
+                    this.MaximizeBox = false;
+                    int borderWidth = (Width - ClientSize.Width);
+                    int titlebarHeight = (Height - ClientSize.Height);
+                    this.Width = borderWidth + this.imageScaler.xSize;
+                    this.Height = titlebarHeight + this.menuStrip.Height + this.imageScaler.ySize;
+                }
+                this.surfaceControl.Width = ClientSize.Width;
+                this.surfaceControl.Height = ClientSize.Height - this.menuStrip.Height;
                 this.surfaceControl.Location = new Point(0, this.menuStrip.Height);
             }
-            pps.BackBufferHeight = this.surfaceControl.Height;
-            pps.BackBufferWidth = this.surfaceControl.Width;
-            ResetDevice();
-            Program_Resize(this, new EventArgs());
+            if (oldWidth != Width || oldHeight != Height || pps.BackBufferHeight != this.surfaceControl.Height || pps.BackBufferWidth != this.surfaceControl.Width)
+            {
+                pps.BackBufferHeight = this.surfaceControl.Height;
+                pps.BackBufferWidth = this.surfaceControl.Width;
+                ResetDevice();
+            }
         }
         private string IPSPatch(string rom, string patch)
         {

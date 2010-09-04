@@ -58,7 +58,7 @@ namespace DirectXEmu
                 if (index == 1)
                     FileStream.Dispose(); //Stupid stupid hack to make both 7z and zip dispose the stream
             }
-            catch (Exception e) //7zip exectues this function once for each file until the one requested, zip will only execute the one time for needed file. Possibly use a counter until it == index?
+            catch  //7zip exectues this function once for each file until the one requested, zip will only execute the one time for needed file. Possibly use a counter until it == index?
             {
                 //MessageBox.Show(e.Message);
             }

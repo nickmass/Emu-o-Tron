@@ -801,6 +801,8 @@ namespace EmuoTron
                     FlagIRQ = 1;
                     RegPC = PeekWord(0xFFFC);
                     interruptReset = false;
+                    APU.Reset();
+                    PPU.Reset();
                 }
                 else if (PPU.interruptNMI)
                 {
@@ -1051,6 +1053,7 @@ namespace EmuoTron
             romMapper.mapper = mapper;
             romMapper.MapperInit();
             #endregion
+            PPU.Power();
             for (int i = 0; i < 0x10000; i++)
             {
                 this.MirrorMap[i] = (ushort)i;
@@ -1073,7 +1076,7 @@ namespace EmuoTron
                 {
                     if (player1.zapper.triggerPulled)
                         nextByte |= 0x10;
-                    if (!player1.zapper.lightDetected)
+                    if (!(((PPU.screen[player1.zapper.x, player1.zapper.y] & 0x3F) == 0x20) || ((PPU.screen[player1.zapper.x, player1.zapper.y] & 0x3F) == 0x30)))
                         nextByte |= 0x08;
                 }
                 if (controlReady)
@@ -1089,7 +1092,7 @@ namespace EmuoTron
                 {
                     if (player2.zapper.triggerPulled)
                         nextByte |= 0x10;
-                    if (!player2.zapper.lightDetected)
+                    if (!(((PPU.screen[player2.zapper.x, player2.zapper.y] & 0x3F) == 0x20) || ((PPU.screen[player2.zapper.x, player2.zapper.y] & 0x3F) == 0x30)))
                         nextByte |= 0x08;
                 }
                 if (controlReady)
@@ -1481,8 +1484,8 @@ namespace EmuoTron
         public void AddCycles(int value)
         {
             counter += value;
-            APU.AddCycles(value);
             PPU.AddCycles(value);
+            APU.AddCycles(value);
         }
         private void CPUMirror(ushort address, ushort mirrorAddress, ushort length, int repeat)
         {
@@ -1490,7 +1493,7 @@ namespace EmuoTron
                 for (int i = 0; i < length; i++)
                     this.MirrorMap[mirrorAddress + i + (j * length)] = (ushort)(this.MirrorMap[address + i]);
         }
-        public SaveState getState()
+        public SaveState StateSave()
         {
             SaveState newState = new SaveState();
             newState.stateMemory = (byte[][])Memory.StoreBanks().Clone();
@@ -1523,7 +1526,7 @@ namespace EmuoTron
             newState.isStored = true;
             return newState;
         }
-        public void loadState(SaveState oldState)
+        public void StateLoad(SaveState oldState)
         {
             this.Memory.LoadBanks((bool[])oldState.stateMemBanks.Clone(), (byte[][])oldState.stateMemory.Clone());
             this.Memory.memMap = (int[])oldState.stateMemMap.Clone();
@@ -1549,7 +1552,7 @@ namespace EmuoTron
             PPU.StateLoad(oldState.stateStream);
             APU.StateLoad(oldState.stateStream);
         }
-        public void restart()
+        public void Reset()
         {
             this.interruptReset = true;
         }
@@ -1603,7 +1606,8 @@ namespace EmuoTron
     {
         public bool connected;
         public bool triggerPulled;
-        public bool lightDetected;
+        public byte x;
+        public byte y;
     }
     public struct AutoFire
     {
