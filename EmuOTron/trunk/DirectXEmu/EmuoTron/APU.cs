@@ -13,12 +13,12 @@ namespace EmuoTron
         public int CPUClock;
 
         public bool mute;
+        public bool turbo;
 
         public int frameBuffer = 1;
-        public int sampleRate = 44100;
-        private int sampleRateDivider = 41;
-        private int[] sampleDividers;
-        private int sampleDividersCounter;
+        public int sampleRate = 96000;
+        private double sampleRateDivider;
+        private double sampleDivider;
 
         public SoundVolume volume;
 
@@ -130,8 +130,7 @@ namespace EmuoTron
         private int dmcShiftCount;
         private byte dmcShiftReg;
         private int[] dmcRates;
-        private int dmcSampleRateDivider = 41;
-        private int dmcSampleDividersCounter;
+        private double dmcSampleRateDivider;
 
         private double[] pulseTable = new double[32];
         private double[] tndTable = new double[204];
@@ -155,7 +154,7 @@ namespace EmuoTron
                     modeOneFrameLengths = new int[] { 7458, 7456, 7458, 7458, 7452};
                     noisePeriods = new ushort[] { 4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068 };
                     dmcRates = new int[] { 428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54 };
-                    sampleDividers = new int[] { 40, 40, 41, 41, 41 };
+                    sampleDivider = CPUClock / (sampleRate * 1.0);
                     output = new short[((sampleRate / 60) + 1) * frameBuffer * 2];
                     dmcBuffer = new byte[((sampleRate / 60) + 1) * frameBuffer * 2];
                     break;
@@ -167,7 +166,7 @@ namespace EmuoTron
                     modeOneFrameLengths = new int[] { 8314, 8314, 8312, 8314, 8312 };
                     noisePeriods = new ushort[] { 4, 7, 14, 30, 60, 88, 118, 148, 188, 236, 354, 472, 708, 944, 1890, 3778 };
                     dmcRates = new int[] { 398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118, 98, 78, 66, 50 };
-                    sampleDividers = new int[] { 40, 40, 41, 41, 41 };// = new int[] { 37, 37, 38, 38, 38 };
+                    sampleDivider = 1789773 / (sampleRate * 1.0); //I really wish I knew why this gave me the right timing. Just can't quite wrap my head around it.
                     output = new short[((sampleRate / 50) + 1) * frameBuffer * 2];
                     dmcBuffer = new byte[((sampleRate / 50) + 1) * frameBuffer * 2];
                     break;
@@ -752,26 +751,26 @@ namespace EmuoTron
                 }
                 dmcDivider = dmcRate;
             }
-            dmcSampleRateDivider--;
-            if(dmcSampleRateDivider == 0)
+            dmcSampleRateDivider++;
+            if(dmcSampleRateDivider > sampleDivider)
             {
                 dmcBuffer[dmcPtr] = dmcDeltaCounter;
                 dmcPtr++;
-                dmcSampleRateDivider = sampleDividers[dmcSampleDividersCounter++ % 5];
+                dmcSampleRateDivider -= sampleDivider;
             }
         }
         public void Update()
         {
-            if (mute)
+            if (mute || turbo)
             {
                 for (int updateCycle = lastUpdateCycle; updateCycle < cycles; updateCycle++)
                 {
-                    sampleRateDivider--;
-                    if (sampleRateDivider == 0)
+                    sampleRateDivider++;
+                    if (sampleRateDivider > sampleDivider)
                     {
                         output[outputPtr] = 0;
                         outputPtr++;
-                        sampleRateDivider = sampleDividers[sampleDividersCounter++ % 5];
+                        sampleRateDivider -= sampleDivider;
                     }
                 }
                 lastUpdateCycle = cycles;
@@ -882,8 +881,8 @@ namespace EmuoTron
                         noiseVolume = noiseEnvelopeCounter;
                     noiseDivider = noiseTimer;
                 }
-                sampleRateDivider--;
-                if (sampleRateDivider == 0)
+                sampleRateDivider++;
+                if (sampleRateDivider > sampleDivider)
                 {
                     triangleVolume = (byte)(triangleVolume * volume.triangle);
                     pulse1Volume = (byte)(pulse1Volume * volume.pulse1);
@@ -898,7 +897,7 @@ namespace EmuoTron
                                                                     pulse2Volume]
                                                     ) * short.MaxValue);
                     outputPtr++;
-                    sampleRateDivider = sampleDividers[sampleDividersCounter++ % 5];
+                    sampleRateDivider -= sampleDivider;
                 }
             }
             lastUpdateCycle = cycles;

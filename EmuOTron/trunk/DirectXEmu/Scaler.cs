@@ -12,6 +12,8 @@ namespace DirectXEmu
         protected int y;
         protected bool resize;
         protected bool maintainAR;
+        public float arX = 16;
+        public float arY = 15;
         public abstract int xSize
         {
             get;

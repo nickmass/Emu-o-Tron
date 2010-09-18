@@ -113,6 +113,7 @@
     <Compile Include="DipDialog.Designer.cs">
       <DependentUpon>DipDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="EmuoTron\mappers\m010.cs" />
     <Compile Include="Fill.cs" />
     <Compile Include="EmuoTron\mappers\m099.cs" />
     <Compile Include="EmuoTron\mappers\m000.cs" />
@@ -157,6 +158,17 @@
     <Compile Include="Keybinds.cs" />
     <Compile Include="EmuoTron\OpInfo.cs" />
     <Compile Include="EmuoTron\PPU.cs" />
+    <Compile Include="NetPlayConnect.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="NetPlayConnect.Designer.cs">
+      <DependentUpon>NetPlayConnect.cs</DependentUpon>
+    </Compile>
+    <Compile Include="NetPlay\Enums.cs" />
+    <Compile Include="NetPlay\NetPlayClient.cs" />
+    <Compile Include="NetPlay\NetPlayServer.cs" />
+    <Compile Include="NetPlay\User.cs" />
+    <Compile Include="NetPlay\Users.cs" />
     <Compile Include="Program.Designer.cs">
       <DependentUpon>Program.cs</DependentUpon>
     </Compile>
@@ -166,6 +178,7 @@
     <Compile Include="SoundConfig.Designer.cs">
       <DependentUpon>SoundConfig.cs</DependentUpon>
     </Compile>
+    <Compile Include="TVAspect.cs" />
     <Content Include="docs\2C02 technical reference.TXT" />
     <Content Include="docs\everynes.htm" />
     <Content Include="docs\loopyppu\SKINNY.TXT" />
@@ -348,6 +361,9 @@
     <EmbeddedResource Include="NameTablePreview.resx">
       <DependentUpon>NameTablePreview.cs</DependentUpon>
       <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="NetPlayConnect.resx">
+      <DependentUpon>NetPlayConnect.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="PatternTablePreview.resx">
       <DependentUpon>PatternTablePreview.cs</DependentUpon>

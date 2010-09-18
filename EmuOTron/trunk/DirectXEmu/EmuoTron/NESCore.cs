@@ -12,7 +12,7 @@ namespace EmuoTron
 {
     public class NESCore
     {
-        public SystemType nesRegion = SystemType.PAL;
+        public SystemType nesRegion;
 
         public MemoryStore Memory;
         public ushort[] MirrorMap = new ushort[0x10000];
@@ -31,6 +31,7 @@ namespace EmuoTron
         private int FlagOverflow = 0;
         private int FlagSign = 0; //Bit 7 of P
         private int counter = 0;
+        private int[] opList;
 
         private int invalidCount = 0;
 
@@ -84,6 +85,7 @@ namespace EmuoTron
             this.player4 = player4;
             fourScore = true;
             PPU.turbo = turbo;
+            APU.turbo = turbo;
             this.Start();
         }
 
@@ -93,6 +95,7 @@ namespace EmuoTron
             this.player2 = player2;
             fourScore = false;
             PPU.turbo = turbo;
+            APU.turbo = turbo;
             this.Start();
         }
         public void Start(Controller player1, bool turbo)
@@ -100,6 +103,7 @@ namespace EmuoTron
             this.player1 = player1;
             fourScore = false;
             PPU.turbo = turbo;
+            APU.turbo = turbo;
             this.Start();
         }
         public void Start()
@@ -124,7 +128,7 @@ namespace EmuoTron
                     logBuilder.AppendLine(LogOp(RegPC));
                 }
                 op = Read(RegPC);
-                opInfo = OpInfo.GetOps()[op];
+                opInfo = opList[op];
                 opCycles = (opInfo >> 24) & 0xFF;
                 opCycleAdd = 0;
                 addressing = (opInfo >> 8) & 0xFF;
@@ -844,6 +848,7 @@ namespace EmuoTron
         {
             this.nesRegion = region;
             this.cartDBLocation = cartDBLocation;
+            opList = OpInfo.GetOps();
             inputStream.Position = 0;
             if (!ignoreFileCheck)
             {
@@ -1026,6 +1031,9 @@ namespace EmuoTron
                     break;
                 case 9: //MMC2
                     romMapper = new mappers.m009(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    break;
+                case 10: //MMC4
+                    romMapper = new mappers.m010(Memory, PPU.PPUMemory, numprgrom, numvrom);
                     break;
                 case 11: //Color Dreams
                     romMapper = new mappers.m011(Memory, PPU.PPUMemory, numprgrom, numvrom);

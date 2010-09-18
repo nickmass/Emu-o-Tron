@@ -313,7 +313,7 @@ namespace EmuoTron
                         spriteLine = new ushort[256];
                         spriteAboveLine = new bool[256];
                         spriteBelowLine = new bool[256];
-                        for (int tile = 0; tile < 34; tile++)//each tile on line
+                        for (int tile = 0; tile < 33; tile++)//each tile on line
                         {
                             int tileAddr = PPUMirrorMap[0x2000 | (loopyV & 0x0FFF)];
                             int tileNumber = PPUMemory[tileAddr];
@@ -337,7 +337,7 @@ namespace EmuoTron
                                 lowChr <<= 1;
                                 highChr <<= 1;
                             }
-                            if (nes.romMapper.mapper == 9)//MMC 2 Punch Out!
+                            if (nes.romMapper.mapper == 9 || nes.romMapper.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
                             {
                                 if (chrAddress >= 0xFD0 && chrAddress <= 0xFDF)
                                     nes.romMapper.MapperIRQ(0, 0xFD);
@@ -401,7 +401,7 @@ namespace EmuoTron
                                         lowChr <<= 1;
                                         highChr <<= 1;
                                     }
-                                    if (nes.romMapper.mapper == 9)//MMC 2 Punch Out!
+                                    if (nes.romMapper.mapper == 9 || nes.romMapper.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
                                     {
                                         if (chrAddress >= 0xFD0 && chrAddress <= 0xFDF)
                                             nes.romMapper.MapperIRQ(0, 0xFD);
@@ -482,6 +482,7 @@ namespace EmuoTron
         private byte[][,] GenerateNameTables()
         {
             byte[][,] nameTables = new byte[4][,];
+            ushort nameTableOffset = 0x2000;
             for (int nameTable = 0; nameTable < 4; nameTable++)
             {
                 nameTables[nameTable] = new byte[256, 240];
@@ -489,8 +490,8 @@ namespace EmuoTron
                 {
                     for (int tile = 0; tile < 32; tile++)//each tile on line
                     {
-                        ushort nameTableOffset = (ushort)((nameTable * 0x400) + 0x2000);
-                        int tileAddr = PPUMirrorMap[nameTableOffset + ((line / 8) * 32) + (tile)];
+                       
+                        int tileAddr = PPUMirrorMap[nameTableOffset + ((line / 8) * 32) + tile];
                         int tileNumber = PPUMemory[tileAddr];
                         int addrTableLookup = AttrTableLookup[tileAddr & 0x3FF];
                         int palette = (PPUMemory[((tileAddr & 0x3C00) + 0x3C0) + (addrTableLookup & 0xFF)] >> (addrTableLookup >> 12)) & 0x03;
@@ -504,15 +505,16 @@ namespace EmuoTron
                             {
                                 byte color = (byte)(((lowChr & 0x80) >> 7) + ((highChr & 0x80) >> 6));
                                 if (color == 0)
-                                    nameTables[nameTable][(tile * 8) + x, line] = (byte)(PalMemory[0x00] & grayScale);
+                                    nameTables[nameTable][(tile * 8) + x, line] = (byte)((PalMemory[0x00] & grayScale) | colorMask);
                                 else
-                                    nameTables[nameTable][(tile * 8) + x, line] = (byte)(PalMemory[(palette * 4) + color] & grayScale);
+                                    nameTables[nameTable][(tile * 8) + x, line] = (byte)((PalMemory[(palette * 4) + color] & grayScale) | colorMask);
                             }
                             lowChr <<= 1;
                             highChr <<= 1;
                         }
                     }
                 }
+                nameTableOffset += 0x400;
             }
             return nameTables;
         }

@@ -6,7 +6,7 @@ using System.IO;
 
 namespace EmuoTron.mappers
 {
-    class m009 : Mapper
+    class m010 : Mapper
     {
         int latch0;
         int latch1;
@@ -14,20 +14,18 @@ namespace EmuoTron.mappers
         int fe0;
         int fd1;
         int fe1;
-        public m009(MemoryStore Memory, MemoryStore PPUMemory, int numPRGRom, int numVRom)
+        public m010(MemoryStore Memory, MemoryStore PPUMemory, int numPRGRom, int numVRom)
         {
             this.numPRGRom = numPRGRom;
             this.numVRom = numVRom;
             this.Memory = Memory;
             this.PPUMemory = PPUMemory;
-            this.mapper = 9;
+            this.mapper = 10;
         }
         public override void MapperInit()
         {
-            Memory.Swap8kROM(0x8000, 0);
-            Memory.Swap8kROM(0xA000, (numPRGRom * 2) - 3);
-            Memory.Swap8kROM(0xC000, (numPRGRom * 2) - 2);
-            Memory.Swap8kROM(0xE000, (numPRGRom * 2) - 1);
+            Memory.Swap16kROM(0x8000, 0);
+            Memory.Swap16kROM(0xC000, numPRGRom - 1);
             PPUMemory.Swap4kROM(0x0000, 0);
             PPUMemory.Swap4kROM(0x1000, 1);
         }
@@ -46,7 +44,7 @@ namespace EmuoTron.mappers
                 {
                     value = (byte)(value % (numVRom * 2)); //0xFE
                     fe1 = value;
-                    if(latch1 ==  0xFE)
+                    if (latch1 == 0xFE)
                         PPUMemory.Swap4kROM(0x1000, value);
                 }
                 else if (address >= 0xD000)
@@ -72,8 +70,8 @@ namespace EmuoTron.mappers
                 }
                 else
                 {
-                    value = (byte)(value % (numPRGRom * 2));
-                    Memory.Swap8kROM(0x8000, value);
+                    value = (byte)(value % (numPRGRom));
+                    Memory.Swap16kROM(0x8000, value);
                 }
             }
         }
@@ -87,7 +85,7 @@ namespace EmuoTron.mappers
                 else
                     PPUMemory.Swap4kROM(0x0000, fe0);
             }
-            else if(scanline == 1)
+            else if (scanline == 1)
             {
                 latch1 = vblank;
                 if (latch1 == 0xFD)

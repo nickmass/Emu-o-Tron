@@ -5,7 +5,7 @@ using System.Text;
 
 namespace DirectXEmu
 {
-    class Fill : Scaler
+    class TVAspect : Scaler
     {
         public override bool resizeable
         {
@@ -23,12 +23,14 @@ namespace DirectXEmu
         {
             get { return this.maintainAR; }
         }
-        public Fill()
+        public TVAspect()
         {
             this.x = 256;
             this.y = 240;
+            this.arX = 4;
+            this.arY = 3;   
             this.resize = true;
-            this.maintainAR = false;
+            this.maintainAR = true;
         }
         public override unsafe void PerformScale(int* origPixels, int* resizePixels)
         {

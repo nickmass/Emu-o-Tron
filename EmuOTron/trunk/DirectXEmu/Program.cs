@@ -17,6 +17,7 @@ using SlimDX.XInput;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
 using EmuoTron;
+using NetPlay;
 
 namespace DirectXEmu
 {
@@ -138,7 +139,7 @@ namespace DirectXEmu
         static void Main(string[] args)
         {
             Process thisProc = Process.GetCurrentProcess();
-            thisProc.PriorityClass = ProcessPriorityClass.High;
+            thisProc.PriorityClass = ProcessPriorityClass.AboveNormal;
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             if (args.Length == 0)
@@ -299,7 +300,15 @@ namespace DirectXEmu
 
                 }
             }
-            cpu.Start(player1, player2, (this.frame % this.frameSkipper != 0));
+            if (netPlay)
+            {
+                netClient.SendInput(PlayerToByte(this.player1));
+                cpu.Start(ByteToPlayer(netClient.player1), ByteToPlayer(netClient.player2), (this.frame % this.frameSkipper != 0));
+            }
+            else
+            {
+                cpu.Start(player1, player2, (this.frame % this.frameSkipper != 0));
+            }
             UpdateFramerate();
 
             if (memoryViewerMem == 1)
@@ -462,6 +471,14 @@ namespace DirectXEmu
                         inputString += " ";
                     DrawString(inputString, 4, this.surfaceControl.Height - (charSize + 4));
                 }
+                if (netPlay)
+                {
+                    if (netClient.pendingMessage != 0)
+                    {
+                        DrawString(netClient.message, 4, (charSize + 4));
+                        netClient.pendingMessage--;
+                    }
+                }
                 device.EndScene();
                 device.Present();
             }
@@ -482,13 +499,6 @@ namespace DirectXEmu
                 else
                     MessageBox.Show(e.Message, "D3D");
 #endif
-            }
-            catch (Exception e)
-            {
-#if DEBUG
-                MessageBox.Show(e.Message, "OTHER EXCEP");
-#endif
-
             }
         }
         public bool InitializeDirect3D()
@@ -602,6 +612,10 @@ namespace DirectXEmu
                 case "fill":
                     fillToolStripMenuItem.Checked = true;
                     this.imageScaler = new Fill();
+                    break;
+                case "tv":
+                    tVAspectToolStripMenuItem.Checked = true;
+                    this.imageScaler = new TVAspect();
                     break;
             }
             frameBuffer = new Bitmap(256, 240);
@@ -1111,6 +1125,8 @@ namespace DirectXEmu
             charSheetSprites['*'] = 42;
             charSheetSprites['&'] = 43;
             charSheetSprites['$'] = 44;
+            charSheetSprites['.'] = 45;
+            charSheetSprites[':'] = 45;
         }
         private void DrawString(string str, int x, int y)
         {
@@ -1118,12 +1134,15 @@ namespace DirectXEmu
             messageSprite.Begin(SpriteFlags.AlphaBlend);
             for (int i = 0; i < str.Length; i++)
             {
-                int charNum = charSheetSprites[str[i]];
-                int charX = (charNum % charSize) * charSize;
-                int charY = (charNum / charSize) * charSize;
-                Rectangle rect = new Rectangle(charX, charY, charSize, charSize);
-                messageSprite.Transform = Matrix.Translation(x + (i * charSize), y, 0);
-                messageSprite.Draw(charSheet, rect, new SlimDX.Color4(Color.White));
+                if (charSheetSprites.ContainsKey(str[i]))
+                {
+                    int charNum = charSheetSprites[str[i]];
+                    int charX = (charNum % charSize) * charSize;
+                    int charY = (charNum / charSize) * charSize;
+                    Rectangle rect = new Rectangle(charX, charY, charSize, charSize);
+                    messageSprite.Transform = Matrix.Translation(x + (i * charSize), y, 0);
+                    messageSprite.Draw(charSheet, rect, new SlimDX.Color4(Color.White));
+                }
             }
             messageSprite.End();
         }
@@ -1741,6 +1760,14 @@ namespace DirectXEmu
                         File.Delete(tmpFiles[i]);
                 }
             }
+            if (netPlay)
+            {
+                netClient.Close();
+                if (netPlayServer)
+                {
+                    netServer.Close();
+                }
+            }
             this.closed = true;
             Thread.Sleep(32);
             audioWriter.Close();
@@ -1945,6 +1972,20 @@ namespace DirectXEmu
             PrepareScaler();
             config["scaler"] = "scale3x";
         }
+
+        private void tVAspectToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            foreach (ToolStripMenuItem item in videoModeToolStripMenuItem.DropDownItems)
+                item.Checked = false;
+            tVAspectToolStripMenuItem.Checked = true;
+            SystemState old = state;
+            state = SystemState.SystemPause;
+            Thread.Sleep(100);
+            imageScaler = new TVAspect();
+            state = old;
+            PrepareScaler();
+            config["scaler"] = "tv";
+        }
         private void PrepareScaler()
         {
             int oldWidth = Width;
@@ -1956,25 +1997,25 @@ namespace DirectXEmu
                 this.Size = SystemInformation.PrimaryMonitorSize;
                 if (this.imageScaler.maintainAspectRatio)
                 {
-                    int height = this.insideSize.Height;
-                    int width = this.insideSize.Width;
-                    if (height / 15.0 > width / 16.0)
+                    int height = this.Height;
+                    int width = this.Width;
+                    if (height / imageScaler.arY > width / imageScaler.arX)
                     {
                         this.surfaceControl.Width = width;
-                        this.surfaceControl.Height = (int)(width * (15.0 / 16.0));
-                        this.surfaceControl.Location = new Point(0, (int)(((height - (width * (15.0 / 16.0))) / 2.0)));
+                        this.surfaceControl.Height = (int)(width * (imageScaler.arY / imageScaler.arX));
+                        this.surfaceControl.Location = new Point(0, (int)(((height - (width * (imageScaler.arY / imageScaler.arX))) / 2.0)));
                     }
                     else
                     {
                         this.surfaceControl.Height = height;
-                        this.surfaceControl.Width = (int)(height * (16.0 / 15.0));
-                        this.surfaceControl.Location = new Point((int)((width - (height * (16.0 / 15.0))) / 2.0), 0);
+                        this.surfaceControl.Width = (int)(height * (imageScaler.arX / imageScaler.arY));
+                        this.surfaceControl.Location = new Point((int)((width - (height * (imageScaler.arX / imageScaler.arY))) / 2.0), 0);
                     }
                 }
                 else
                 {
-                    this.surfaceControl.Width = this.insideSize.Width;
-                    this.surfaceControl.Height = this.insideSize.Height;
+                    this.surfaceControl.Width = this.Width;
+                    this.surfaceControl.Height = this.Height;
                     this.surfaceControl.Location = new Point(0, 0);
                 }
             }
@@ -1996,17 +2037,17 @@ namespace DirectXEmu
                 }
                 int height = ClientSize.Height - this.menuStrip.Height;
                 int width = ClientSize.Width;
-                if (height / 15.0 > width / 16.0)
+                if (height / imageScaler.arY > width / imageScaler.arX)
                 {
                     this.surfaceControl.Width = width;
-                    this.surfaceControl.Height = (int)(width * (15.0 / 16.0));
-                    this.surfaceControl.Location = new Point(0, (int)(((height - (width * (15.0 / 16.0))) / 2.0)) + this.menuStrip.Height);
+                    this.surfaceControl.Height = (int)(width * (imageScaler.arY / imageScaler.arX));
+                    this.surfaceControl.Location = new Point(0, (int)(((height - (width * (imageScaler.arY / imageScaler.arX))) / 2.0)) + this.menuStrip.Height);
                 }
                 else
                 {
                     this.surfaceControl.Height = height;
-                    this.surfaceControl.Width = (int)(height * (16.0 / 15.0));
-                    this.surfaceControl.Location = new Point((int)((width - (height * (16.0 / 15.0))) / 2.0), this.menuStrip.Height);
+                    this.surfaceControl.Width = (int)(height * (imageScaler.arX / imageScaler.arY));
+                    this.surfaceControl.Location = new Point((int)((width - (height * (imageScaler.arX / imageScaler.arY))) / 2.0), this.menuStrip.Height);
                 }
             }
             else
@@ -2264,6 +2305,89 @@ namespace DirectXEmu
                 item.Checked = false;
             pALToolStripMenuItem.Checked = true;
             config["region"] = ((int)SystemType.PAL).ToString();
+        }
+        bool netPlay;
+        bool netPlayServer;
+        NetPlayServer netServer;
+        NetPlayClient netClient;
+        private void startGameToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (netPlay)
+                netClient.Close();
+            if (netPlayServer)
+                netServer.Close();
+            NetPlayConnect NPC = new NetPlayConnect("127.0.0.1");
+            if (NPC.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                netServer = new NetPlayServer(Convert.ToInt32(config["serverPort"]));
+                netClient = new NetPlayClient(NPC.ip, Convert.ToInt32(config["serverPort"]), NPC.nick);
+                Thread.Sleep(100);
+                netPlay = true;
+                netPlayServer = true;
+            }
+        }
+
+        private void joinGameToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (netPlay)
+                netClient.Close();
+            if (netPlayServer)
+                netServer.Close();
+            NetPlayConnect NPC = new NetPlayConnect();
+            if (NPC.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                netClient = new NetPlayClient(NPC.ip, Convert.ToInt32(config["serverPort"]), NPC.nick);
+                Thread.Sleep(100);
+                netPlay = true;
+            }
+        }
+        public static byte PlayerToByte(EmuoTron.Controller player)
+        {
+            byte input = 0;
+            if (player.a)
+                input |= 1;
+            input <<= 1;
+            if (player.b)
+                input |= 1;
+            input <<= 1;
+            if (player.start)
+                input |= 1;
+            input <<= 1;
+            if (player.select)
+                input |= 1;
+            input <<= 1;
+            if (player.left)
+                input |= 1;
+            input <<= 1;
+            if (player.right)
+                input |= 1;
+            input <<= 1;
+            if (player.up)
+                input |= 1;
+            input <<= 1;
+            if (player.down)
+                input |= 1;
+            return input;
+        }
+        public static EmuoTron.Controller ByteToPlayer(byte input)
+        {
+            EmuoTron.Controller player = new EmuoTron.Controller();
+            player.down = ((input & 1) == 1);
+            input >>= 1;
+            player.up = ((input & 1) == 1);
+            input >>= 1;
+            player.right = ((input & 1) == 1);
+            input >>= 1;
+            player.left = ((input & 1) == 1);
+            input >>= 1;
+            player.select = ((input & 1) == 1);
+            input >>= 1;
+            player.start = ((input & 1) == 1);
+            input >>= 1;
+            player.b = ((input & 1) == 1);
+            input >>= 1;
+            player.a = ((input & 1) == 1);
+            return player;
         }
     }
 }
