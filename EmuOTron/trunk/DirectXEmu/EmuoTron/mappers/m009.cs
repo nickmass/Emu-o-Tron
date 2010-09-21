@@ -14,86 +14,83 @@ namespace EmuoTron.mappers
         int fe0;
         int fd1;
         int fe1;
-        public m009(MemoryStore Memory, MemoryStore PPUMemory, int numPRGRom, int numVRom)
+        public m009(NESCore nes)
         {
-            this.numPRGRom = numPRGRom;
-            this.numVRom = numVRom;
-            this.Memory = Memory;
-            this.PPUMemory = PPUMemory;
-            this.mapper = 9;
+            this.nes = nes;
         }
-        public override void MapperInit()
+        public override void Init()
         {
-            Memory.Swap8kROM(0x8000, 0);
-            Memory.Swap8kROM(0xA000, (numPRGRom * 2) - 3);
-            Memory.Swap8kROM(0xC000, (numPRGRom * 2) - 2);
-            Memory.Swap8kROM(0xE000, (numPRGRom * 2) - 1);
-            PPUMemory.Swap4kROM(0x0000, 0);
-            PPUMemory.Swap4kROM(0x1000, 1);
+            nes.Memory.Swap8kROM(0x8000, 0);
+            nes.Memory.Swap8kROM(0xA000, (nes.rom.prgROM / 8) - 3);
+            nes.Memory.Swap8kROM(0xC000, (nes.rom.prgROM / 8) - 2);
+            nes.Memory.Swap8kROM(0xE000, (nes.rom.prgROM / 8) - 1);
+            nes.PPU.PPUMemory.Swap4kROM(0x0000, 0);
+            nes.PPU.PPUMemory.Swap4kROM(0x1000, 1);
         }
-        public override void MapperWrite(ushort address, byte value)
+        public override void Write(byte value, ushort address)
         {
             if (address >= 0xA000)
             {
                 if (address >= 0xF000)
                 {
                     if ((value & 1) != 0)
-                        PPUMemory.HorizontalMirroring();
+                        nes.PPU.PPUMemory.HorizontalMirroring();
                     else
-                        PPUMemory.VerticalMirroring();
+                        nes.PPU.PPUMemory.VerticalMirroring();
                 }
                 else if (address >= 0xE000)
                 {
-                    value = (byte)(value % (numVRom * 2)); //0xFE
+                    value = (byte)(value % (nes.rom.vROM / 4)); //0xFE
                     fe1 = value;
                     if(latch1 ==  0xFE)
-                        PPUMemory.Swap4kROM(0x1000, value);
+                        nes.PPU.PPUMemory.Swap4kROM(0x1000, value);
                 }
                 else if (address >= 0xD000)
                 {
-                    value = (byte)(value % (numVRom * 2)); //0xFD
+                    value = (byte)(value % (nes.rom.vROM / 4)); //0xFD
                     fd1 = value;
                     if (latch1 == 0xFD)
-                        PPUMemory.Swap4kROM(0x1000, value);
+                        nes.PPU.PPUMemory.Swap4kROM(0x1000, value);
                 }
                 else if (address >= 0xC000)
                 {
-                    value = (byte)(value % (numVRom * 2)); //0xFE
+                    value = (byte)(value % (nes.rom.vROM / 4)); //0xFE
                     fe0 = value;
                     if (latch0 == 0xFE)
-                        PPUMemory.Swap4kROM(0x0000, value);
+                        nes.PPU.PPUMemory.Swap4kROM(0x0000, value);
                 }
                 else if (address >= 0xB000)
                 {
-                    value = (byte)(value % (numVRom * 2)); //0xFD
+                    value = (byte)(value % (nes.rom.vROM / 4)); //0xFD
                     fd0 = value;
                     if (latch0 == 0xFD)
-                        PPUMemory.Swap4kROM(0x0000, value);
+                        nes.PPU.PPUMemory.Swap4kROM(0x0000, value);
                 }
                 else
                 {
-                    value = (byte)(value % (numPRGRom * 2));
-                    Memory.Swap8kROM(0x8000, value);
+                    value = (byte)(value % (nes.rom.prgROM / 8));
+                    nes.Memory.Swap8kROM(0x8000, value);
                 }
             }
         }
-        public override void MapperIRQ(int scanline, int vblank)
+        public override byte Read(byte value, ushort address) { return value; }
+        public override void IRQ(int scanline, int vblank)
         {
             if (scanline == 0)
             {
                 latch0 = vblank;
                 if (latch0 == 0xFD)
-                    PPUMemory.Swap4kROM(0x0000, fd0);
+                    nes.PPU.PPUMemory.Swap4kROM(0x0000, fd0);
                 else
-                    PPUMemory.Swap4kROM(0x0000, fe0);
+                    nes.PPU.PPUMemory.Swap4kROM(0x0000, fe0);
             }
             else if(scanline == 1)
             {
                 latch1 = vblank;
                 if (latch1 == 0xFD)
-                    PPUMemory.Swap4kROM(0x1000, fd1);
+                    nes.PPU.PPUMemory.Swap4kROM(0x1000, fd1);
                 else
-                    PPUMemory.Swap4kROM(0x1000, fe1);
+                    nes.PPU.PPUMemory.Swap4kROM(0x1000, fe1);
             }
         }
         public override void StateLoad(System.IO.MemoryStream buf)

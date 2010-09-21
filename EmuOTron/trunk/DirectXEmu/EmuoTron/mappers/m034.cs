@@ -7,53 +7,51 @@ namespace EmuoTron.mappers
 {
     class m034 : Mapper
     {
-        public m034(MemoryStore Memory, MemoryStore PPUMemory, int numPRGRom, int numVRom)
+        public m034(NESCore nes)
         {
-            this.numPRGRom = numPRGRom;
-            this.numVRom = numVRom;
-            this.Memory = Memory;
-            this.PPUMemory = PPUMemory;
+            this.nes = nes;
         }
-        public override void MapperInit()
+        public override void Init()
         {
-            if (numVRom == 0)//BNROM
+            if (nes.rom.vROM == 0)//BNROM
             {
-                Memory.Swap32kROM(0x8000, 0);
-                PPUMemory.Swap8kRAM(0x0000, 0);
+                nes.Memory.Swap32kROM(0x8000, 0);
+                nes.PPU.PPUMemory.Swap8kRAM(0x0000, 0);
             }
             else //NINA-001
             {
-                Memory.Swap32kROM(0x8000, 0);
-                PPUMemory.Swap8kROM(0x0000, 0);
+                nes.Memory.Swap32kROM(0x8000, 0);
+                nes.PPU.PPUMemory.Swap8kROM(0x0000, 0);
             }
         }
-        public override void MapperWrite(ushort address, byte value)
+        public override void Write(byte value, ushort address)
         {
-            if (numVRom == 0)//BNROM
+            if (nes.rom.vROM == 0)//BNROM
             {
                 if (address >= 0x8000)
                 {
-                    if (Memory[address] == value)
-                        Memory.Swap32kROM(0x8000, (value & 3) % (numPRGRom / 2));
+                    if (nes.Memory[address] == value)
+                        nes.Memory.Swap32kROM(0x8000, (value & 3) % (nes.rom.prgROM / 32));
                 }
             }
             else //NINA-001
             {
                 if (address == 0x7FFE)
                 {
-                    PPUMemory.Swap4kROM(0x0000, (value & 0x0F) % (numVRom * 4));
+                    nes.PPU.PPUMemory.Swap4kROM(0x0000, (value & 0x0F) % (nes.rom.vROM / 4));
                 }
                 else if (address == 0x7FFF)
                 {
-                    PPUMemory.Swap4kROM(0x1000, (value & 0x0F) % (numVRom * 4));
+                    nes.PPU.PPUMemory.Swap4kROM(0x1000, (value & 0x0F) % (nes.rom.vROM / 4));
                 }
                 else if (address == 0x7FFD)
                 {
-                    Memory.Swap32kROM(0x8000, (value & 1) % (numPRGRom / 2));
+                    nes.Memory.Swap32kROM(0x8000, (value & 1) % (nes.rom.prgROM / 32));
                 }
             }
         }
-        public override void MapperIRQ(int scanline, int vblank) { }
+        public override byte Read(byte value, ushort address) { return value; }
+        public override void IRQ(int scanline, int vblank) { }
         public override void StateLoad(System.IO.MemoryStream buf) { }
         public override void StateSave(ref System.IO.MemoryStream buf) { }
     }

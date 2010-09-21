@@ -14,23 +14,20 @@ namespace EmuoTron.mappers
         private byte reg3;
         private byte writeLatch;
         private byte regTmp;
-        public m001(MemoryStore Memory, MemoryStore PPUMemory, int numPRGRom, int numVRom)
+        public m001(NESCore nes)
         {
-            this.numPRGRom = numPRGRom;
-            this.numVRom = numVRom;
-            this.Memory = Memory;
-            this.PPUMemory = PPUMemory;
+            this.nes = nes;
         }
-        public override void MapperInit()
+        public override void Init()
         {
-            Memory.Swap16kROM(0x8000, 0);
-            Memory.Swap16kROM(0xC000, numPRGRom - 1);
-            if (numVRom == 0)
-                PPUMemory.Swap8kRAM(0x0000, 0);
+            nes.Memory.Swap16kROM(0x8000, 0);
+            nes.Memory.Swap16kROM(0xC000, (nes.rom.prgROM / 16) - 1);
+            if (nes.rom.vROM == 0)
+                nes.PPU.PPUMemory.Swap8kRAM(0x0000, 0);
             else
-                PPUMemory.Swap8kROM(0x0000, 0);
+                nes.PPU.PPUMemory.Swap8kROM(0x0000, 0);
         }
-        public override void MapperWrite(ushort address, byte value)
+        public override void Write(byte value, ushort address)
         {
             if (address >= 0x8000)
             {
@@ -77,13 +74,13 @@ namespace EmuoTron.mappers
                     writeLatch = 0;
                     RegZeroChange();
                     if ((reg0 & 3) == 0)
-                        PPUMemory.ScreenOneMirroring();
+                        nes.PPU.PPUMemory.ScreenOneMirroring();
                     else if ((reg0 & 3) == 1)
-                        PPUMemory.ScreenTwoMirroring();
+                        nes.PPU.PPUMemory.ScreenTwoMirroring();
                     else if ((reg0 & 3) == 2)
-                        PPUMemory.VerticalMirroring();
+                        nes.PPU.PPUMemory.VerticalMirroring();
                     else if ((reg0 & 3) == 3)
-                        PPUMemory.HorizontalMirroring();
+                        nes.PPU.PPUMemory.HorizontalMirroring();
                 }
             }
 
@@ -94,52 +91,52 @@ namespace EmuoTron.mappers
             {
                 if ((reg0 & 0x4) != 0) // Switch at $8000
                 {
-                    Memory.Swap16kROM(0x8000, reg3 % numPRGRom);
-                    Memory.Swap16kROM(0xC000, numPRGRom - 1);
+                    nes.Memory.Swap16kROM(0x8000, reg3 % (nes.rom.prgROM / 16));
+                    nes.Memory.Swap16kROM(0xC000, (nes.rom.prgROM / 16) - 1);
                 }
                 else // Switch at $c000
                 {
-                    Memory.Swap16kROM(0x8000, 0);
-                    Memory.Swap16kROM(0xC000, reg3 % numPRGRom);
+                    nes.Memory.Swap16kROM(0x8000, 0);
+                    nes.Memory.Swap16kROM(0xC000, reg3 % (nes.rom.prgROM / 16));
                 }
             }
             else //switch 32kb
             {
-                Memory.Swap16kROM(0x8000, (reg3 & 0xFE) % numPRGRom); //32k swap maybe works here, I have my doubts
-                Memory.Swap16kROM(0xC000, ((reg3 & 0xFE) + 1) % numPRGRom);
+                nes.Memory.Swap16kROM(0x8000, (reg3 & 0xFE) % (nes.rom.prgROM / 16)); //32k swap maybe works here, I have my doubts
+                nes.Memory.Swap16kROM(0xC000, ((reg3 & 0xFE) + 1) % (nes.rom.prgROM / 16));
             }
         }
         private void ChrRegOneChange()
         {
             if ((reg0 & 0x10) != 0)
             {
-                if (numVRom == 0)
-                    PPUMemory.Swap4kRAM(0x1000, reg2);
+                if (nes.rom.vROM == 0)
+                    nes.PPU.PPUMemory.Swap4kRAM(0x1000, reg2);
                 else
-                    PPUMemory.Swap4kROM(0x1000, reg2 % (numVRom * 2));
+                    nes.PPU.PPUMemory.Swap4kROM(0x1000, reg2 % (nes.rom.vROM / 4));
             }
         }
         private void ChrRegZeroChange()
         {
             if ((reg0 & 0x10) == 0)
             {
-                if (numVRom == 0)
+                if (nes.rom.vROM == 0)
                 {
-                    PPUMemory.Swap4kRAM(0x0000, reg1 & 1);
-                    PPUMemory.Swap4kRAM(0x1000, (reg1 & 1) + 1);
+                    nes.PPU.PPUMemory.Swap4kRAM(0x0000, reg1 & 1);
+                    nes.PPU.PPUMemory.Swap4kRAM(0x1000, (reg1 & 1) + 1);
                 }
                 else
                 {
-                    PPUMemory.Swap4kROM(0x0000, (reg1 & 1) % (numVRom * 2));
-                    PPUMemory.Swap4kROM(0x1000, ((reg1 & 1) + 1) % (numVRom * 2));
+                    nes.PPU.PPUMemory.Swap4kROM(0x0000, (reg1 & 1) % (nes.rom.vROM / 4));
+                    nes.PPU.PPUMemory.Swap4kROM(0x1000, ((reg1 & 1) + 1) % (nes.rom.vROM / 4));
                 }
             }
             else
             {
-                if (numVRom == 0)
-                    PPUMemory.Swap4kRAM(0x0000, reg1);
+                if (nes.rom.vROM == 0)
+                    nes.PPU.PPUMemory.Swap4kRAM(0x0000, reg1);
                 else
-                    PPUMemory.Swap4kROM(0x0000, reg1 % (numVRom * 2));
+                    nes.PPU.PPUMemory.Swap4kROM(0x0000, reg1 % (nes.rom.vROM / 4));
             }
         }
         private void RegZeroChange()
@@ -148,7 +145,8 @@ namespace EmuoTron.mappers
             ChrRegZeroChange();
             ChrRegOneChange();
         }
-        public override void MapperIRQ(int scanline, int vblank) { }
+        public override byte Read(byte value, ushort address) { return value; }
+        public override void IRQ(int scanline, int vblank) { }
         public override void StateSave(ref MemoryStream buf)
         {
             BinaryWriter writer = new BinaryWriter(buf);

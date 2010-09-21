@@ -211,7 +211,7 @@ namespace DirectXEmu
                 saveSlots[quickSaveSlot] = cpu.StateSave();
                 IFormatter formatter = new BinaryFormatter();
                 Directory.CreateDirectory(config["savestateDir"]);
-                Stream stream = new FileStream(Path.Combine(config["savestateDir"], cpu.fileName + ".s" + quickSaveSlot.ToString("D2")), FileMode.Create, FileAccess.Write, FileShare.None);
+                Stream stream = new FileStream(Path.Combine(config["savestateDir"], cpu.rom.fileName + ".s" + quickSaveSlot.ToString("D2")), FileMode.Create, FileAccess.Write, FileShare.None);
                 formatter.Serialize(stream, saveSlots[quickSaveSlot]);
                 stream.Close();
                 this.message = "State " + quickSaveSlot.ToString() + " Saved";
@@ -676,10 +676,10 @@ namespace DirectXEmu
             saveSlots = new SaveState[10];
             for (int i = 0; i < 10; i++)
             {
-                if (File.Exists(Path.Combine(config["savestateDir"], cpu.fileName + ".s" + i.ToString("D2"))))
+                if (File.Exists(Path.Combine(config["savestateDir"], cpu.rom.fileName + ".s" + i.ToString("D2"))))
                 {
                     IFormatter formatter = new BinaryFormatter();
-                    Stream stream = new FileStream(Path.Combine(config["savestateDir"], cpu.fileName + ".s" + i.ToString("D2")), FileMode.Open, FileAccess.Read, FileShare.Read);
+                    Stream stream = new FileStream(Path.Combine(config["savestateDir"], cpu.rom.fileName + ".s" + i.ToString("D2")), FileMode.Open, FileAccess.Read, FileShare.Read);
                     saveSlots[i]= (SaveState)formatter.Deserialize(stream);
                     stream.Close();
                 }
@@ -1610,10 +1610,10 @@ namespace DirectXEmu
             this.LoadSaveStateFiles();
             this.cpu.gameGenieCodeNum = this.gameGenieCodeCount;
             this.cpu.gameGenieCodes = this.gameGenieCodes;
-            this.Text = this.cpu.fileName + " - Emu-o-Tron";
+            this.Text = this.cpu.rom.fileName + " - Emu-o-Tron";
             this.state = SystemState.Playing;
             this.surfaceControl.Visible = true;
-            if (this.cpu.VS)
+            if (this.cpu.rom.vsUnisystem)
             {
                 this.state = SystemState.SystemPause;
                 DipDialog DipDiag = new DipDialog();
@@ -1730,18 +1730,18 @@ namespace DirectXEmu
         {
             Directory.CreateDirectory(this.config["sramDir"]);
             if(this.cpu != null)
-                if (this.cpu.sramPresent)
-                    File.WriteAllBytes(Path.Combine(this.config["sramDir"], this.cpu.fileName + ".sav"), this.cpu.GetSRAM());
+                if (this.cpu.rom.sRAM)
+                    File.WriteAllBytes(Path.Combine(this.config["sramDir"], this.cpu.rom.fileName + ".sav"), this.cpu.GetSRAM());
         }
         private void LoadGame()
         {
             Directory.CreateDirectory(this.config["sramDir"]);
             if (this.cpu != null)
             {
-                if (this.cpu.sramPresent)
+                if (this.cpu.rom.sRAM)
                 {
-                    if (File.Exists(Path.Combine(this.config["sramDir"], this.cpu.fileName + ".sav")))
-                        this.cpu.SetSRAM(File.ReadAllBytes(Path.Combine(this.config["sramDir"], this.cpu.fileName + ".sav")));
+                    if (File.Exists(Path.Combine(this.config["sramDir"], this.cpu.rom.fileName + ".sav")))
+                        this.cpu.SetSRAM(File.ReadAllBytes(Path.Combine(this.config["sramDir"], this.cpu.rom.fileName + ".sav")));
                 }
             }
         }
@@ -2210,7 +2210,7 @@ namespace DirectXEmu
         {
             if (state != SystemState.Empty)
             {
-                recordDialog.FileName = cpu.fileName;
+                recordDialog.FileName = cpu.rom.fileName;
                 SystemState old = state;
                 state = SystemState.SystemPause;
                 if (recordDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)

@@ -12,30 +12,26 @@ namespace EmuoTron.mappers
         private int irqCounter;
         private bool irqEnabled;
         private bool irqCountdown;
-        public m069(MemoryStore Memory, MemoryStore PPUMemory, int numPRGRom, int numVRom)
+        public m069(NESCore nes)
         {
-            this.numPRGRom = numPRGRom;
-            this.numVRom = numVRom;
-            this.Memory = Memory;
-            this.PPUMemory = PPUMemory;
-            this.mapper = 69;
+            this.nes = nes;
         }
-        public override void MapperInit()
+        public override void Init()
         {
-            Memory.Swap8kROM(0x8000, 0);
-            Memory.Swap8kROM(0xA000, 1);
-            Memory.Swap8kROM(0xC000, 2);
-            Memory.Swap8kROM(0xE000, (numPRGRom * 2) - 1);
-            PPUMemory.Swap1kROM(0x0000, 0);
-            PPUMemory.Swap1kROM(0x0400, 1);
-            PPUMemory.Swap1kROM(0x0800, 2);
-            PPUMemory.Swap1kROM(0x0C00, 3);
-            PPUMemory.Swap1kROM(0x1000, 4);
-            PPUMemory.Swap1kROM(0x1400, 5);
-            PPUMemory.Swap1kROM(0x1800, 6);
-            PPUMemory.Swap1kROM(0x1C00, 7);
+            nes.Memory.Swap8kROM(0x8000, 0);
+            nes.Memory.Swap8kROM(0xA000, 1);
+            nes.Memory.Swap8kROM(0xC000, 2);
+            nes.Memory.Swap8kROM(0xE000, (nes.rom.prgROM / 8) - 1);
+            nes.PPU.PPUMemory.Swap1kROM(0x0000, 0);
+            nes.PPU.PPUMemory.Swap1kROM(0x0400, 1);
+            nes.PPU.PPUMemory.Swap1kROM(0x0800, 2);
+            nes.PPU.PPUMemory.Swap1kROM(0x0C00, 3);
+            nes.PPU.PPUMemory.Swap1kROM(0x1000, 4);
+            nes.PPU.PPUMemory.Swap1kROM(0x1400, 5);
+            nes.PPU.PPUMemory.Swap1kROM(0x1800, 6);
+            nes.PPU.PPUMemory.Swap1kROM(0x1C00, 7);
         }
-        public override void MapperWrite(ushort address, byte value)
+        public override void Write(byte value, ushort address)
         {
             if (address == 0x8000)
             {
@@ -46,56 +42,56 @@ namespace EmuoTron.mappers
                 switch (indexReg)
                 {
                     case 0:
-                        PPUMemory.Swap1kROM(0x0000, value % (numVRom * 8));
+                        nes.PPU.PPUMemory.Swap1kROM(0x0000, value % nes.rom.vROM);
                         break;
                     case 1:
-                        PPUMemory.Swap1kROM(0x0400, value % (numVRom * 8));
+                        nes.PPU.PPUMemory.Swap1kROM(0x0400, value % nes.rom.vROM);
                         break;
                     case 2:
-                        PPUMemory.Swap1kROM(0x0800, value % (numVRom * 8));
+                        nes.PPU.PPUMemory.Swap1kROM(0x0800, value % nes.rom.vROM);
                         break;
                     case 3:
-                        PPUMemory.Swap1kROM(0x0C00, value % (numVRom * 8));
+                        nes.PPU.PPUMemory.Swap1kROM(0x0C00, value % nes.rom.vROM);
                         break;
                     case 4:
-                        PPUMemory.Swap1kROM(0x1000, value % (numVRom * 8));
+                        nes.PPU.PPUMemory.Swap1kROM(0x1000, value % nes.rom.vROM);
                         break;
                     case 5:
-                        PPUMemory.Swap1kROM(0x1400, value % (numVRom * 8));
+                        nes.PPU.PPUMemory.Swap1kROM(0x1400, value % nes.rom.vROM);
                         break;
                     case 6:
-                        PPUMemory.Swap1kROM(0x1800, value % (numVRom * 8));
+                        nes.PPU.PPUMemory.Swap1kROM(0x1800, value % nes.rom.vROM);
                         break;
                     case 7:
-                        PPUMemory.Swap1kROM(0x1C00, value % (numVRom * 8));
+                        nes.PPU.PPUMemory.Swap1kROM(0x1C00, value % nes.rom.vROM);
                         break;
                     case 8:
                         if ((value & 0x40) == 0)
-                            Memory.Swap8kROM(0x6000, (value & 0x1F) % (numPRGRom * 2));
+                            nes.Memory.Swap8kROM(0x6000, (value & 0x1F) % (nes.rom.prgROM / 8));
                         else if ((value & 0x80) == 0)
-                            Memory.Swap8kROM(0x6000, (value & 0x1F) % (numPRGRom * 2));
+                            nes.Memory.Swap8kROM(0x6000, (value & 0x1F) % (nes.rom.prgROM / 8));
                         else
-                            Memory.Swap8kRAM(0x6000, 0x3 - (Memory.swapOffset / 8));//really crazy, may not work, also wont be paged.
+                            nes.Memory.Swap8kRAM(0x6000, 0x3 - (nes.Memory.swapOffset / 8));//really crazy, may not work, also wont be paged.
                         break;
                     case 9:
-                        Memory.Swap8kROM(0x8000, value % (numPRGRom * 2));
+                        nes.Memory.Swap8kROM(0x8000, value % (nes.rom.prgROM / 8));
                         break;
                     case 10:
-                        Memory.Swap8kROM(0xA000, value % (numPRGRom * 2));
+                        nes.Memory.Swap8kROM(0xA000, value % (nes.rom.prgROM / 8));
                         break;
                     case 11:
-                        Memory.Swap8kROM(0xC000, value % (numPRGRom * 2));
+                        nes.Memory.Swap8kROM(0xC000, value % (nes.rom.prgROM / 8));
                         break;
                     case 12:
                         value &= 0x3;
                         if (value == 0)
-                            PPUMemory.VerticalMirroring();
+                            nes.PPU.PPUMemory.VerticalMirroring();
                         else if (value == 1)
-                            PPUMemory.HorizontalMirroring();
+                            nes.PPU.PPUMemory.HorizontalMirroring();
                         else if (value == 2)
-                            PPUMemory.ScreenOneMirroring();
+                            nes.PPU.PPUMemory.ScreenOneMirroring();
                         else
-                            PPUMemory.ScreenTwoMirroring();
+                            nes.PPU.PPUMemory.ScreenTwoMirroring();
                         break;
                     case 13:
                         irqEnabled = (value & 0x01) != 0;
@@ -113,7 +109,8 @@ namespace EmuoTron.mappers
                 }
             }
         }
-        public override void MapperIRQ(int scanline, int vblank)
+        public override byte Read(byte value, ushort address) { return value; }
+        public override void IRQ(int scanline, int vblank)
         {
             if (irqCountdown)
             {

@@ -7,34 +7,32 @@ namespace EmuoTron.mappers
 {
     class m007 : Mapper
     {
-        public m007(MemoryStore Memory, MemoryStore PPUMemory, int numPRGRom, int numVRom)
+        public m007(NESCore nes)
         {
-            this.numPRGRom = numPRGRom;
-            this.numVRom = numVRom;
-            this.Memory = Memory;
-            this.PPUMemory = PPUMemory;
+            this.nes = nes;
         }
-        public override void MapperInit()
+        public override void Init()
         {
-            Memory.Swap32kROM(0x8000, 0);
-            PPUMemory.Swap8kRAM(0, 0);
-            PPUMemory.ScreenOneMirroring();
+            nes.Memory.Swap32kROM(0x8000, 0);
+            nes.PPU.PPUMemory.Swap8kRAM(0, 0);
+            nes.PPU.PPUMemory.ScreenOneMirroring();
         }
-        public override void MapperWrite(ushort address, byte value)
+        public override void Write(byte value, ushort address)
         {
             if (address >= 0x8000)
             {
                 //if (Memory[address] == value) Should have bus conflicts on most carts, but this kills marble maddness and doesnt seem to fix anything else, will have to wait for when board types are in.
                 {
-                    Memory.Swap32kROM(0x8000, (value & 0x07) % (numPRGRom / 2));
+                    nes.Memory.Swap32kROM(0x8000, (value & 0x07) % (nes.rom.prgROM / 32));
                     if ((value & 0x10) == 0)
-                        PPUMemory.ScreenOneMirroring();
+                        nes.PPU.PPUMemory.ScreenOneMirroring();
                     else
-                        PPUMemory.ScreenTwoMirroring();
+                        nes.PPU.PPUMemory.ScreenTwoMirroring();
                 }
             }
         }
-        public override void MapperIRQ(int scanline, int vblank) { }
+        public override byte Read(byte value, ushort address) { return value; }
+        public override void IRQ(int scanline, int vblank) { }
         public override void StateLoad(System.IO.MemoryStream buf) { }
         public override void StateSave(ref System.IO.MemoryStream buf) { }
     }

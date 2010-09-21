@@ -185,6 +185,10 @@ namespace EmuoTron
             memMap[0xA] = 0xB;
             memMap[0xB] = 0xB;
         }
+        public void CustomMirroring(int nameTable, int bank) // 0 1 2 3
+        {
+            memMap[nameTable + 0x8] = bank + 0x8;
+        }
         public byte[][] StoreBanks()
         {
             int banks = 0;

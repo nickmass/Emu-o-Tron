@@ -7,38 +7,36 @@ namespace EmuoTron.mappers
 {
     class m002 : Mapper
     {
-        public m002(MemoryStore Memory, MemoryStore PPUMemory, int numPRGRom, int numVRom)
+        public m002(NESCore nes)
         {
-            this.numPRGRom = numPRGRom;
-            this.numVRom = numVRom;
-            this.Memory = Memory;
-            this.PPUMemory = PPUMemory;
+            this.nes = nes;
         }
-        public override void MapperInit()
+        public override void Init()
         {
-            Memory.Swap16kROM(0x8000, 0);
-            Memory.Swap16kROM(0xC000, numPRGRom - 1);
-            if (numVRom == 0)
-                PPUMemory.Swap8kRAM(0x0000, 0);
+            nes.Memory.Swap16kROM(0x8000, 0);
+            nes.Memory.Swap16kROM(0xC000, (nes.rom.prgROM / 16) - 1);
+            if (nes.rom.vROM == 0)
+                nes.PPU.PPUMemory.Swap8kRAM(0x0000, 0);
             else
-                PPUMemory.Swap8kROM(0x0000, 0);
+                nes.PPU.PPUMemory.Swap8kROM(0x0000, 0);
         }
-        public override void MapperWrite(ushort address, byte value)
+        public override void Write(byte value, ushort address)
         {
             if (address >= 0x8000)
             {
                 int table;
-                if (numPRGRom <= 8)
+                if ((nes.rom.prgROM / 16) <= 8)
                     table = value & 0x07;
                 else
                     table = value & 0x0F;
-                if (numPRGRom != 0)
-                    table = table % numPRGRom;
-                if (value == this.Memory[address])//Bus conflict
-                    Memory.Swap16kROM(0x8000, table);
+                if (nes.rom.prgROM != 0)
+                    table = table % (nes.rom.prgROM / 16);
+                if (value == nes.Memory[address])//Bus conflict
+                    nes.Memory.Swap16kROM(0x8000, table);
             }
         }
-        public override void MapperIRQ(int scanline, int vblank) { }
+        public override byte Read(byte value, ushort address) { return value; }
+        public override void IRQ(int scanline, int vblank) { }
         public override void StateLoad(System.IO.MemoryStream buf) { }
         public override void StateSave(ref System.IO.MemoryStream buf) { }
     }

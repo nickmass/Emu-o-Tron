@@ -8,15 +8,12 @@ namespace EmuoTron.mappers
 {
     public abstract class Mapper
     {
-        public int mapper;
-        public int numPRGRom;
-        public int numVRom;
+        protected NESCore nes;
         public bool interruptMapper;
-        protected MemoryStore Memory;
-        protected MemoryStore PPUMemory;
-        public abstract void MapperInit();
-        public abstract void MapperWrite(ushort address, byte value);
-        public abstract void MapperIRQ(int scanline, int vblank);
+        public abstract void Init();
+        public abstract byte Read(byte value, ushort address);
+        public abstract void Write(byte value, ushort address);
+        public abstract void IRQ(int scanline, int vblank);
         public abstract void StateSave(ref MemoryStream buf);
         public abstract void StateLoad(MemoryStream buf);
     }

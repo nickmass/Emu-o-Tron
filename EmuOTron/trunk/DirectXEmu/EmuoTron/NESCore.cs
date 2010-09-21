@@ -14,9 +14,13 @@ namespace EmuoTron
     {
         public SystemType nesRegion;
 
+        public Rom rom;
+        public mappers.Mapper mapper;
+        public APU APU;
+        public PPU PPU;
+
         public MemoryStore Memory;
         public ushort[] MirrorMap = new ushort[0x10000];
-        private bool emulationRunning = false;
         private int RegA = 0;
         private int RegX = 0;
         private int RegY = 0;
@@ -31,19 +35,15 @@ namespace EmuoTron
         private int FlagOverflow = 0;
         private int FlagSign = 0; //Bit 7 of P
         private int counter = 0;
-        private int[] opList;
-
-        private int invalidCount = 0;
-
-        public mappers.Mapper romMapper;
-
         private bool interruptReset = false;
         private bool interruptBRK = false;
 
-        public StringBuilder logBuilder = new StringBuilder();
-        public bool logging = false;
+        private OpInfo OpCodes = new OpInfo();
+        private int[] opList;
 
         public StringBuilder romInfo = new StringBuilder();
+        public StringBuilder logBuilder = new StringBuilder();
+        public bool logging = false;
 
         private Controller player1;
         private Controller player2;
@@ -53,15 +53,6 @@ namespace EmuoTron
         private int controlReg2;
         private bool controlReady;
         public bool fourScore;
-
-        public GameGenie[] gameGenieCodes = new GameGenie[0xFF];
-        public int gameGenieCodeNum = 0;
-
-        public bool sramPresent = false;
-        public UInt32 CRC = 0xffffffff;
-        public string filePath;
-        public string fileName;
-        public bool VS;
         public bool creditService;
         public bool dip1;
         public bool dip2;
@@ -72,11 +63,9 @@ namespace EmuoTron
         public bool dip7;
         public bool dip8;
 
-        public string cartDBLocation = "";
+        public GameGenie[] gameGenieCodes = new GameGenie[0xFF];
+        public int gameGenieCodeNum = 0;
 
-        private OpInfo OpCodes = new OpInfo();
-        public APU APU;
-        public PPU PPU;
         public void Start(Controller player1, Controller player2, Controller player3, Controller player4, bool turbo)
         {
             this.player1 = player1;
@@ -108,7 +97,7 @@ namespace EmuoTron
         }
         public void Start()
         {
-            this.emulationRunning = true;
+            bool emulationRunning = true;
             int op;
             int opInfo;
             int opCycles;
@@ -119,7 +108,7 @@ namespace EmuoTron
             int addr = 0;
             int temp;
             int value;
-            while (this.emulationRunning)
+            while (emulationRunning)
             {
                 if (logging)
                 {
@@ -774,11 +763,7 @@ namespace EmuoTron
                                 FlagZero = RegA;
                                 break;
                             case OpInfo.InstrDummy:
-                                if (invalidCount < 10)
-                                {
                                     romInfo.AppendLine("Missing OP: " + OpInfo.GetOpNames()[OpInfo.GetOps()[op] & 0xFF] + " " + op.ToString("X2") + " Program Counter: " + RegPC.ToString("X4"));
-                                    invalidCount++;
-                                }
                                 break;
                         }
                         break;
@@ -787,8 +772,8 @@ namespace EmuoTron
                 counter += opCycles;
                 APU.AddCycles(opCycles);
                 PPU.AddCycles(opCycles);
-                if (romMapper.mapper == 69)
-                    romMapper.MapperIRQ(opCycles, 0);
+                if (rom.mapper == 69)
+                    mapper.IRQ(opCycles, 0);
 #if !nestest
                 if (interruptBRK)
                 {
@@ -817,7 +802,7 @@ namespace EmuoTron
                     RegPC = PeekWord(0xFFFA);
                     PPU.interruptNMI = false;
                 }
-                else if ((romMapper.interruptMapper || APU.frameIRQ || APU.dmcInterrupt) && FlagIRQ == 0)
+                else if ((mapper.interruptMapper || APU.frameIRQ || APU.dmcInterrupt) && FlagIRQ == 0)
                 {
                     PushWordStack(RegPC);
                     FlagBreak = 0;
@@ -839,15 +824,14 @@ namespace EmuoTron
         public NESCore(SystemType region, String input, String cartDBLocation, bool ignoreFileCheck = false) : 
             this(region, File.OpenRead(input), cartDBLocation, ignoreFileCheck)
         {
-            this.filePath = input;
-            romInfo.AppendLine(input);
+            rom.filePath = input;
+            rom.fileName = Path.GetFileNameWithoutExtension(rom.filePath);
+            romInfo.AppendLine(rom.filePath);
             romInfo.AppendLine();
-            this.fileName = Path.GetFileNameWithoutExtension(filePath);
         }
         public NESCore(SystemType region, Stream inputStream, String cartDBLocation, bool ignoreFileCheck = false)
         {
             this.nesRegion = region;
-            this.cartDBLocation = cartDBLocation;
             opList = OpInfo.GetOps();
             inputStream.Position = 0;
             if (!ignoreFileCheck)
@@ -859,34 +843,38 @@ namespace EmuoTron
                 }
             }
             inputStream.Position = 0x4;
-            int numprgrom = inputStream.ReadByte();
-            int numvrom = inputStream.ReadByte();
+            rom.prgROM = inputStream.ReadByte() * 16;
+            rom.vROM = inputStream.ReadByte() * 8;
             int lowMapper = inputStream.ReadByte();
-            bool trainer = ((lowMapper & 0x04) != 0);
-            bool vertMirroring = ((lowMapper & 0x01) != 0);
-            bool fourScreenMirroring = ((lowMapper & 0x08) != 0);
-            this.sramPresent = ((lowMapper & 0x02) != 0);
             int highMapper = inputStream.ReadByte();
             inputStream.Position = 0x0F;
             if (inputStream.ReadByte() != 0)
                 highMapper = 0;
-            bool PC10 = ((highMapper & 0x02) != 0);
-            VS = ((highMapper & 0x01) != 0);
-            int mapper = (lowMapper >> 4) + (highMapper & 0xF0);
-            Memory = new MemoryStore(0x20 + (numprgrom * 0x10), false);
+            rom.trainer = ((lowMapper & 0x04) != 0);
+            if (((lowMapper & 0x08) != 0))
+                rom.mirroring = Mirroring.fourScreen;
+            else if (((lowMapper & 0x01) != 0))
+                rom.mirroring = Mirroring.vertical;
+            else
+                rom.mirroring = Mirroring.horizontal;
+            rom.sRAM = ((lowMapper & 0x02) != 0);
+            rom.PC10 = ((highMapper & 0x02) != 0);
+            rom.vsUnisystem = ((highMapper & 0x01) != 0);
+            rom.mapper = (lowMapper >> 4) + (highMapper & 0xF0);
+            Memory = new MemoryStore(0x20 + rom.prgROM, false);
             Memory.swapOffset = 0x20;
             APU = new APU(this);
-            PPU = new PPU(this, numvrom);
-            romInfo.AppendLine("Mapper: " + mapper);
-            romInfo.AppendLine("PRG-ROM: " + numprgrom.ToString() + " * 16KB");
-            romInfo.AppendLine("CHR-ROM: " + numvrom.ToString() + " * 8KB");
-            romInfo.AppendLine("Mirroring: " + (fourScreenMirroring ? "Four-screen" : (vertMirroring ? "Vertical" : "Horizontal")));
-            if(VS)
+            PPU = new PPU(this);
+            romInfo.AppendLine("Mapper: " + rom.mapper);
+            romInfo.AppendLine("PRG-ROM: " + rom.prgROM.ToString() + "KB");
+            romInfo.AppendLine("CHR-ROM: " + rom.vROM.ToString() + " *KB");
+            romInfo.AppendLine("Mirroring: " + (rom.mirroring == Mirroring.fourScreen ? "Four-screen" : (rom.mirroring == Mirroring.vertical ? "Vertical" : "Horizontal")));
+            if(rom.vsUnisystem)
                 romInfo.AppendLine("VS Unisystem Game");
-            if (this.sramPresent)
+            if (rom.sRAM)
                 romInfo.AppendLine("SRAM Present");
             inputStream.Position = 0x10;
-            if (trainer)
+            if (rom.trainer)
             {
                 romInfo.AppendLine("Trainer Present");
                 for (int i = 0x00; i < 0x200; i++)
@@ -894,21 +882,22 @@ namespace EmuoTron
                     this.Memory[i + 0x7000] = (byte)inputStream.ReadByte();
                 }
             }
-            for (int i = 0x00; i < numprgrom * 0x4000; i++)
+            rom.crc = 0xffffffff;
+            for (int i = 0x00; i < rom.prgROM * 0x400; i++)
             {
                 byte nextByte = (byte)inputStream.ReadByte();
                 Memory.banks[(i / 0x400) + Memory.swapOffset][i % 0x400] = nextByte;
-                CRC = CRC32.crc32_adjust(CRC, nextByte);
+                rom.crc = CRC32.crc32_adjust(rom.crc, nextByte);
             }
-            for (int i = 0x00; i < numvrom * 0x2000; i++)
+            for (int i = 0x00; i < rom.vROM * 0x400; i++)
             {
                 byte nextByte = (byte)inputStream.ReadByte();
                 PPU.PPUMemory.banks[(i / 0x400) + PPU.PPUMemory.swapOffset][i % 0x400] = nextByte;
-                CRC = CRC32.crc32_adjust(CRC, nextByte);
+                rom.crc = CRC32.crc32_adjust(rom.crc, nextByte);
             }
-            CRC = CRC ^ 0xFFFFFFFF;
-            romInfo.AppendLine("ROM CRC32: " + CRC.ToString("X8"));
-            if (PC10)
+            rom.crc = rom.crc ^ 0xFFFFFFFF;
+            romInfo.AppendLine("ROM CRC32: " + rom.crc.ToString("X8"));
+            if (rom.PC10)
             {
                 romInfo.AppendLine("PC10 Game");
                 for (int i = 0x00; i < 0x2000; i++)
@@ -916,23 +905,22 @@ namespace EmuoTron
                     inputStream.ReadByte();
                 }
             }
-            string title = "";
-            for (int i = 0x00; i < 0x80; i++)
+            for (int i = 0x00; i < 0x80 && inputStream.Position < inputStream.Length; i++)
             {
                 byte titleChar = (byte)inputStream.ReadByte();
                 if (titleChar != 255)
-                    title += (char)titleChar;
+                    rom.title += (char)titleChar;
             }
-            if (title != "")
-                romInfo.AppendLine("Title: " + title);
+            if (rom.title != null)
+                romInfo.AppendLine("Title: " + rom.title);
             inputStream.Close();
 
-            if (fourScreenMirroring)
+            if (rom.mirroring == Mirroring.fourScreen)
             {
                 PPU.PPUMemory.FourScreenMirroring();
                 PPU.PPUMemory.hardwired = true;
             }
-            else if (vertMirroring)
+            else if (rom.mirroring == Mirroring.vertical)
             {
                 PPU.PPUMemory.VerticalMirroring();
             }
@@ -967,7 +955,7 @@ namespace EmuoTron
                                     while (xmlReader.MoveToNextAttribute())
                                     {
                                         if (xmlReader.Name == "crc")
-                                            if (xmlReader.Value == CRC.ToString("X8"))
+                                            if (xmlReader.Value == rom.crc.ToString("X8"))
                                                 match = true;
                                     }
                                     while ((!(xmlReader.NodeType == XmlNodeType.EndElement && xmlReader.Name == "cartridge")) && !done)
@@ -987,17 +975,18 @@ namespace EmuoTron
                                         }
                                     }
                                 }
-
                             }
                         }
                     }
                 }
                 if (done)
                 {
+                    rom.title = gameName;
+                    rom.mapper = Convert.ToInt32(dbMapper);
                     romInfo.AppendLine("Found in database");
-                    romInfo.AppendLine("Name: " + gameName);
+                    romInfo.AppendLine("Name: " + rom.title);
                     romInfo.AppendLine("Board: " + board);
-                    romInfo.AppendLine("Mapper: " + dbMapper);
+                    romInfo.AppendLine("Mapper: " + rom.mapper);
                 }
                 else
                 {
@@ -1009,57 +998,59 @@ namespace EmuoTron
                 romInfo.AppendLine("NesCarts.xml not found");
             }
             #region mappers
-            switch (mapper)
+            switch (rom.mapper)
             {
                 case 0://NROM
-                    romMapper = new mappers.m000(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    mapper = new mappers.m000(this);
                     break;
                 case 1: //MMC1
-                    romMapper = new mappers.m001(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    mapper = new mappers.m001(this);
                     break;
                 case 2: //UNROM
-                    romMapper = new mappers.m002(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    mapper = new mappers.m002(this);
                     break;
                 case 3://CNROM
-                    romMapper = new mappers.m003(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    mapper = new mappers.m003(this);
                     break;
                 case 4: //MMC3
-                    romMapper = new mappers.m004(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    mapper = new mappers.m004(this);
+                    break;
+                case 5: //MMC5
+                    mapper = new mappers.m005(this);
                     break;
                 case 7: //AOROM
-                    romMapper = new mappers.m007(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    mapper = new mappers.m007(this);
                     break;
                 case 9: //MMC2
-                    romMapper = new mappers.m009(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    mapper = new mappers.m009(this);
                     break;
                 case 10: //MMC4
-                    romMapper = new mappers.m010(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    mapper = new mappers.m010(this);
                     break;
                 case 11: //Color Dreams
-                    romMapper = new mappers.m011(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    mapper = new mappers.m011(this);
                     break;
                 case 34: //BNROM and NINA-001
-                    romMapper = new mappers.m034(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    mapper = new mappers.m034(this);
                     break;
                 case 69: //Sunsoft5
-                    romMapper = new mappers.m069(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    mapper = new mappers.m069(this);
                     break;
                 case 70: //Bandai
-                    romMapper = new mappers.m070(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    mapper = new mappers.m070(this);
                     break;
                 case 71: //Camerica
-                    romMapper = new mappers.m071(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    mapper = new mappers.m071(this);
                     break;
                 case 99: //VS Unisystem
-                    romMapper = new mappers.m099(Memory, PPU.PPUMemory, numprgrom, numvrom);
+                    mapper = new mappers.m099(this);
                     break;
                 default:
-                    romInfo.AppendLine("This game will probably not load, mapper unsupported.\r\nMapper:" + mapper.ToString() + " PRG-ROM:" + numprgrom.ToString() + " CHR-ROM:" + numvrom.ToString());
+                    romInfo.AppendLine("This game will probably not load, mapper unsupported.\r\nMapper:" + rom.mapper.ToString() + " PRG-ROM:" + rom.prgROM.ToString() + "KB CHR-ROM:" + rom.vROM.ToString() + "KB");
                     goto case 0;
 
             }
-            romMapper.mapper = mapper;
-            romMapper.MapperInit();
+            mapper.Init();
             #endregion
             PPU.Power();
             for (int i = 0; i < 0x10000; i++)
@@ -1109,7 +1100,7 @@ namespace EmuoTron
                     controlReg2 >>= 1;
                 }
             }
-            if (VS)
+            if (rom.vsUnisystem)
             {
                 if (address == 0x4016)
                 {
@@ -1202,7 +1193,6 @@ namespace EmuoTron
         private void Write(int address, int value)
         {
             address = MirrorMap[address & 0xFFFF];
-            romMapper.MapperWrite((ushort)address, (byte)value);
             if (address == 0x4016)
             {
                 if ((value & 0x01) == 1)
@@ -1300,7 +1290,7 @@ namespace EmuoTron
                     controlReady = true;
                 }
             }
-            if (VS)
+            if (rom.vsUnisystem)
             {
                 if (address == 0x4020)
                 {
@@ -1311,6 +1301,7 @@ namespace EmuoTron
                     }
                 }
             }
+            mapper.Write((byte)value, (ushort)address);
             APU.Write((byte)value, (ushort)address);
             PPU.Write((byte)value, (ushort)address);
             Memory[address] = (byte)value;
@@ -1523,12 +1514,12 @@ namespace EmuoTron
             writer.Write(PToByte());
             writer.Write(counter);
             writer.Write(interruptReset);
-            writer.Write(romMapper.interruptMapper);
+            writer.Write(mapper.interruptMapper);
             writer.Write(controlReg1);
             writer.Write(controlReg2);
             writer.Write(controlReady);
             writer.Flush();
-            romMapper.StateSave(ref newState.stateStream);
+            mapper.StateSave(ref newState.stateStream);
             PPU.StateSave(ref newState.stateStream);
             APU.StateSave(ref newState.stateStream);
             newState.isStored = true;
@@ -1552,11 +1543,11 @@ namespace EmuoTron
             PFromByte(reader.ReadByte());
             counter = reader.ReadInt32();
             interruptReset = reader.ReadBoolean();
-            romMapper.interruptMapper = reader.ReadBoolean();
+            mapper.interruptMapper = reader.ReadBoolean();
             controlReg1 = reader.ReadInt32();
             controlReg2 = reader.ReadInt32();
             controlReady = reader.ReadBoolean();
-            romMapper.StateLoad(oldState.stateStream);
+            mapper.StateLoad(oldState.stateStream);
             PPU.StateLoad(oldState.stateStream);
             APU.StateLoad(oldState.stateStream);
         }
@@ -1631,6 +1622,29 @@ namespace EmuoTron
         public float triangle;
         public float noise;
         public float dmc;
+    }
+    public struct Rom
+    {
+        public int mapper;
+        public string fileName;
+        public string filePath;
+        public string title;
+        public int prgROM;
+        public int vROM;
+        public bool sRAM;
+        public bool vsUnisystem;
+        public bool PC10;
+        public bool trainer;
+        public UInt32 crc;
+        public Mirroring mirroring;
+
+    }
+    public enum Mirroring
+    {
+        horizontal,
+        vertical,
+        fourScreen,
+        singleScreen
     }
     [Serializable]
     public struct SaveState

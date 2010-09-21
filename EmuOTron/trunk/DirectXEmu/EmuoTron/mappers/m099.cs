@@ -7,28 +7,26 @@ namespace EmuoTron.mappers
 {
     class m099 : Mapper
     {
-        public m099(MemoryStore Memory, MemoryStore PPUMemory, int numPRGRom, int numVRom)
+        public m099(NESCore nes)
         {
-            this.numPRGRom = numPRGRom;
-            this.numVRom = numVRom;
-            this.Memory = Memory;
-            this.PPUMemory = PPUMemory;
+            this.nes = nes;
         }
-        public override void MapperInit()
+        public override void Init()
         {
-            Memory.Swap16kROM(0x8000, 0);
-            Memory.Swap16kROM(0xC000, numPRGRom - 1);
-            if (numVRom == 0)
-                PPUMemory.Swap8kRAM(0x0000, 0);
+            nes.Memory.Swap16kROM(0x8000, 0);
+            nes.Memory.Swap16kROM(0xC000, (nes.rom.prgROM / 16) - 1);
+            if (nes.rom.vROM == 0)
+                nes.PPU.PPUMemory.Swap8kRAM(0x0000, 0);
             else
-                PPUMemory.Swap8kROM(0x0000, 0);
+                nes.PPU.PPUMemory.Swap8kROM(0x0000, 0);
         }
-        public override void MapperWrite(ushort address, byte value)
+        public override void Write(byte value, ushort address)
         {
             if (address == 0x4016)
-                PPUMemory.Swap8kROM(0x0000,((value >> 2) & 0x01));
+                nes.PPU.PPUMemory.Swap8kROM(0x0000, ((value >> 2) & 0x01));
         }
-        public override void MapperIRQ(int scanline, int vblank) { }
+        public override byte Read(byte value, ushort address) { return value; }
+        public override void IRQ(int scanline, int vblank) { }
         public override void StateLoad(System.IO.MemoryStream buf) { }
         public override void StateSave(ref System.IO.MemoryStream buf) { }
     }

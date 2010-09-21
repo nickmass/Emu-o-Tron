@@ -65,11 +65,11 @@ namespace EmuoTron
         bool[] spriteAboveLine;
         bool[] spriteBelowLine;
 
-        public PPU(NESCore nes, int numvrom)
+        public PPU(NESCore nes)
         {
             this.nes = nes;
-            if (numvrom > 0)
-                PPUMemory = new MemoryStore(0x20 + (numvrom * 0x08), false);
+            if (nes.rom.vROM > 0)
+                PPUMemory = new MemoryStore(0x20 + (nes.rom.vROM), false);
             else
                 PPUMemory = new MemoryStore(0x20 + (4 * 0x08), false);
             PPUMemory.swapOffset = 0x20;
@@ -157,8 +157,8 @@ namespace EmuoTron
                 }
                 int oldA12 = (loopyV >> 12) & 1;
                 loopyV = (loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF;
-                if (nes.romMapper.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                    nes.romMapper.MapperIRQ(scanline, 0);
+                if (nes.rom.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
+                    nes.mapper.IRQ(scanline, 0);
             }
             return nextByte;
         }
@@ -233,8 +233,8 @@ namespace EmuoTron
                     loopyT = ((loopyT & 0x7F00) | value);
                     int oldA12 = ((loopyV >> 12) & 1); ;
                     loopyV = loopyT;
-                    if (nes.romMapper.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                        nes.romMapper.MapperIRQ(scanline, 0);
+                    if (nes.rom.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
+                        nes.mapper.IRQ(scanline, 0);
                 }
                 addrLatch = !addrLatch;
             }
@@ -247,8 +247,8 @@ namespace EmuoTron
 
                 int oldA12 = (loopyV >> 12) & 1;
                 loopyV = ((loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF);
-                if (nes.romMapper.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                    nes.romMapper.MapperIRQ(scanline, 0);
+                if (nes.rom.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
+                    nes.mapper.IRQ(scanline, 0);
             }
         }
 
@@ -297,8 +297,8 @@ namespace EmuoTron
                             VerticalIncrement();
                             HorizontalReset();
                         }
-                        if (nes.romMapper.mapper == 4 && scanline < 240)
-                            nes.romMapper.MapperIRQ(scanline, 0);
+                        if (nes.rom.mapper == 4 && scanline < 240)
+                            nes.mapper.IRQ(scanline, 0);
                         if (scanline == -1)
                             VerticalReset();
                     }
@@ -337,16 +337,16 @@ namespace EmuoTron
                                 lowChr <<= 1;
                                 highChr <<= 1;
                             }
-                            if (nes.romMapper.mapper == 9 || nes.romMapper.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
+                            if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
                             {
                                 if (chrAddress >= 0xFD0 && chrAddress <= 0xFDF)
-                                    nes.romMapper.MapperIRQ(0, 0xFD);
+                                    nes.mapper.IRQ(0, 0xFD);
                                 else if (chrAddress >= 0xFE0 && chrAddress <= 0xFEF)
-                                    nes.romMapper.MapperIRQ(0, 0xFE);
+                                    nes.mapper.IRQ(0, 0xFE);
                                 else if (chrAddress >= 0x1FD0 && chrAddress <= 0x1FDF)
-                                    nes.romMapper.MapperIRQ(1, 0xFD);
+                                    nes.mapper.IRQ(1, 0xFD);
                                 else if (chrAddress >= 0x1FE0 && chrAddress <= 0x1FEF)
-                                    nes.romMapper.MapperIRQ(1, 0xFE);
+                                    nes.mapper.IRQ(1, 0xFE);
                             }
                             HorizontalIncrement();
                         }
@@ -401,16 +401,16 @@ namespace EmuoTron
                                         lowChr <<= 1;
                                         highChr <<= 1;
                                     }
-                                    if (nes.romMapper.mapper == 9 || nes.romMapper.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
+                                    if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
                                     {
                                         if (chrAddress >= 0xFD0 && chrAddress <= 0xFDF)
-                                            nes.romMapper.MapperIRQ(0, 0xFD);
+                                            nes.mapper.IRQ(0, 0xFD);
                                         else if (chrAddress >= 0xFE0 && chrAddress <= 0xFEF)
-                                            nes.romMapper.MapperIRQ(0, 0xFE);
+                                            nes.mapper.IRQ(0, 0xFE);
                                         else if (chrAddress >= 0x1FD0 && chrAddress <= 0x1FDF)
-                                            nes.romMapper.MapperIRQ(1, 0xFD);
+                                            nes.mapper.IRQ(1, 0xFD);
                                         else if (chrAddress >= 0x1FE0 && chrAddress <= 0x1FEF)
-                                            nes.romMapper.MapperIRQ(1, 0xFE);
+                                            nes.mapper.IRQ(1, 0xFE);
                                     }
                                 }
                             }
@@ -441,8 +441,8 @@ namespace EmuoTron
                         }
                     }
 
-                    if (nes.romMapper.mapper == 4 && scanline < 240)
-                        nes.romMapper.MapperIRQ(scanline, 0);
+                    if (nes.rom.mapper == 4 && scanline < 240)
+                        nes.mapper.IRQ(scanline, 0);
                     if (scanline == -1)
                     {
                         VerticalReset();
