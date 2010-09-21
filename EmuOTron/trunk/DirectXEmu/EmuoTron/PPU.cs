@@ -558,9 +558,13 @@ namespace EmuoTron
             }
             return patternTables;
         }
-        public void StateSave(ref MemoryStream buf)
+        public void StateSave(BinaryWriter writer)
         {
-            BinaryWriter writer = new BinaryWriter(buf);
+            PPUMemory.StateSave(writer);
+            for(int i = 0; i < 0x100; i++)
+                writer.Write(SPRMemory[i]);
+            for(int i = 0; i < 0x20; i++)
+                writer.Write(PalMemory[i]);
             writer.Write(frameComplete);
             writer.Write(interruptNMI);
             writer.Write(spriteOverflow);
@@ -585,11 +589,14 @@ namespace EmuoTron
             writer.Write(loopyX);
             writer.Write(loopyV);
             writer.Write(readBuffer);
-            writer.Flush();
         }
-        public void StateLoad(MemoryStream buf)
+        public void StateLoad(BinaryReader reader)
         {
-            BinaryReader reader = new BinaryReader(buf);
+            PPUMemory.StateLoad(reader);
+            for (int i = 0; i < 0x100; i++)
+                SPRMemory[i] = reader.ReadByte();
+            for (int i = 0; i < 0x20; i++)
+                PalMemory[i] = reader.ReadByte();
             frameComplete = reader.ReadBoolean();
             interruptNMI = reader.ReadBoolean();
             spriteOverflow = reader.ReadBoolean();

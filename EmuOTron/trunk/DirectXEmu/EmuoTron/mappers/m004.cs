@@ -282,19 +282,16 @@ namespace EmuoTron.mappers
             if (irqLatch != 0)
                 irqReload = false;
         }
-        public override void StateSave(ref MemoryStream buf)
+        public override void StateSave(BinaryWriter writer)
         {
-            BinaryWriter writer = new BinaryWriter(buf);
             writer.Write(bankSelect);
             writer.Write(irqCounter);
             writer.Write(irqLatch);
             writer.Write(irqReload);
             writer.Write(irqEnable);
-            writer.Flush();
         }
-        public override void StateLoad(MemoryStream buf)
+        public override void StateLoad(BinaryReader reader)
         {
-            BinaryReader reader = new BinaryReader(buf);
             bankSelect = reader.ReadByte();
             irqCounter = reader.ReadByte();
             irqLatch = reader.ReadByte();

@@ -93,9 +93,8 @@ namespace EmuoTron.mappers
                     nes.PPU.PPUMemory.Swap4kROM(0x1000, fe1);
             }
         }
-        public override void StateLoad(System.IO.MemoryStream buf)
+        public override void StateLoad(BinaryReader reader)
         {
-            BinaryReader reader = new BinaryReader(buf);
             latch0 = reader.ReadInt32();
             latch1 = reader.ReadInt32();
             fd0 = reader.ReadInt32();
@@ -103,16 +102,14 @@ namespace EmuoTron.mappers
             fd1 = reader.ReadInt32();
             fe1 = reader.ReadInt32();
         }
-        public override void StateSave(ref System.IO.MemoryStream buf)
+        public override void StateSave(BinaryWriter writer)
         {
-            BinaryWriter writer = new BinaryWriter(buf);
             writer.Write(latch0);
             writer.Write(latch1);
             writer.Write(fd0);
             writer.Write(fe0);
             writer.Write(fd1);
             writer.Write(fe1);
-            writer.Flush();
         }
     }
 }

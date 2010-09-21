@@ -902,9 +902,8 @@ namespace EmuoTron
             }
             lastUpdateCycle = cycles;
         }
-        public void StateSave(ref MemoryStream buf)
+        public void StateSave(BinaryWriter writer)
         {
-            BinaryWriter writer = new BinaryWriter(buf);
             writer.Write(cycles);
             writer.Write(lastUpdateCycle);
             writer.Write(lastCycleClock);
@@ -993,9 +992,8 @@ namespace EmuoTron
             writer.Write(dmcShiftReg);
             writer.Write(timeToClock);
         }
-        public void StateLoad(MemoryStream buf)
+        public void StateLoad(BinaryReader reader)
         {
-            BinaryReader reader = new BinaryReader(buf);
             cycles = reader.ReadInt32();
             lastUpdateCycle = reader.ReadInt32();
             lastCycleClock = reader.ReadInt32();

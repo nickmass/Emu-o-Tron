@@ -189,29 +189,50 @@ namespace EmuoTron
         {
             memMap[nameTable + 0x8] = bank + 0x8;
         }
-        public byte[][] StoreBanks()
+        public void StateSave(BinaryWriter writer)
         {
-            int banks = 0;
+            writer.Write(memMap.Length);
+            for (int i = 0; i < memMap.Length; i++)
+                writer.Write(memMap[i]);
+            int changedBanks = 0;
             for (int i = 0; i < saveBanks.Length; i++)
                 if (saveBanks[i])
-                    banks++;
-            byte[][] storeBanks = new byte[banks][];
-            for (int i = 0, j = 0; i < saveBanks.Length; i++)
+                    changedBanks++;
+            writer.Write(changedBanks);
+            for (int i = 0; i < saveBanks.Length; i++)
+            {
                 if (saveBanks[i])
                 {
-                    storeBanks[j] = (byte[])this.banks[i].Clone();
-                    j++;
+                    writer.Write(i);
+                    writer.Write(readOnly[i]);
+                    for (int j = 0; j < 0x400; j++)
+                    {
+                        writer.Write(banks[i][j]);
+                    }
                 }
-            return storeBanks;
+            }
         }
-        public void LoadBanks(bool[] saveBanks, byte[][] storeBanks)
+
+        public void StateLoad(BinaryReader reader)
         {
-            for (int i = 0, j = 0; i < saveBanks.Length; i++)
-                if (saveBanks[i])
+            //BinaryReader reader = new BinaryReader(buf);
+            int memLength = reader.ReadInt32();
+            for (int i = 0; i < memLength; i++)
+                memMap[i] = reader.ReadInt32();
+
+            for (int i = 0; i < saveBanks.Length; i++)
+                saveBanks[i] = false;
+            int saveLength = reader.ReadInt32();
+            for (int i = 0; i < saveLength; i++)
+            {
+                int bankNumber = reader.ReadInt32();
+                saveBanks[bankNumber] = true;
+                readOnly[bankNumber] = reader.ReadBoolean();
+                for (int j = 0; j < 0x400; j++)
                 {
-                    banks[i] = (byte[])storeBanks[j].Clone();
-                    j++;
+                    banks[bankNumber][j] = reader.ReadByte();
                 }
+            }
         }
     }
 }

@@ -14,7 +14,7 @@ namespace EmuoTron.mappers
         public abstract byte Read(byte value, ushort address);
         public abstract void Write(byte value, ushort address);
         public abstract void IRQ(int scanline, int vblank);
-        public abstract void StateSave(ref MemoryStream buf);
-        public abstract void StateLoad(MemoryStream buf);
+        public abstract void StateSave(BinaryWriter writer);
+        public abstract void StateLoad(BinaryReader reader);
     }
 }

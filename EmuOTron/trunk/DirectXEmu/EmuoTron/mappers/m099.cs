@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.IO;
 
 namespace EmuoTron.mappers
 {
@@ -27,7 +28,7 @@ namespace EmuoTron.mappers
         }
         public override byte Read(byte value, ushort address) { return value; }
         public override void IRQ(int scanline, int vblank) { }
-        public override void StateLoad(System.IO.MemoryStream buf) { }
-        public override void StateSave(ref System.IO.MemoryStream buf) { }
+        public override void StateLoad(BinaryReader reader) { }
+        public override void StateSave(BinaryWriter writer) { }
     }
 }

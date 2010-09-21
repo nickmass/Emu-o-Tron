@@ -123,18 +123,15 @@ namespace EmuoTron.mappers
                 }
             }
         }
-        public override void StateSave(ref MemoryStream buf)
+        public override void StateSave(BinaryWriter writer)
         {
-            BinaryWriter writer = new BinaryWriter(buf);
             writer.Write(indexReg);
             writer.Write(irqCounter);
             writer.Write(irqEnabled);
             writer.Write(irqCountdown);
-            writer.Flush();
         }
-        public override void StateLoad(MemoryStream buf)
+        public override void StateLoad(BinaryReader reader)
         {
-            BinaryReader reader = new BinaryReader(buf);
             indexReg = reader.ReadInt32();
             irqCounter = reader.ReadInt32();
             irqEnabled = reader.ReadBoolean();

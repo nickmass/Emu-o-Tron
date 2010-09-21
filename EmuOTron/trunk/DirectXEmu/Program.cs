@@ -209,10 +209,9 @@ namespace DirectXEmu
             {
                 this.storeState = false;
                 saveSlots[quickSaveSlot] = cpu.StateSave();
-                IFormatter formatter = new BinaryFormatter();
                 Directory.CreateDirectory(config["savestateDir"]);
                 Stream stream = new FileStream(Path.Combine(config["savestateDir"], cpu.rom.fileName + ".s" + quickSaveSlot.ToString("D2")), FileMode.Create, FileAccess.Write, FileShare.None);
-                formatter.Serialize(stream, saveSlots[quickSaveSlot]);
+                saveSlots[quickSaveSlot].stateStream.WriteTo(stream);
                 stream.Close();
                 this.message = "State " + quickSaveSlot.ToString() + " Saved";
                 this.messageDuration = 90;
@@ -678,9 +677,13 @@ namespace DirectXEmu
             {
                 if (File.Exists(Path.Combine(config["savestateDir"], cpu.rom.fileName + ".s" + i.ToString("D2"))))
                 {
-                    IFormatter formatter = new BinaryFormatter();
-                    Stream stream = new FileStream(Path.Combine(config["savestateDir"], cpu.rom.fileName + ".s" + i.ToString("D2")), FileMode.Open, FileAccess.Read, FileShare.Read);
-                    saveSlots[i]= (SaveState)formatter.Deserialize(stream);
+                    FileStream stream = new FileStream(Path.Combine(config["savestateDir"], cpu.rom.fileName + ".s" + i.ToString("D2")), FileMode.Open, FileAccess.Read, FileShare.Read);
+                    SaveState newstate = new SaveState();
+                    byte[] buffer = new byte[stream.Length];
+                    stream.Read(buffer, 0, (int)stream.Length);
+                    newstate.stateStream = new MemoryStream(buffer);
+                    newstate.isStored = true;
+                    saveSlots[i] = newstate;
                     stream.Close();
                 }
 
