@@ -537,7 +537,6 @@ namespace EmuoTron
                         RegA = FlagSign = FlagZero = RegY;
                         break;
                     default:
-                        //romInfo.AppendLine("Illegal OP: " + OpInfo.GetOpNames()[OpInfo.GetOps()[op] & 0xFF] + " " + op.ToString("X2") + " Program Counter: " + RegPC.ToString("X4"));
                         switch (instruction) //Illegal Ops
                         {
                             case OpInfo.IllInstrALR:
@@ -809,7 +808,7 @@ namespace EmuoTron
             PPU = new PPU(this);
             romInfo.AppendLine("Mapper: " + rom.mapper);
             romInfo.AppendLine("PRG-ROM: " + rom.prgROM.ToString() + "KB");
-            romInfo.AppendLine("CHR-ROM: " + rom.vROM.ToString() + " *KB");
+            romInfo.AppendLine("CHR-ROM: " + rom.vROM.ToString() + "KB");
             romInfo.AppendLine("Mirroring: " + (rom.mirroring == Mirroring.fourScreen ? "Four-screen" : (rom.mirroring == Mirroring.vertical ? "Vertical" : "Horizontal")));
             if(rom.vsUnisystem)
                 romInfo.AppendLine("VS Unisystem Game");
@@ -1291,7 +1290,7 @@ namespace EmuoTron
         }
         private void PushByteStack(int value)
         {
-            this.Write((ushort)(RegS + 0x0100), value);
+            Write((ushort)(RegS + 0x0100), value);
             RegS--;
             RegS &= 0xFF;
         }
@@ -1419,7 +1418,7 @@ namespace EmuoTron
                 line.Append("N");
             else
                 line.Append("n");
-            line.AppendFormat(" S:{0} CYC:{1} SL:{2}", RegS.ToString("X2"), (PPU.scanlineCycle * 3).ToString().PadLeft(3), PPU.scanline.ToString().PadLeft(3));
+            line.AppendFormat(" S:{0} CYC:{1} SL:{2}", RegS.ToString("X2"), (PPU.scanlineCycle).ToString().PadLeft(3), PPU.scanline.ToString().PadLeft(3));
             return line.ToString();
         }
         public void AddCycles(int value)

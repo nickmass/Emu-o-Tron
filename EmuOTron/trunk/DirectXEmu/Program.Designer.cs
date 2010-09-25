@@ -705,7 +705,6 @@
         private System.Windows.Forms.ToolStripMenuItem nTSCToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem pALToolStripMenuItem;
         private System.Windows.Forms.Panel surfaceControl;
-        private System.Windows.Forms.Panel insideSize;
         private System.Windows.Forms.ToolStripMenuItem tVAspectToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem netPlayToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem startGameToolStripMenuItem;

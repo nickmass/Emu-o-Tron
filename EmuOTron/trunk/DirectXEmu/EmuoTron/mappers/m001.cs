@@ -33,8 +33,9 @@ namespace EmuoTron.mappers
             {
                 if ((value & 0x80) != 0)
                 {
-                    writeLatch = 0;
                     reg0 |= 0x0C;
+                    regTmp = 0;
+                    writeLatch = 0;
                     RegZeroChange();
                 }
                 else if (writeLatch != 4)
@@ -87,23 +88,25 @@ namespace EmuoTron.mappers
         }
         private void PrgRegChange()
         {
+            //Ignored in MMC1A, defaults to enabled in MMC1B, defaults to disabled in MMC1C
+            //nes.Memory.SetReadOnly(0x6000, 8, ((reg3 & 0x10) != 0));
             if ((reg0 & 0x8) != 0) // Switch 16kb
             {
                 if ((reg0 & 0x4) != 0) // Switch at $8000
                 {
-                    nes.Memory.Swap16kROM(0x8000, reg3 % (nes.rom.prgROM / 16));
+                    nes.Memory.Swap16kROM(0x8000, (reg3 & 0xF) % (nes.rom.prgROM / 16));
                     nes.Memory.Swap16kROM(0xC000, (nes.rom.prgROM / 16) - 1);
                 }
                 else // Switch at $c000
                 {
                     nes.Memory.Swap16kROM(0x8000, 0);
-                    nes.Memory.Swap16kROM(0xC000, reg3 % (nes.rom.prgROM / 16));
+                    nes.Memory.Swap16kROM(0xC000, (reg3 & 0xF) % (nes.rom.prgROM / 16));
                 }
             }
             else //switch 32kb
             {
-                nes.Memory.Swap16kROM(0x8000, (reg3 & 0xFE) % (nes.rom.prgROM / 16)); //32k swap maybe works here, I have my doubts
-                nes.Memory.Swap16kROM(0xC000, ((reg3 & 0xFE) + 1) % (nes.rom.prgROM / 16));
+                nes.Memory.Swap16kROM(0x8000, (reg3 & 0xE) % (nes.rom.prgROM / 16));
+                nes.Memory.Swap16kROM(0xC000, ((reg3 & 0xE) + 1) % (nes.rom.prgROM / 16));
             }
         }
         private void ChrRegOneChange()
@@ -111,9 +114,9 @@ namespace EmuoTron.mappers
             if ((reg0 & 0x10) != 0)
             {
                 if (nes.rom.vROM == 0)
-                    nes.PPU.PPUMemory.Swap4kRAM(0x1000, reg2);
+                    nes.PPU.PPUMemory.Swap4kRAM(0x1000, reg2 & 0x1F);
                 else
-                    nes.PPU.PPUMemory.Swap4kROM(0x1000, reg2 % (nes.rom.vROM / 4));
+                    nes.PPU.PPUMemory.Swap4kROM(0x1000, (reg2 & 0x1F) % (nes.rom.vROM / 4));
             }
         }
         private void ChrRegZeroChange()
@@ -122,21 +125,21 @@ namespace EmuoTron.mappers
             {
                 if (nes.rom.vROM == 0)
                 {
-                    nes.PPU.PPUMemory.Swap4kRAM(0x0000, reg1 & 1);
-                    nes.PPU.PPUMemory.Swap4kRAM(0x1000, (reg1 & 1) + 1);
+                    nes.PPU.PPUMemory.Swap4kRAM(0x0000, reg1 & 0x1E);
+                    nes.PPU.PPUMemory.Swap4kRAM(0x1000, (reg1 & 0x1E) + 1);
                 }
                 else
                 {
-                    nes.PPU.PPUMemory.Swap4kROM(0x0000, (reg1 & 1) % (nes.rom.vROM / 4));
-                    nes.PPU.PPUMemory.Swap4kROM(0x1000, ((reg1 & 1) + 1) % (nes.rom.vROM / 4));
+                    nes.PPU.PPUMemory.Swap4kROM(0x0000, (reg1 & 0x1E) % (nes.rom.vROM / 4));
+                    nes.PPU.PPUMemory.Swap4kROM(0x1000, ((reg1 & 0x1E) + 1) % (nes.rom.vROM / 4));
                 }
             }
             else
             {
                 if (nes.rom.vROM == 0)
-                    nes.PPU.PPUMemory.Swap4kRAM(0x0000, reg1);
+                    nes.PPU.PPUMemory.Swap4kRAM(0x0000, reg1 & 0x1F);
                 else
-                    nes.PPU.PPUMemory.Swap4kROM(0x0000, reg1 % (nes.rom.vROM / 4));
+                    nes.PPU.PPUMemory.Swap4kROM(0x0000, (reg1 & 0x1F) % (nes.rom.vROM / 4));
             }
         }
         private void RegZeroChange()

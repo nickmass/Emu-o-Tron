@@ -313,7 +313,7 @@ namespace EmuoTron
                         spriteLine = new ushort[256];
                         spriteAboveLine = new bool[256];
                         spriteBelowLine = new bool[256];
-                        for (int tile = 0; tile < 33; tile++)//each tile on line
+                        for (int tile = 0; tile < 34; tile++)//each tile on line
                         {
                             int tileAddr = PPUMirrorMap[0x2000 | (loopyV & 0x0FFF)];
                             int tileNumber = PPUMemory[tileAddr];
@@ -329,7 +329,7 @@ namespace EmuoTron
                                 {
                                     byte color = (byte)(((lowChr & 0x80) >> 7) + ((highChr & 0x80) >> 6));
                                     zeroBackground[xPosition] = (color == 0 || (!leftmostBackground && xPosition < 8) || !backgroundRendering);
-                                    if (zeroBackground[xPosition])
+                                    if (zeroBackground[xPosition] || !displayBG)
                                         screen[xPosition, scanline] = (ushort)((PalMemory[0x00] & grayScale) | colorMask);
                                     else
                                         screen[xPosition, scanline] = (ushort)((PalMemory[(palette * 4) + color] & grayScale) | colorMask);
@@ -417,25 +417,12 @@ namespace EmuoTron
                             if (spritesOnLine > 8)
                                 spriteOverflow = true;
 
-                            if (displaySprites)
+                            if (spritesOnLine != 0 && displaySprites)
                             {
-                                if (displayBG)
+                                for (int column = 0; column < 256; column++)
                                 {
-                                    for (int column = 0; column < 256; column++)
-                                    {
-                                        if (spriteAboveLine[column])
-                                            screen[column, scanline] = spriteLine[column];
-                                        else if (zeroBackground[column] && spriteBelowLine[column])
-                                            screen[column, scanline] = spriteLine[column];
-                                    }
-                                }
-                                else
-                                {
-                                    for (int column = 0; column < 256; column++)
-                                        if (spriteAboveLine[column] || spriteBelowLine[column])
-                                            screen[column, scanline] = spriteLine[column];
-                                        else
-                                            screen[column, scanline] = (ushort)((PalMemory[0x00] & grayScale) | colorMask);
+                                    if (spriteAboveLine[column] || (spriteBelowLine[column] && zeroBackground[column]))
+                                        screen[column, scanline] = spriteLine[column];
                                 }
                             }
                         }
