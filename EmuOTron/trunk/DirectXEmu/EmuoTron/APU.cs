@@ -787,6 +787,8 @@ namespace EmuoTron
                 pulse1Volume = pulse1Envelope;
             else
                 pulse1Volume = pulse1EnvelopeCounter;
+            if (pulse1Timer <= 0)
+                pulse1Volume = 7;
 
             byte pulse2Volume = 0;
             if (pulse2LengthCounter == 0)
@@ -799,6 +801,8 @@ namespace EmuoTron
                 pulse2Volume = pulse2Envelope;
             else
                 pulse2Volume = pulse2EnvelopeCounter;
+            if (pulse2Timer <= 0)
+                pulse2Volume = 7;
 
             byte noiseVolume = 0;
             if ((noiseShiftReg & 1) == 1)
@@ -816,7 +820,12 @@ namespace EmuoTron
             else if (triangleLinearCounter == 0)
                 triangleVolume = 0;
             else
-                triangleVolume = triangleSequence[triangleSequenceCounter % 32];
+            {
+                if (triangleTimer <= 1)
+                    triangleVolume = 7;
+                else
+                    triangleVolume = triangleSequence[triangleSequenceCounter % 32];
+            }
 
             int dmcVolume = 0;
             for (int updateCycle = lastUpdateCycle; updateCycle < cycles; updateCycle++)
@@ -830,11 +839,15 @@ namespace EmuoTron
                         triangleVolume = 0;
                     else
                     {
-                        triangleVolume = triangleSequence[triangleSequenceCounter % 32];
+                        if (triangleTimer <= 1)
+                            triangleVolume = 7;
+                        else
+                            triangleVolume = triangleSequence[triangleSequenceCounter % 32];
                         triangleSequenceCounter++;
                     }
                     triangleDivider = triangleFreq;
                 }
+
                 pulse1Divider--;
                 if (pulse1Divider == 0)
                 {
@@ -848,6 +861,8 @@ namespace EmuoTron
                         pulse1Volume = pulse1Envelope;
                     else
                         pulse1Volume = pulse1EnvelopeCounter;
+                    if (pulse1Timer <= 0)
+                        pulse1Volume = 7;
                     pulse1DutySequencer++;
                     pulse1Divider = pulse1Freq;
                 }
@@ -864,6 +879,8 @@ namespace EmuoTron
                         pulse2Volume = pulse2Envelope;
                     else
                         pulse2Volume = pulse2EnvelopeCounter;
+                    if (pulse2Timer <= 0)
+                        pulse2Volume = 7;
                     pulse2DutySequencer++;
                     pulse2Divider = pulse2Freq;
                 }

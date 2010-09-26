@@ -823,7 +823,7 @@ namespace EmuoTron
                     this.Memory[i + 0x7000] = (byte)inputStream.ReadByte();
                 }
             }
-            rom.crc = 0xffffffff;
+            rom.crc = 0xFFFFFFFF;
             for (int i = 0x00; i < rom.prgROM * 0x400; i++)
             {
                 byte nextByte = (byte)inputStream.ReadByte();
@@ -853,7 +853,7 @@ namespace EmuoTron
                     rom.title += (char)titleChar;
             }
             if (rom.title != null)
-                romInfo.AppendLine("Title: " + rom.title);
+                romInfo.AppendLine("Name: " + rom.title);
             inputStream.Close();
 
             if (rom.mirroring == Mirroring.fourScreen)
