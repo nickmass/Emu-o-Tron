@@ -713,7 +713,7 @@ namespace EmuoTron
                 counter += opCycles;
                 APU.AddCycles(opCycles);
                 PPU.AddCycles(opCycles);
-                if (rom.mapper == 69)
+                if (rom.mapper == 69 || rom.mapper == 21 || rom.mapper == 23 || rom.mapper == 24 || rom.mapper == 25 || rom.mapper == 26 || rom.mapper == 73 || rom.mapper == 85)
                     mapper.IRQ(opCycles, 0);
 #if !nestest
                 if (interruptBRK)
@@ -802,8 +802,9 @@ namespace EmuoTron
             rom.PC10 = ((highMapper & 0x02) != 0);
             rom.vsUnisystem = ((highMapper & 0x01) != 0);
             rom.mapper = (lowMapper >> 4) + (highMapper & 0xF0);
-            Memory = new MemoryStore(0x20 + rom.prgROM, false);
+            Memory = new MemoryStore(0x20 + rom.prgROM, true);
             Memory.swapOffset = 0x20;
+            Memory.SetReadOnly(0, 2, false);
             APU = new APU(this);
             PPU = new PPU(this);
             romInfo.AppendLine("Mapper: " + rom.mapper);
@@ -813,7 +814,10 @@ namespace EmuoTron
             if(rom.vsUnisystem)
                 romInfo.AppendLine("VS Unisystem Game");
             if (rom.sRAM)
+            {
                 romInfo.AppendLine("SRAM Present");
+                Memory.SetReadOnly(0x6000, 8, false);
+            }
             inputStream.Position = 0x10;
             if (rom.trainer)
             {
@@ -971,6 +975,24 @@ namespace EmuoTron
                 case 11: //Color Dreams
                     mapper = new mappers.m011(this);
                     break;
+                case 21: //VRC4a, VRC4c
+                    mapper = new mappers.mVRC4(this, 0x00, 0x02, 0x04, 0x06, 0x00, 0x40, 0x80, 0xC0);
+                    break;
+                case 22: //VRC2a
+                    mapper = new mappers.m022(this);
+                    break;
+                case 23: //VRC4e, VRC4f
+                    mapper = new mappers.mVRC4(this, 0x00, 0x04, 0x08, 0x0C, 0x00, 0x01, 0x02, 0x03);
+                    break;
+                case 24: //VRC6a
+                    mapper = new mappers.mVRC6(this, 0x00, 0x01, 0x02, 0x03);
+                    break;
+                case 25: //VRC4b, VRC4d
+                    mapper = new mappers.mVRC4(this, 0x00, 0x02, 0x01, 0x03, 0x00, 0x08, 0x04, 0x0C);
+                    break;
+                case 26: //VRC6b
+                    mapper = new mappers.mVRC6(this, 0x00, 0x03, 0x02, 0x01);
+                    break;
                 case 34: //BNROM and NINA-001
                     mapper = new mappers.m034(this);
                     break;
@@ -982,6 +1004,15 @@ namespace EmuoTron
                     break;
                 case 71: //Camerica
                     mapper = new mappers.m071(this);
+                    break;
+                case 73: //VRC3
+                    mapper = new mappers.m073(this);
+                    break;
+                case 75: //VRC1
+                    mapper = new mappers.m075(this);
+                    break;
+                case 85: //VRC7a, VRC7b
+                    mapper = new mappers.m085(this, 0x10, 0x08);
                     break;
                 case 99: //VS Unisystem
                     mapper = new mappers.m099(this);

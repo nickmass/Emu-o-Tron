@@ -69,10 +69,15 @@ namespace EmuoTron
         {
             this.nes = nes;
             if (nes.rom.vROM > 0)
-                PPUMemory = new MemoryStore(0x20 + (nes.rom.vROM), false);
+                PPUMemory = new MemoryStore(0x20 + (nes.rom.vROM), true);
             else
-                PPUMemory = new MemoryStore(0x20 + (4 * 0x08), false);
+            {
+                PPUMemory = new MemoryStore(0x20 + (4 * 0x08), true);
+                PPUMemory.SetReadOnly(0x0000, 8, false);
+            }
             PPUMemory.swapOffset = 0x20;
+            PPUMemory.SetReadOnly(0x2000, 4, false); //Nametables
+            PPUMemory.SetReadOnly(0x3C00, 1, false); //Palette area + some mirrored ram
             for (int i = 0; i < 0x8000; i++)
                 PPUMirrorMap[i] = (ushort)i;
             PPUMirror(0x3F00, 0x3F10, 1, 1);
@@ -167,7 +172,7 @@ namespace EmuoTron
         {
             if (address == 0x2000)
             {
-                bool wasEnabled = nmiEnable;
+                //bool wasEnabled = nmiEnable;
                 loopyT = (loopyT & 0xF3FF) | ((value & 3) << 10);
                 vramInc = (value & 0x04) != 0;
                 if ((value & 0x08) != 0)
@@ -180,8 +185,8 @@ namespace EmuoTron
                     backgroundTable = 0x0000;
                 tallSprites = (value & 0x20) != 0;
                 nmiEnable = (value & 0x80) != 0;
-                if (inVblank && nmiEnable && !wasEnabled)
-                    interruptNMI = true;
+                //if (inVblank && nmiEnable && !wasEnabled) //This is required to pass Blargg's 04-nmi_control.nes, but this implimentation breaks Adam's Family Pugsley's Scavenger Hunt and Adventures of Lolo 3, so disabled for now.
+                //    interruptNMI = true;
             }
             else if (address == 0x2001) //PPU Mask
             {

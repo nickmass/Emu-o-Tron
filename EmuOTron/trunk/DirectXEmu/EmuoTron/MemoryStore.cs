@@ -19,7 +19,10 @@ namespace EmuoTron
             this.banks = new byte[banks][];
             saveBanks = new bool[banks];
             for (int i = 0; i < banks; i++)
+            {
                 this.banks[i] = new byte[0x400];
+                saveBanks[i] = false;
+            }
             for (int i = 0; i < 0x40; i++)
             {
                 this.readOnly[i] = readOnly;
@@ -203,6 +206,7 @@ namespace EmuoTron
             {
                 if (saveBanks[i])
                 {
+                    writer.Write("BANK");
                     writer.Write(i);
                     writer.Write(readOnly[i]);
                     for (int j = 0; j < 0x400; j++)
@@ -215,7 +219,6 @@ namespace EmuoTron
 
         public void StateLoad(BinaryReader reader)
         {
-            //BinaryReader reader = new BinaryReader(buf);
             int memLength = reader.ReadInt32();
             for (int i = 0; i < memLength; i++)
                 memMap[i] = reader.ReadInt32();
@@ -225,6 +228,7 @@ namespace EmuoTron
             int saveLength = reader.ReadInt32();
             for (int i = 0; i < saveLength; i++)
             {
+                string bbb = reader.ReadString();
                 int bankNumber = reader.ReadInt32();
                 saveBanks[bankNumber] = true;
                 readOnly[bankNumber] = reader.ReadBoolean();
