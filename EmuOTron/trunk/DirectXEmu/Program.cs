@@ -185,12 +185,18 @@ namespace DirectXEmu
         {
             while (!this.closed) // This is our message loop
             {
-                if (state == SystemState.Playing)
+                if (state == SystemState.Playing && !cpu.debug.debugInterrupt)
                 {
                     this.RunCPU();
                 }
                 else
                 {
+                    if (cpu != null && cpu.debug.debugInterrupt && !debugger.updated)
+                    {
+                        message = "Breakpoint";
+                        messageDuration = 1;
+                        debugger.UpdateDebug();
+                    }
                     Thread.Sleep(16);
                 }
                 if (state != SystemState.SystemPause && this.frame++ % this.frameSkipper == 0)
@@ -199,6 +205,8 @@ namespace DirectXEmu
                         this.messageDuration--;
                     else
                         this.frame--;
+                    if (cpu != null && cpu.debug.debugInterrupt)
+                        messageDuration = 1;
                     this.Render(); // Keep rendering until the program terminates
                 }
             }
@@ -299,6 +307,7 @@ namespace DirectXEmu
 
                 }
             }
+            UpdateFramerate();
             if (netPlay)
             {
                 netClient.SendInput(PlayerToByte(this.player1));
@@ -308,8 +317,6 @@ namespace DirectXEmu
             {
                 cpu.Start(player1, player2, (this.frame % this.frameSkipper != 0));
             }
-            UpdateFramerate();
-
             if (memoryViewerMem == 1)
                 memoryViewer.updateMemory(cpu.Memory, cpu.MirrorMap);
             else if (memoryViewerMem == 2)
@@ -318,7 +325,7 @@ namespace DirectXEmu
 
             if (frame % cpu.APU.frameBuffer == 0)
             {
-                if (frameSkipper == 1)
+                if (frameSkipper == 1 && !cpu.debug.debugInterrupt)
                 {
                     if (wavRecord)
                     {
@@ -345,6 +352,7 @@ namespace DirectXEmu
                     sVoice.SubmitSourceBuffer(audioBuffer);
                 }
                 cpu.APU.ResetBuffer();
+                
             }
             if (this.generatePatternTables && this.frame % this.patternTableUpdate == 0)
             {
@@ -365,7 +373,8 @@ namespace DirectXEmu
                     for (int x = 0; x < 256; x++, i++)
                         framePixels[i] = this.colorChart[cpu.PPU.screen[x, y]].ToArgb();
                 frameBuffer.UnlockBits(frameBMD);
-                //frameBuffer.SetPixel(player2.zapper.x, player2.zapper.y, Color.Magenta);
+                if(config["showDebug"] == "1")
+                    frameBuffer.SetPixel(player2.zapper.x, player2.zapper.y, Color.Magenta);
             }
         }
         private unsafe void Render()
@@ -1373,7 +1382,7 @@ namespace DirectXEmu
         {
             if (this.cpu != null)
             {
-                File.WriteAllText("log.txt", this.cpu.logBuilder.ToString());
+                File.WriteAllText("log.txt", this.cpu.debug.logBuilder.ToString());
                 Process log = new Process();
                 log.StartInfo.FileName = this.config["logReader"];
                 log.StartInfo.Arguments = "log.txt";
@@ -1405,8 +1414,8 @@ namespace DirectXEmu
 
         private void enableLoggingToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            this.cpu.logging = !this.cpu.logging;
-            enableLoggingToolStripMenuItem.Checked = this.cpu.logging;
+            this.cpu.debug.logging = !this.cpu.debug.logging;
+            enableLoggingToolStripMenuItem.Checked = this.cpu.debug.logging;
         }
 
         private void openLogToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1581,7 +1590,7 @@ namespace DirectXEmu
             
             bool logState = false;
             if(this.cpu != null)
-                logState = this.cpu.logging;
+                logState = this.cpu.debug.logging;
             try
             {
 
@@ -1604,7 +1613,7 @@ namespace DirectXEmu
             sVoice.Start();
             this.frame = 0;
             this.saveBufferAvaliable = 0;
-            this.cpu.logging = logState;
+            this.cpu.debug.logging = logState;
             this.cpu.PPU.displayBG = (config["displayBG"] == "1");
             this.cpu.PPU.displaySprites = (config["displaySprites"] == "1");
             this.cpu.PPU.enforceSpriteLimit = !(config["disableSpriteLimit"] == "1");
@@ -1623,9 +1632,10 @@ namespace DirectXEmu
                 DipDiag.FormClosing += new FormClosingEventHandler(DipDiag_FormClosing);
                 DipDiag.ShowDialog();
             }
-
+            debugger = new Debugger(cpu.debug);
+            debugger.UpdateDebug();
         }
-
+        Debugger debugger;
         void DipDiag_FormClosing(object sender, FormClosingEventArgs e)
         {
             this.cpu.dip1 = ((DipDialog)sender).dip1.Checked;
@@ -1782,7 +1792,7 @@ namespace DirectXEmu
         {
             if (this.cpu != null)
             {
-                RomInfoBox romInfoBox = new RomInfoBox(cpu.romInfo.ToString());
+                RomInfoBox romInfoBox = new RomInfoBox(cpu.debug.romInfo.ToString());
                 romInfoBox.Show();
             }
             else
@@ -2391,6 +2401,12 @@ namespace DirectXEmu
             input >>= 1;
             player.a = ((input & 1) == 1);
             return player;
+        }
+
+        private void debuggerToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (cpu != null)
+                debugger.Show();
         }
     }
 }

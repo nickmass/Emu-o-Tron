@@ -18,22 +18,23 @@ namespace EmuoTron
         public mappers.Mapper mapper;
         public APU APU;
         public PPU PPU;
+        public Debug debug;
 
         public MemoryStore Memory;
         public ushort[] MirrorMap = new ushort[0x10000];
-        private int RegA = 0;
-        private int RegX = 0;
-        private int RegY = 0;
-        private int RegS = 0xFD;
-        private int RegPC = 0;
-        private int FlagCarry = 0; //Bit 0 of P
-        private int FlagZero = 1; //backwards
-        private int FlagIRQ = 1;
-        private int FlagDecimal = 0;
-        private int FlagBreak = 1;
-        private int FlagNotUsed= 1;
-        private int FlagOverflow = 0;
-        private int FlagSign = 0; //Bit 7 of P
+        public int RegA = 0;
+        public int RegX = 0;
+        public int RegY = 0;
+        public int RegS = 0xFD;
+        public int RegPC = 0;
+        public int FlagCarry = 0; //Bit 0 of P
+        public int FlagZero = 1; //backwards
+        public int FlagIRQ = 1;
+        public int FlagDecimal = 0;
+        public int FlagBreak = 1;
+        public int FlagNotUsed = 1;
+        public int FlagOverflow = 0;
+        public int FlagSign = 0; //Bit 7 of P
         private int counter = 0;
         private bool interruptReset = false;
         private bool interruptBRK = false;
@@ -41,9 +42,6 @@ namespace EmuoTron
         private OpInfo OpCodes = new OpInfo();
         private int[] opList;
 
-        public StringBuilder romInfo = new StringBuilder();
-        public StringBuilder logBuilder = new StringBuilder();
-        public bool logging = false;
 
         private Controller player1;
         private Controller player2;
@@ -108,14 +106,9 @@ namespace EmuoTron
             int addr = 0;
             int temp;
             int value;
-            while (emulationRunning)
+            while (!PPU.frameComplete && !debug.debugInterrupt && emulationRunning)
             {
-                if (logging)
-                {
-                    if (logBuilder.Length > 1024 * 1024 * 100)
-                        logBuilder.Remove(0, 1024 * 512 * 95);
-                    logBuilder.AppendLine(LogOp(RegPC));
-                }
+                debug.Execute((ushort)RegPC);
                 op = Read(RegPC);
                 opInfo = opList[op];
                 opCycles = (opInfo >> 24) & 0xFF;
@@ -704,7 +697,7 @@ namespace EmuoTron
                                 FlagSign = FlagZero = RegA;
                                 break;
                             case OpInfo.InstrDummy:
-                                    romInfo.AppendLine("Missing OP: " + OpInfo.GetOpNames()[OpInfo.GetOps()[op] & 0xFF] + " " + op.ToString("X2") + " Program Counter: " + RegPC.ToString("X4"));
+                                    debug.LogInfo("Missing OP: " + OpInfo.GetOpNames()[OpInfo.GetOps()[op] & 0xFF] + " " + op.ToString("X2") + " Program Counter: " + RegPC.ToString("X4"));
                                 break;
                         }
                         break;
@@ -713,6 +706,7 @@ namespace EmuoTron
                 counter += opCycles;
                 APU.AddCycles(opCycles);
                 PPU.AddCycles(opCycles);
+                debug.AddCycles(opCycles);
                 if (rom.mapper == 69 || rom.mapper == 21 || rom.mapper == 23 || rom.mapper == 24 || rom.mapper == 25 || rom.mapper == 26 || rom.mapper == 73 || rom.mapper == 85)
                     mapper.IRQ(opCycles, 0);
 #if !nestest
@@ -723,16 +717,6 @@ namespace EmuoTron
                     FlagIRQ = 1;
                     RegPC = PeekWord(0xFFFE);
                     interruptBRK = false;
-                }
-                if (interruptReset)
-                {
-                    PushWordStack(RegPC);
-                    PushByteStack(PToByte());
-                    FlagIRQ = 1;
-                    RegPC = PeekWord(0xFFFC);
-                    interruptReset = false;
-                    APU.Reset();
-                    PPU.Reset();
                 }
                 else if (PPU.interruptNMI)
                 {
@@ -751,24 +735,30 @@ namespace EmuoTron
                     FlagIRQ = 1;
                     RegPC = PeekWord(0xFFFE);
                 }
-                if (PPU.frameComplete)
+                else if (interruptReset)
                 {
-                    emulationRunning = false;
-                    PPU.frameComplete = false;
-                    PPU.generateNameTables = false;
-                    PPU.generatePatternTables = false;
-                    APU.Update();
+                    PushWordStack(RegPC);
+                    PushByteStack(PToByte());
+                    FlagIRQ = 1;
+                    RegPC = PeekWord(0xFFFC);
+                    interruptReset = false;
+                    APU.Reset();
+                    PPU.Reset();
                 }
 #endif
             }
+            emulationRunning = false;
+            PPU.frameComplete = false;
+            PPU.generateNameTables = false;
+            PPU.generatePatternTables = false;
+            APU.Update();
         }
         public NESCore(SystemType region, String input, String cartDBLocation, bool ignoreFileCheck = false) : 
             this(region, File.OpenRead(input), cartDBLocation, ignoreFileCheck)
         {
             rom.filePath = input;
             rom.fileName = Path.GetFileNameWithoutExtension(rom.filePath);
-            romInfo.AppendLine(rom.filePath);
-            romInfo.AppendLine();
+            debug.LogInfo(rom.filePath);
         }
         public NESCore(SystemType region, Stream inputStream, String cartDBLocation, bool ignoreFileCheck = false)
         {
@@ -807,21 +797,22 @@ namespace EmuoTron
             Memory.SetReadOnly(0, 2, false);
             APU = new APU(this);
             PPU = new PPU(this);
-            romInfo.AppendLine("Mapper: " + rom.mapper);
-            romInfo.AppendLine("PRG-ROM: " + rom.prgROM.ToString() + "KB");
-            romInfo.AppendLine("CHR-ROM: " + rom.vROM.ToString() + "KB");
-            romInfo.AppendLine("Mirroring: " + (rom.mirroring == Mirroring.fourScreen ? "Four-screen" : (rom.mirroring == Mirroring.vertical ? "Vertical" : "Horizontal")));
+            debug = new Debug(this);
+            debug.LogInfo("Mapper: " + rom.mapper);
+            debug.LogInfo("PRG-ROM: " + rom.prgROM.ToString() + "KB");
+            debug.LogInfo("CHR-ROM: " + rom.vROM.ToString() + "KB");
+            debug.LogInfo("Mirroring: " + (rom.mirroring == Mirroring.fourScreen ? "Four-screen" : (rom.mirroring == Mirroring.vertical ? "Vertical" : "Horizontal")));
             if(rom.vsUnisystem)
-                romInfo.AppendLine("VS Unisystem Game");
+                debug.LogInfo("VS Unisystem Game");
             if (rom.sRAM)
             {
-                romInfo.AppendLine("SRAM Present");
+                debug.LogInfo("SRAM Present");
                 Memory.SetReadOnly(0x6000, 8, false);
             }
             inputStream.Position = 0x10;
             if (rom.trainer)
             {
-                romInfo.AppendLine("Trainer Present");
+                debug.LogInfo("Trainer Present");
                 for (int i = 0x00; i < 0x200; i++)
                 {
                     this.Memory[i + 0x7000] = (byte)inputStream.ReadByte();
@@ -841,10 +832,10 @@ namespace EmuoTron
                 rom.crc = CRC32.crc32_adjust(rom.crc, nextByte);
             }
             rom.crc = rom.crc ^ 0xFFFFFFFF;
-            romInfo.AppendLine("ROM CRC32: " + rom.crc.ToString("X8"));
+            debug.LogInfo("ROM CRC32: " + rom.crc.ToString("X8"));
             if (rom.PC10)
             {
-                romInfo.AppendLine("PC10 Game");
+                debug.LogInfo("PC10 Game");
                 for (int i = 0x00; i < 0x2000; i++)
                 {
                     inputStream.ReadByte();
@@ -857,7 +848,7 @@ namespace EmuoTron
                     rom.title += (char)titleChar;
             }
             if (rom.title != null)
-                romInfo.AppendLine("Name: " + rom.title);
+                debug.LogInfo("Name: " + rom.title);
             inputStream.Close();
 
             if (rom.mirroring == Mirroring.fourScreen)
@@ -928,19 +919,19 @@ namespace EmuoTron
                 {
                     rom.title = gameName;
                     rom.mapper = Convert.ToInt32(dbMapper);
-                    romInfo.AppendLine("Found in database");
-                    romInfo.AppendLine("Name: " + rom.title);
-                    romInfo.AppendLine("Board: " + board);
-                    romInfo.AppendLine("Mapper: " + rom.mapper);
+                    debug.LogInfo("Found in database");
+                    debug.LogInfo("Name: " + rom.title);
+                    debug.LogInfo("Board: " + board);
+                    debug.LogInfo("Mapper: " + rom.mapper);
                 }
                 else
                 {
-                    romInfo.AppendLine("No database entry");
+                    debug.LogInfo("No database entry");
                 }
             }
             else
             {
-                romInfo.AppendLine("NesCarts.xml not found");
+                debug.LogInfo("NesCarts.xml not found");
             }
             #region mappers
             switch (rom.mapper)
@@ -1018,7 +1009,7 @@ namespace EmuoTron
                     mapper = new mappers.m099(this);
                     break;
                 default:
-                    romInfo.AppendLine("This game will probably not load, mapper unsupported.\r\nMapper:" + rom.mapper.ToString() + " PRG-ROM:" + rom.prgROM.ToString() + "KB CHR-ROM:" + rom.vROM.ToString() + "KB");
+                    debug.LogInfo("This game will probably not load, mapper unsupported.\r\nMapper:" + rom.mapper.ToString() + " PRG-ROM:" + rom.prgROM.ToString() + "KB CHR-ROM:" + rom.vROM.ToString() + "KB");
                     goto case 0;
 
             }
@@ -1134,6 +1125,7 @@ namespace EmuoTron
             }
             nextByte = APU.Read(nextByte, (ushort)address);
             nextByte = PPU.Read(nextByte, (ushort)address);
+            nextByte = debug.Read(nextByte, (ushort)address);
             return nextByte;
         }
         private int ReadWord(int address)
@@ -1276,6 +1268,7 @@ namespace EmuoTron
             mapper.Write((byte)value, (ushort)address);
             APU.Write((byte)value, (ushort)address);
             PPU.Write((byte)value, (ushort)address);
+            debug.Write((byte)value, (ushort)address);
             Memory[address] = (byte)value;
             ApplyGameGenie();
         }
@@ -1330,127 +1323,6 @@ namespace EmuoTron
             RegS++;
             RegS &= 0xFF;
             return Read((ushort)(RegS + 0x0100));
-        }
-        private string LogOp(int address)
-        {
-            StringBuilder line = new StringBuilder();
-            int op = Peek(address);
-            int opInfo = OpInfo.GetOps()[op];
-            int size = (opInfo >> 16) & 0xFF;
-            int addressing = (opInfo >> 8) & 0xFF;
-            line.AppendFormat("{0}  ", address.ToString("X4"));
-            if (size == 0)
-                line.Append("          ");
-            else if (size == 1)
-                line.AppendFormat("{0}       ", Peek(address).ToString("X2"));
-            else if (size == 2)
-                line.AppendFormat("{0} {1}    ", Peek(address).ToString("X2"), Peek(address + 1).ToString("X2"));
-            else if (size == 3)
-                line.AppendFormat("{0} {1} {2} ", Peek(address).ToString("X2"), Peek(address + 1).ToString("X2"), Peek(address + 2).ToString("X2"));
-            line.Append(OpInfo.GetOpNames()[opInfo & 0xFF].PadLeft(4).PadRight(5));
-            //Should be 20 long at this point, addressing should be 28 long
-
-            int val1;
-            int val2;
-            int val3;
-            int val4;
-            switch (addressing)
-            {
-                case OpInfo.AddrNone:
-                    line.Append("                            ");
-                    break;
-                case OpInfo.AddrAccumulator:
-                    line.Append("A                           ");
-                    break;
-                case OpInfo.AddrImmediate:
-                    line.AppendFormat("#${0}                        ", Peek(address + 1).ToString("X2"));
-                    break;
-                case OpInfo.AddrZeroPage:
-                    line.AppendFormat("${0} = {1}                    ", Peek(address + 1).ToString("X2"), Peek(Peek(address + 1)).ToString("X2"));
-                    break;
-                case OpInfo.AddrZeroPageX:
-                    line.AppendFormat("${0},X @ {1} = {2}             ", Peek(address + 1).ToString("X2"), ((Peek(address + 1) + RegX) & 0xFF).ToString("X2"), Peek((Peek(address + 1) + RegX) & 0xFF).ToString("X2"));
-                    break;
-                case OpInfo.AddrZeroPageY:
-                    line.AppendFormat("${0},Y @ {1} = {2}             ", Peek(address + 1).ToString("X2"), ((Peek(address + 1) + RegY) & 0xFF).ToString("X2"), Peek((Peek(address + 1) + RegY) & 0xFF).ToString("X2"));
-                    break;
-                case OpInfo.AddrAbsolute:
-                    if (op == 0x4C || op == 0x20)
-                        line.AppendFormat("${0}                       ", PeekWord(address + 1).ToString("X4"));
-                    else
-                        line.AppendFormat("${0} = {1}                  ", PeekWord(address + 1).ToString("X4"), Peek(PeekWord(address + 1)).ToString("X2"));
-                    break;
-                case OpInfo.AddrAbsoluteX:
-                    line.AppendFormat("${0},X @ {1} = {2}         ", PeekWord(address + 1).ToString("X4"), ((PeekWord(address + 1) + RegX) & 0xFFFF).ToString("X4"), Peek((PeekWord(address + 1) + RegX) & 0xFFFF).ToString("X2"));
-                    break;
-                case OpInfo.AddrAbsoluteY:
-                    line.AppendFormat("${0},Y @ {1} = {2}         ", PeekWord(address + 1).ToString("X4"), ((PeekWord(address + 1) + RegY) & 0xFFFF).ToString("X4"), Peek((PeekWord(address + 1) + RegY) & 0xFFFF).ToString("X2"));
-                    break;
-                case OpInfo.AddrIndirectAbs:
-                    line.AppendFormat("(${0}) = {1}              ", PeekWord(address + 1).ToString("X4"), PeekWordWrap(PeekWord(address + 1)).ToString("X4"));
-                    break;
-                case OpInfo.AddrRelative:
-                    int addr = Peek(address + 1);
-                    if (addr < 0x80)
-                        addr += (address + 1);
-                    else
-                        addr += (address + 1) - 256;
-                    line.AppendFormat("${0}                       ", addr.ToString("X4"));
-                    break;
-                case OpInfo.AddrIndirectX:
-                    addr = val1 = Peek(address + 1);
-                    addr += RegX;
-                    addr &= 0xFF;
-                    val2 = addr;
-                    addr = val3 = Peek(addr) + (Peek((addr + 1) & 0xFF) << 8);
-                    addr = val4 = Peek(addr);
-                    line.AppendFormat("(${0},X) @ {1} = {2} = {3}    ", val1.ToString("X2"), val2.ToString("X2"), val3.ToString("X4"), val4.ToString("X2"));
-                    break;
-                case OpInfo.AddrIndirectY:
-                    addr = val1 = Peek(address + 1);
-                    addr = val2 = Peek(addr) + (Peek((addr + 1) & 0xFF) << 8);
-                    addr += RegY;
-                    addr &= 0xFFFF;
-                    val3 = addr;
-                    addr = val4 = Peek(addr & 0xFFFF);
-                    line.AppendFormat("(${0}),Y = {1} @ {2} = {3}  ", val1.ToString("X2"), val2.ToString("X4"), val3.ToString("X4"), val4.ToString("X2"));
-                    break;
-            }
-            line.AppendFormat("A:{0} X:{1} Y:{2} P:", RegA.ToString("X2"), RegX.ToString("X2"), RegY.ToString("X2"));
-            if (FlagCarry != 0)
-                line.Append("C");
-            else
-                line.Append("c");
-            if (FlagZero == 0)
-                line.Append("Z");
-            else
-                line.Append("z");
-            if (FlagIRQ != 0)
-                line.Append("I");
-            else
-                line.Append("i");
-            if (FlagDecimal != 0)
-                line.Append("D");
-            else
-                line.Append("d");
-            if (FlagBreak != 0)
-                line.Append("B");
-            else
-                line.Append("b");
-            if (FlagNotUsed != 0)
-                line.Append("-");
-            else
-                line.Append("_");
-            if (FlagOverflow != 0)
-                line.Append("V");
-            else
-                line.Append("v");
-            if ((FlagSign >> 7) != 0)
-                line.Append("N");
-            else
-                line.Append("n");
-            line.AppendFormat(" S:{0} CYC:{1} SL:{2}", RegS.ToString("X2"), (PPU.scanlineCycle).ToString().PadLeft(3), PPU.scanline.ToString().PadLeft(3));
-            return line.ToString();
         }
         public void AddCycles(int value)
         {

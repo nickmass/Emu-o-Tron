@@ -98,6 +98,18 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AddBreakpoint.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="AddBreakpoint.Designer.cs">
+      <DependentUpon>AddBreakpoint.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Debugger.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Debugger.Designer.cs">
+      <DependentUpon>Debugger.cs</DependentUpon>
+    </Compile>
     <Compile Include="EmuoTron\APU.cs" />
     <Compile Include="ArchiveCallback.cs" />
     <Compile Include="Console.cs">
@@ -113,6 +125,7 @@
     <Compile Include="DipDialog.Designer.cs">
       <DependentUpon>DipDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="EmuoTron\Debug.cs" />
     <Compile Include="EmuoTron\mappers\m073.cs" />
     <Compile Include="EmuoTron\mappers\m005.cs" />
     <Compile Include="EmuoTron\mappers\m010.cs" />
@@ -346,11 +359,17 @@
       <DependentUpon>About.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
+    <EmbeddedResource Include="AddBreakpoint.resx">
+      <DependentUpon>AddBreakpoint.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="ArchiveViewer.resx">
       <DependentUpon>ArchiveViewer.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Console.resx">
       <DependentUpon>Console.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Debugger.resx">
+      <DependentUpon>Debugger.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="DipDialog.resx">
       <DependentUpon>DipDialog.cs</DependentUpon>

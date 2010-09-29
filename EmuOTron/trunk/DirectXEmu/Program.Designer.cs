@@ -81,19 +81,20 @@
             this.memoryViewerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.pPUMemoryViewerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.testConsoleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.netPlayToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.startGameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.joinGameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.romInfoToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.aboutEmuoTronToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.netPlayToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.startGameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.joinGameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.openFile = new System.Windows.Forms.OpenFileDialog();
             this.openPaletteDialog = new System.Windows.Forms.OpenFileDialog();
             this.openMovieDialog = new System.Windows.Forms.OpenFileDialog();
             this.recordDialog = new System.Windows.Forms.SaveFileDialog();
             this.surfaceControl = new System.Windows.Forms.Panel();
+            this.debuggerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -467,6 +468,7 @@
             this.logToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.enableLoggingToolStripMenuItem,
             this.openLogToolStripMenuItem,
+            this.debuggerToolStripMenuItem,
             this.nameTablesToolStripMenuItem,
             this.patternTablesToolStripMenuItem,
             this.memoryViewerToolStripMenuItem,
@@ -525,6 +527,29 @@
             this.testConsoleToolStripMenuItem.Text = "Test Console...";
             this.testConsoleToolStripMenuItem.Click += new System.EventHandler(this.testConsoleToolStripMenuItem_Click);
             // 
+            // netPlayToolStripMenuItem
+            // 
+            this.netPlayToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.startGameToolStripMenuItem,
+            this.joinGameToolStripMenuItem});
+            this.netPlayToolStripMenuItem.Name = "netPlayToolStripMenuItem";
+            this.netPlayToolStripMenuItem.Size = new System.Drawing.Size(63, 20);
+            this.netPlayToolStripMenuItem.Text = "Net Play";
+            // 
+            // startGameToolStripMenuItem
+            // 
+            this.startGameToolStripMenuItem.Name = "startGameToolStripMenuItem";
+            this.startGameToolStripMenuItem.Size = new System.Drawing.Size(132, 22);
+            this.startGameToolStripMenuItem.Text = "Start Game";
+            this.startGameToolStripMenuItem.Click += new System.EventHandler(this.startGameToolStripMenuItem_Click);
+            // 
+            // joinGameToolStripMenuItem
+            // 
+            this.joinGameToolStripMenuItem.Name = "joinGameToolStripMenuItem";
+            this.joinGameToolStripMenuItem.Size = new System.Drawing.Size(132, 22);
+            this.joinGameToolStripMenuItem.Text = "Join Game";
+            this.joinGameToolStripMenuItem.Click += new System.EventHandler(this.joinGameToolStripMenuItem_Click);
+            // 
             // helpToolStripMenuItem
             // 
             this.helpToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -563,29 +588,6 @@
             this.aboutEmuoTronToolStripMenuItem.Text = "About Emu-o-Tron";
             this.aboutEmuoTronToolStripMenuItem.Click += new System.EventHandler(this.aboutEmuoTronToolStripMenuItem_Click);
             // 
-            // netPlayToolStripMenuItem
-            // 
-            this.netPlayToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.startGameToolStripMenuItem,
-            this.joinGameToolStripMenuItem});
-            this.netPlayToolStripMenuItem.Name = "netPlayToolStripMenuItem";
-            this.netPlayToolStripMenuItem.Size = new System.Drawing.Size(63, 20);
-            this.netPlayToolStripMenuItem.Text = "Net Play";
-            // 
-            // startGameToolStripMenuItem
-            // 
-            this.startGameToolStripMenuItem.Name = "startGameToolStripMenuItem";
-            this.startGameToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
-            this.startGameToolStripMenuItem.Text = "Start Game";
-            this.startGameToolStripMenuItem.Click += new System.EventHandler(this.startGameToolStripMenuItem_Click);
-            // 
-            // joinGameToolStripMenuItem
-            // 
-            this.joinGameToolStripMenuItem.Name = "joinGameToolStripMenuItem";
-            this.joinGameToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
-            this.joinGameToolStripMenuItem.Text = "Join Game";
-            this.joinGameToolStripMenuItem.Click += new System.EventHandler(this.joinGameToolStripMenuItem_Click);
-            // 
             // openFile
             // 
             this.openFile.DefaultExt = "nes";
@@ -618,6 +620,13 @@
             this.surfaceControl.Name = "surfaceControl";
             this.surfaceControl.Size = new System.Drawing.Size(512, 480);
             this.surfaceControl.TabIndex = 3;
+            // 
+            // debuggerToolStripMenuItem
+            // 
+            this.debuggerToolStripMenuItem.Name = "debuggerToolStripMenuItem";
+            this.debuggerToolStripMenuItem.Size = new System.Drawing.Size(191, 22);
+            this.debuggerToolStripMenuItem.Text = "Debugger...";
+            this.debuggerToolStripMenuItem.Click += new System.EventHandler(this.debuggerToolStripMenuItem_Click);
             // 
             // Program
             // 
@@ -709,5 +718,6 @@
         private System.Windows.Forms.ToolStripMenuItem netPlayToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem startGameToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem joinGameToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem debuggerToolStripMenuItem;
     }
 }
