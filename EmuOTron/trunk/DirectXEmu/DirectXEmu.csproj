@@ -104,6 +104,12 @@
     <Compile Include="AddBreakpoint.Designer.cs">
       <DependentUpon>AddBreakpoint.cs</DependentUpon>
     </Compile>
+    <Compile Include="CheatFinder.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="CheatFinder.Designer.cs">
+      <DependentUpon>CheatFinder.cs</DependentUpon>
+    </Compile>
     <Compile Include="Debugger.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -364,6 +370,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="ArchiveViewer.resx">
       <DependentUpon>ArchiveViewer.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="CheatFinder.resx">
+      <DependentUpon>CheatFinder.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Console.resx">
       <DependentUpon>Console.cs</DependentUpon>

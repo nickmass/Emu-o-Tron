@@ -1632,6 +1632,8 @@ namespace DirectXEmu
                 DipDiag.FormClosing += new FormClosingEventHandler(DipDiag_FormClosing);
                 DipDiag.ShowDialog();
             }
+            if (debugger != null)
+                debugger.Close();
             debugger = new Debugger(cpu.debug);
             debugger.UpdateDebug();
         }
@@ -1732,6 +1734,7 @@ namespace DirectXEmu
 
         private void closeToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            debugger.Close();
             this.SaveGame();
             this.Text = "Emu-o-Tron";
             this.romPath = "";
@@ -2407,6 +2410,15 @@ namespace DirectXEmu
         {
             if (cpu != null)
                 debugger.Show();
+        }
+
+        private void cheatFinderToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (cpu != null)
+            {
+                CheatFinder cheatFinder = new CheatFinder(cpu.debug);
+                cheatFinder.Show();
+            }
         }
     }
 }

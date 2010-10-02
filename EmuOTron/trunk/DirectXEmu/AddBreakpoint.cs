@@ -20,12 +20,12 @@ namespace DirectXEmu
         public AddBreakpoint(int type, int address)
         {
             InitializeComponent();
-            if (type == 0)
-                radRead.Checked = true;
-            else if (type == 1)
-                radWrite.Checked = true;
-            else if (type == 2)
-                radExec.Checked = true;
+            if ((type & 1) != 0)
+                chkRead.Checked = true;
+            if ((type & 2) != 0)
+                chkWrite.Checked = true;
+            if ((type & 4) != 0)
+                chkExecute.Checked = true;
             txtAddress.Text = address.ToString("X4");
         }
 
@@ -34,16 +34,17 @@ namespace DirectXEmu
             
             try
             {
-                address = int.Parse(txtAddress.Text, System.Globalization.NumberStyles.HexNumber, null);
+                address = int.Parse(txtAddress.Text, System.Globalization.NumberStyles.HexNumber);
                 if (!(address >= 0 && address < 0x10000))
                     throw new FormatException();
-                if (radRead.Checked)
-                    type = 0;
-                else if (radWrite.Checked)
-                    type = 1;
-                else if (radExec.Checked)
-                    type = 2;
-                else
+                type = 0;
+                if (chkRead.Checked)
+                    type |= 1;
+                if (chkWrite.Checked)
+                    type |= 2;
+                if (chkExecute.Checked)
+                    type |= 4;
+                if (type == 0)
                     throw new Exception();
                 DialogResult = System.Windows.Forms.DialogResult.OK;
             }

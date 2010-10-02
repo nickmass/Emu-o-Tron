@@ -41,7 +41,7 @@
             this.chkNegative = new System.Windows.Forms.CheckBox();
             this.txtY = new System.Windows.Forms.TextBox();
             this.txtX = new System.Windows.Forms.TextBox();
-            this.txtSP = new System.Windows.Forms.TextBox();
+            this.txtS = new System.Windows.Forms.TextBox();
             this.txtA = new System.Windows.Forms.TextBox();
             this.txtPC = new System.Windows.Forms.TextBox();
             this.lstStack = new System.Windows.Forms.ListBox();
@@ -62,6 +62,10 @@
             this.label4 = new System.Windows.Forms.Label();
             this.label5 = new System.Windows.Forms.Label();
             this.txtLastExec = new System.Windows.Forms.TextBox();
+            this.label6 = new System.Windows.Forms.Label();
+            this.label7 = new System.Windows.Forms.Label();
+            this.txtCycle = new System.Windows.Forms.TextBox();
+            this.txtScanline = new System.Windows.Forms.TextBox();
             this.SuspendLayout();
             // 
             // txtLog
@@ -198,13 +202,13 @@
             this.txtX.Size = new System.Drawing.Size(47, 20);
             this.txtX.TabIndex = 12;
             // 
-            // txtSP
+            // txtS
             // 
-            this.txtSP.Location = new System.Drawing.Point(482, 171);
-            this.txtSP.Name = "txtSP";
-            this.txtSP.ReadOnly = true;
-            this.txtSP.Size = new System.Drawing.Size(47, 20);
-            this.txtSP.TabIndex = 13;
+            this.txtS.Location = new System.Drawing.Point(482, 171);
+            this.txtS.Name = "txtS";
+            this.txtS.ReadOnly = true;
+            this.txtS.Size = new System.Drawing.Size(47, 20);
+            this.txtS.TabIndex = 13;
             // 
             // txtA
             // 
@@ -237,12 +241,12 @@
             this.lstBreak.FormattingEnabled = true;
             this.lstBreak.Location = new System.Drawing.Point(355, 229);
             this.lstBreak.Name = "lstBreak";
-            this.lstBreak.Size = new System.Drawing.Size(167, 95);
+            this.lstBreak.Size = new System.Drawing.Size(87, 82);
             this.lstBreak.TabIndex = 17;
             // 
             // btnAddBreak
             // 
-            this.btnAddBreak.Location = new System.Drawing.Point(355, 330);
+            this.btnAddBreak.Location = new System.Drawing.Point(448, 229);
             this.btnAddBreak.Name = "btnAddBreak";
             this.btnAddBreak.Size = new System.Drawing.Size(75, 23);
             this.btnAddBreak.TabIndex = 18;
@@ -252,7 +256,7 @@
             // 
             // btnEditBreak
             // 
-            this.btnEditBreak.Location = new System.Drawing.Point(436, 330);
+            this.btnEditBreak.Location = new System.Drawing.Point(448, 258);
             this.btnEditBreak.Name = "btnEditBreak";
             this.btnEditBreak.Size = new System.Drawing.Size(75, 23);
             this.btnEditBreak.TabIndex = 19;
@@ -262,7 +266,7 @@
             // 
             // btnRemoveBreak
             // 
-            this.btnRemoveBreak.Location = new System.Drawing.Point(355, 359);
+            this.btnRemoveBreak.Location = new System.Drawing.Point(448, 287);
             this.btnRemoveBreak.Name = "btnRemoveBreak";
             this.btnRemoveBreak.Size = new System.Drawing.Size(75, 23);
             this.btnRemoveBreak.TabIndex = 20;
@@ -373,11 +377,11 @@
             // label5
             // 
             this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(455, 174);
+            this.label5.Location = new System.Drawing.Point(462, 174);
             this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(21, 13);
+            this.label5.Size = new System.Drawing.Size(14, 13);
             this.label5.TabIndex = 32;
-            this.label5.Text = "SP";
+            this.label5.Text = "S";
             // 
             // txtLastExec
             // 
@@ -388,11 +392,49 @@
             this.txtLastExec.Size = new System.Drawing.Size(337, 20);
             this.txtLastExec.TabIndex = 33;
             // 
+            // label6
+            // 
+            this.label6.AutoSize = true;
+            this.label6.Location = new System.Drawing.Point(370, 350);
+            this.label6.Name = "label6";
+            this.label6.Size = new System.Drawing.Size(33, 13);
+            this.label6.TabIndex = 34;
+            this.label6.Text = "Cycle";
+            // 
+            // label7
+            // 
+            this.label7.AutoSize = true;
+            this.label7.Location = new System.Drawing.Point(355, 324);
+            this.label7.Name = "label7";
+            this.label7.Size = new System.Drawing.Size(48, 13);
+            this.label7.TabIndex = 35;
+            this.label7.Text = "Scanline";
+            // 
+            // txtCycle
+            // 
+            this.txtCycle.Location = new System.Drawing.Point(409, 347);
+            this.txtCycle.Name = "txtCycle";
+            this.txtCycle.ReadOnly = true;
+            this.txtCycle.Size = new System.Drawing.Size(47, 20);
+            this.txtCycle.TabIndex = 36;
+            // 
+            // txtScanline
+            // 
+            this.txtScanline.Location = new System.Drawing.Point(409, 321);
+            this.txtScanline.Name = "txtScanline";
+            this.txtScanline.ReadOnly = true;
+            this.txtScanline.Size = new System.Drawing.Size(47, 20);
+            this.txtScanline.TabIndex = 37;
+            // 
             // Debugger
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(627, 420);
+            this.Controls.Add(this.txtScanline);
+            this.Controls.Add(this.txtCycle);
+            this.Controls.Add(this.label7);
+            this.Controls.Add(this.label6);
             this.Controls.Add(this.txtLastExec);
             this.Controls.Add(this.label5);
             this.Controls.Add(this.label4);
@@ -413,7 +455,7 @@
             this.Controls.Add(this.lstStack);
             this.Controls.Add(this.txtPC);
             this.Controls.Add(this.txtA);
-            this.Controls.Add(this.txtSP);
+            this.Controls.Add(this.txtS);
             this.Controls.Add(this.txtX);
             this.Controls.Add(this.txtY);
             this.Controls.Add(this.chkNegative);
@@ -453,7 +495,7 @@
         private System.Windows.Forms.CheckBox chkNegative;
         private System.Windows.Forms.TextBox txtY;
         private System.Windows.Forms.TextBox txtX;
-        private System.Windows.Forms.TextBox txtSP;
+        private System.Windows.Forms.TextBox txtS;
         private System.Windows.Forms.TextBox txtA;
         private System.Windows.Forms.TextBox txtPC;
         private System.Windows.Forms.ListBox lstStack;
@@ -474,5 +516,9 @@
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.TextBox txtLastExec;
+        private System.Windows.Forms.Label label6;
+        private System.Windows.Forms.Label label7;
+        private System.Windows.Forms.TextBox txtCycle;
+        private System.Windows.Forms.TextBox txtScanline;
     }
 }

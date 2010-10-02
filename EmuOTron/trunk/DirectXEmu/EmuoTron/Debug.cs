@@ -9,9 +9,9 @@ namespace EmuoTron
     {
         private NESCore nes;
 
-        public bool irqEnable;
-        private int irqCounter;
-        public bool debugInterrupt;
+        public bool irqEnable = false;
+        private int irqCounter = 0;
+        public bool debugInterrupt = false;
 
         public int lastExec;
 
@@ -26,6 +26,22 @@ namespace EmuoTron
 
         public StringBuilder logBuilder = new StringBuilder();
         public bool logging = false;
+
+        public int Scanline
+        {
+            get
+            {
+                return nes.PPU.scanline;
+            }
+        }
+
+        public int Cycle
+        {
+            get
+            {
+                return nes.PPU.scanlineCycle;
+            }
+        }
 
         public byte RegA
         {
@@ -118,7 +134,6 @@ namespace EmuoTron
                 return ((nes.FlagSign >> 7) != 0);
             }
         }
-
         public Debug(NESCore nes)
         {
             this.nes = nes;
@@ -412,7 +427,7 @@ namespace EmuoTron
         public byte Peek(int address)
         {
             address = address & 0xFFFF;
-            byte nextByte = nes.Memory[address];
+            byte nextByte = nes.Memory[nes.MirrorMap[address]];
             return nextByte;
         }
         public int PeekWord(int address)
@@ -424,6 +439,10 @@ namespace EmuoTron
         {
             int highAddress = (address & 0xFF00) + ((address + 1) & 0xFF);
             return (Peek(address) + (Peek(highAddress) << 8)) & 0xFFFF;
+        }
+        public ushort PeekMirror(ushort address)
+        {
+            return nes.MirrorMap[address];
         }
     }
 }
