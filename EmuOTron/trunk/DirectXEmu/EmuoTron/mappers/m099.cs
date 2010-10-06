@@ -26,9 +26,5 @@ namespace EmuoTron.mappers
             if (address == 0x4016)
                 nes.PPU.PPUMemory.Swap8kROM(0x0000, ((value >> 2) & 0x01));
         }
-        public override byte Read(byte value, ushort address) { return value; }
-        public override void IRQ(int scanline, int vblank) { }
-        public override void StateLoad(BinaryReader reader) { }
-        public override void StateSave(BinaryWriter writer) { }
     }
 }

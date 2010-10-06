@@ -25,7 +25,7 @@ namespace DirectXEmu
         {
             try
             {
-                int value = Convert.ToInt32(txtCompare.Text) & 0xFF;
+                int value = int.Parse(txtCompare.Text, System.Globalization.NumberStyles.HexNumber) & 0xFF;
                 results.Clear();
                 switch (cboOp.SelectedIndex)
                 {
@@ -77,7 +77,7 @@ namespace DirectXEmu
         {
             try
             {
-                int value = int.Parse(txtCompare.Text, System.Globalization.NumberStyles.HexNumber);
+                int value = int.Parse(txtCompare.Text, System.Globalization.NumberStyles.HexNumber) & 0xFF;
                 List<ushort> results = new List<ushort>();
                 switch (cboOp.SelectedIndex)
                 {

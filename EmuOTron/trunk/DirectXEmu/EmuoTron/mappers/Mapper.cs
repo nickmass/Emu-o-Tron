@@ -9,12 +9,16 @@ namespace EmuoTron.mappers
     public abstract class Mapper
     {
         protected NESCore nes;
-        public bool interruptMapper;
-        public abstract void Init();
-        public abstract byte Read(byte value, ushort address);
-        public abstract void Write(byte value, ushort address);
-        public abstract void IRQ(int scanline, int vblank);
-        public abstract void StateSave(BinaryWriter writer);
-        public abstract void StateLoad(BinaryReader reader);
+        public virtual bool interruptMapper
+        {
+            get;
+            set;
+        }
+        public virtual void Init() { }
+        public virtual byte Read(byte value, ushort address) { return value; }
+        public virtual void Write(byte value, ushort address) { }
+        public virtual void IRQ(int scanline, int vblank) { }
+        public virtual void StateSave(BinaryWriter writer) { }
+        public virtual void StateLoad(BinaryReader reader) { }
     }
 }

@@ -103,7 +103,7 @@ namespace DirectXEmu
         {
             try
             {
-                int line = int.Parse(txtSeekTo.Text, System.Globalization.NumberStyles.HexNumber, null);
+                int line = int.Parse(txtSeekTo.Text, System.Globalization.NumberStyles.HexNumber);
                 if (line >= 0 && line < 0x10000)
                 {
                     logStart = line;

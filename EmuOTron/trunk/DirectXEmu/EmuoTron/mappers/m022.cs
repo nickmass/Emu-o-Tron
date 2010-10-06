@@ -110,10 +110,6 @@ namespace EmuoTron.mappers
                 nes.PPU.PPUMemory.Swap1kROM((ushort)(i << 10), ((chrLow[i] | (chrHigh[i] << 4)) >> 1) % nes.rom.vROM);
             }
         }
-        public override byte Read(byte value, ushort address) { return value; }
-        public override void IRQ(int cycles, int vblank)
-        {
-        }
         public override void StateSave(BinaryWriter writer)
         {
             writer.Write(prgReg0);

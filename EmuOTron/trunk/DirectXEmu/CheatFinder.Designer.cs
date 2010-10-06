@@ -46,7 +46,7 @@
             this.lstResults.FormattingEnabled = true;
             this.lstResults.Location = new System.Drawing.Point(12, 12);
             this.lstResults.Name = "lstResults";
-            this.lstResults.Size = new System.Drawing.Size(86, 238);
+            this.lstResults.Size = new System.Drawing.Size(86, 173);
             this.lstResults.TabIndex = 0;
             // 
             // cboOp
@@ -101,7 +101,7 @@
             // 
             // btnOk
             // 
-            this.btnOk.Location = new System.Drawing.Point(238, 227);
+            this.btnOk.Location = new System.Drawing.Point(238, 162);
             this.btnOk.Name = "btnOk";
             this.btnOk.Size = new System.Drawing.Size(75, 23);
             this.btnOk.TabIndex = 7;
@@ -156,7 +156,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(325, 262);
+            this.ClientSize = new System.Drawing.Size(325, 198);
             this.Controls.Add(this.btnUnkSearch);
             this.Controls.Add(this.btnUnkFilter);
             this.Controls.Add(this.cboUnknown);

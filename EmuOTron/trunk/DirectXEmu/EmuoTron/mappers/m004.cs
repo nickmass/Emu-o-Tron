@@ -265,7 +265,6 @@ namespace EmuoTron.mappers
                 }
             }
         }
-        public override byte Read(byte value, ushort address) { return value; }
         public override void IRQ(int scanline, int vblank)
         {
             bool wasNotZero = (irqCounter != 0);
