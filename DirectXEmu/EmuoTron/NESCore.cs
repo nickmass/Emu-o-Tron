@@ -707,7 +707,7 @@ namespace EmuoTron
                 APU.AddCycles(opCycles);
                 PPU.AddCycles(opCycles);
                 debug.AddCycles(opCycles);
-                if (rom.mapper == 69 || rom.mapper == 21 || rom.mapper == 23 || rom.mapper == 24 || rom.mapper == 25 || rom.mapper == 26 || rom.mapper == 73 || rom.mapper == 85)
+                if (rom.mapper == 69 || rom.mapper == 20 || rom.mapper == 21 || rom.mapper == 23 || rom.mapper == 24 || rom.mapper == 25 || rom.mapper == 26 || rom.mapper == 73 || rom.mapper == 85)
                     mapper.IRQ(opCycles, 0);
 #if !nestest
                 if (interruptBRK)
@@ -1165,6 +1165,7 @@ namespace EmuoTron
                         nextByte &= 0x7F;
                 }
             }
+            nextByte = mapper.Read(nextByte, (ushort)address);
             nextByte = APU.Read(nextByte, (ushort)address);
             nextByte = PPU.Read(nextByte, (ushort)address);
             nextByte = debug.Read(nextByte, (ushort)address);

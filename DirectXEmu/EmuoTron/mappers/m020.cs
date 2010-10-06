@@ -10,6 +10,7 @@ namespace EmuoTron.mappers
     {
         public uint crc;
         public int sideCount;
+        public int currentSide;
         private byte[,] diskData;
         private int diskPointer;
         private bool irqEnable;
@@ -19,8 +20,7 @@ namespace EmuoTron.mappers
         private bool timerIRQ;
         private bool soundControl;
         private bool dataControl;
-        private byte externalConnector;
-        private bool diskInserted;
+        private bool diskInserted = true;
         private bool diskWriteProtected;
         private bool lostData;
         private byte nextData;
@@ -28,7 +28,8 @@ namespace EmuoTron.mappers
         private bool readWrite;
         private bool dataIRQTrigger;
         private bool driveMotor;
-        private int diskOperationTime = 152; //96.4khz / 60 fps / 29780 cycles / frame * 8 bits
+        private int diskOperationTime = 152; //96.4khz / 60 fps / 29780 cycles / frame * 8 bits = 152
+        private int diskOperationCounter;
 
         public override bool interruptMapper
         {
@@ -74,6 +75,7 @@ namespace EmuoTron.mappers
             nes.Memory.Swap8kRAM(0xC000, 3);
             nes.Memory.SetReadOnly(0x6000, 8, false);
             nes.PPU.PPUMemory.Swap8kRAM(0, 0);
+            diskOperationCounter = diskOperationTime;
         }
         public override void Write(byte value, ushort address)
         {
@@ -83,14 +85,15 @@ namespace EmuoTron.mappers
                 {
                     case 0x4020:
                         irqReload = (irqReload & 0xFF00) | value;
+                        timerIRQ = false;
                         break;
                     case 0x4021:
                         irqReload = (irqReload & 0x00FF) | (value << 8);
+                        timerIRQ = false;
                         break;
                     case 0x4022:
-                        irqEnable = ((value & 1) != 0);
-                        if(!irqEnable)
-                            timerIRQ = false;
+                        irqEnable = ((value & 2) != 0);
+                        timerIRQ = false;
                         irqCounter = irqReload;
                         break;
                     case 0x4023:
@@ -98,21 +101,42 @@ namespace EmuoTron.mappers
                         soundControl = ((value & 2) != 0);
                         break;
                     case 0x4024:
-                        nextData = value;
-                        dataHandled = true;
-                        dataIRQ = false;
+                        if (diskInserted && dataControl && !readWrite)
+                        {
+                            if ((diskPointer >= 0) && (diskPointer < 65000))
+                            {
+                                diskData[currentSide, diskPointer] = value;
+                                dataHandled = true;
+                                dataIRQ = false;
+                                diskOperationCounter = diskOperationTime;
+                                if (diskPointer < 64999)
+                                    diskPointer++;
+                            }
+                        }
                         break;
                     case 0x4025:
                         driveMotor = ((value & 1) != 0);
                         readWrite = ((value & 4) != 0);
+                        if ((value & 0x40) == 0)//http://nesdev.parodius.com/bbs/viewtopic.php?t=738&highlight=fds .fds files do not contain crc bytes so have to jump pointer back
+                        {
+                            diskPointer -= 2;
+                            if (diskPointer < 0)
+                                diskPointer = 0;
+                        }
+                        if (diskPointer < 0)
+                            diskPointer = 0;
                         if ((value & 8) != 0)
                             nes.PPU.PPUMemory.HorizontalMirroring();
                         else
                             nes.PPU.PPUMemory.VerticalMirroring();
                         dataIRQTrigger = ((value & 0x80) != 0);
+                        if ((value & 0x02) != 0)
+                        {
+                            diskPointer = 0;
+                            diskOperationCounter = diskOperationTime;
+                        }
                         break;
                     case 0x4026:
-                        externalConnector = value;
                         break;
                 }
             }
@@ -137,20 +161,26 @@ namespace EmuoTron.mappers
                         timerIRQ = false;
                         break;
                     case 0x4031:
-                        value = nextData;
-                        dataHandled = true;
-                        dataIRQ = false;
-                        nextData = 0;
+                        if (diskInserted)
+                        {
+                            value = diskData[currentSide, diskPointer];
+                            dataHandled = true;
+                            dataIRQ = false;
+                            diskOperationCounter = diskOperationTime;
+                            if (diskPointer < 64999)
+                                diskPointer++;
+                            nextData = 0;
+                        }
                         break;
                     case 0x4032:
                         value = 0;
-                        if (diskInserted)
-                            value |= 3;
-                        if (diskWriteProtected || !diskInserted)
-                            value |= 4;
+                        if (!diskInserted)
+                            value |= 5;
+                        if (!diskInserted || !driveMotor)
+                            value |= 2;
                         break;
                     case 0x4033:
-                        value = externalConnector;
+                        value = 0x80;
                         break;
                 }
             }
@@ -167,6 +197,12 @@ namespace EmuoTron.mappers
                     timerIRQ = true;
                     irqCounter += irqReload;
                 }
+            }
+            if (diskOperationCounter > 0)
+                diskOperationCounter -= cycles;
+            if (diskOperationCounter <= 0 && readWrite && dataIRQTrigger)
+            {
+                dataIRQ = true;
             }
         }
         public override void StateLoad(BinaryReader reader) { }
