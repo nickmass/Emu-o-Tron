@@ -1,0 +1,4 @@
+glob:DirectXEmu/bin/
+glob:DirectXEmu/obj
+glob:*.suo
+glob:*~

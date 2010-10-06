@@ -8,6 +8,8 @@ namespace EmuoTron.mappers
 {
     class m020 : Mapper
     {
+        public uint crc;
+        public int sideCount;
         private byte[,] diskData;
         private int diskPointer;
         private bool irqEnable;
@@ -35,9 +37,34 @@ namespace EmuoTron.mappers
                 return dataIRQ || timerIRQ;
             }
         }
-        public m020(NESCore nes)
+        public m020(NESCore nes, Stream diskStream, bool ignoreFileCheck)
         {
             this.nes = nes;
+            diskStream.Position = 0x0;
+            if (!ignoreFileCheck)
+            {
+                if (diskStream.ReadByte() != 'F' || diskStream.ReadByte() != 'D' || diskStream.ReadByte() != 'S' || diskStream.ReadByte() != 0x1A)
+                {
+                    diskStream.Close();
+                    throw (new Exception("Invalid File"));
+                }
+            }
+            diskStream.Position = 0x4;
+            sideCount = diskStream.ReadByte();
+            diskStream.Position = 0x10;
+            diskData = new byte[sideCount, 65500];
+            crc = 0xFFFFFFFF;
+            for (int side = 0; side < sideCount; side++)
+            {
+                for (int i = 0; i < 65500; i++)
+                {
+                    byte nextByte = (byte)diskStream.ReadByte();
+                    diskData[side, i] = nextByte;
+                    crc = CRC32.crc32_adjust(crc, nextByte);
+                }
+            }
+            nes.debug.LogInfo("Disk Sides: " + sideCount.ToString());
+            crc = crc ^ 0xFFFFFFFF;
         }
         public override void Init()
         {

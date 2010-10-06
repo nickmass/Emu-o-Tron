@@ -1587,23 +1587,32 @@ namespace DirectXEmu
         }
         private void StartEmu()
         {
-            
             bool logState = false;
             if(this.cpu != null)
                 logState = this.cpu.debug.logging;
             try
             {
-
-                this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath);
+                if (Path.GetExtension(romPath).ToLower() == ".fds")
+                    this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), config["fdsBios"], this.romPath, this.appPath);
+                else
+                    this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath);
             }
             catch (Exception e)
             {
                 if (e.Message == "Invalid File")
                 {
                     if (MessageBox.Show("File appears to be invalid. Attempt load anyway?", "Error", MessageBoxButtons.YesNo) == DialogResult.Yes)
-                        this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath, true);
+                        if (Path.GetExtension(romPath).ToLower() == ".fds")
+                            this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), config["fdsBios"], this.romPath, this.appPath, true);
+                        else
+                            this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath, true);
                     else
                         throw (e);
+                }
+                else if (e.Message == "FDS BIOS not found.")
+                {
+                    MessageBox.Show("FDS BIOS image not found.");
+                    throw (e);
                 }
                 else
                     throw (e);

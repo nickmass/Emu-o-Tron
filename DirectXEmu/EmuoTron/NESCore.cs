@@ -753,6 +753,48 @@ namespace EmuoTron
             PPU.generatePatternTables = false;
             APU.Update();
         }
+        public NESCore(SystemType region, String input, String fdsImage, String cartDBLocation, bool ignoreFileCheck = false) //FDS Load
+        {
+            this.nesRegion = region;
+            opList = OpInfo.GetOps();
+            if (!File.Exists(input))
+            {
+                throw new Exception("FDS BIOS not found.");
+            }
+            Stream biosStream = File.OpenRead(input);
+            Stream diskStream = File.OpenRead(fdsImage);
+            rom.filePath = fdsImage;
+            rom.fileName = Path.GetFileNameWithoutExtension(rom.filePath);
+            rom.mapper = 20;
+            Memory = new MemoryStore(0x40, true);
+            Memory.swapOffset = 0x20;
+            Memory.SetReadOnly(0, 2, false);
+            APU = new APU(this);
+            PPU = new PPU(this);
+            debug = new Debug(this);
+            debug.LogInfo(rom.filePath);
+            debug.LogInfo("Mapper: " + rom.mapper);
+            biosStream.Position = 0;
+            for (int i = 0x00; i < 8 * 0x400; i++)
+            {
+                Memory.banks[(i / 0x400) + Memory.swapOffset][i % 0x400] = (byte)biosStream.ReadByte();
+            }
+            mapper = new mappers.m020(this, diskStream, ignoreFileCheck);
+            rom.crc = ((mappers.m020)mapper).crc; //I don't like this.
+            debug.LogInfo("ROM CRC32: " + rom.crc.ToString("X8"));
+            diskStream.Close();
+            biosStream.Close();
+            mapper.Init();
+            PPU.Power();
+            for (int i = 0; i < 0x10000; i++)
+            {
+                this.MirrorMap[i] = (ushort)i;
+            }
+            this.CPUMirror(0x0000, 0x0800, 0x0800, 3);
+            this.CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
+            RegPC = PeekWord(0xFFFC);//entry point
+
+        }
         public NESCore(SystemType region, String input, String cartDBLocation, bool ignoreFileCheck = false) : 
             this(region, File.OpenRead(input), cartDBLocation, ignoreFileCheck)
         {
