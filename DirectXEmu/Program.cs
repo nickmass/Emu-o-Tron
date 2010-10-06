@@ -1645,6 +1645,7 @@ namespace DirectXEmu
                 debugger.Close();
             debugger = new Debugger(cpu.debug);
             debugger.UpdateDebug();
+            ejectDiskToolStripMenuItem.Visible = (cpu.GetSideCount() != 0);
         }
         Debugger debugger;
         void DipDiag_FormClosing(object sender, FormClosingEventArgs e)
@@ -2427,6 +2428,41 @@ namespace DirectXEmu
             {
                 CheatFinder cheatFinder = new CheatFinder(cpu.debug);
                 cheatFinder.Show();
+            }
+        }
+        void DiskSide_Click(object sender, EventArgs e)
+        {
+            if (!cpu.GetEjectDisk())
+            {
+                cpu.SetDiskSide((int)((ToolStripMenuItem)sender).Tag);
+                ejectDiskToolStripMenuItem.DropDownItems.Clear();
+                ejectDiskToolStripMenuItem.Text = "Eject Disk";
+                cpu.EjectDisk(true);
+            }
+            else
+                MessageBox.Show("Must eject the disk prior to switching sides.");
+        }
+        private void ejectDiskToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (cpu != null)
+            {
+                if (cpu.GetEjectDisk())
+                {
+                    ejectDiskToolStripMenuItem.DropDownItems.Clear();
+                    cpu.EjectDisk(false);
+                    ejectDiskToolStripMenuItem.Text = "Insert Disk";
+                    if (cpu.GetSideCount() != 0)
+                    {
+                        ToolStripMenuItem[] diskSides = new ToolStripMenuItem[cpu.GetSideCount()];
+                        for (int i = 0; i < cpu.GetSideCount(); i++)
+                        {
+                            diskSides[i] = new ToolStripMenuItem("Side " + (i + 1).ToString());
+                            diskSides[i].Tag = (i);
+                            diskSides[i].Click += new EventHandler(DiskSide_Click);
+                        }
+                        ejectDiskToolStripMenuItem.DropDownItems.AddRange(diskSides);
+                    }
+                }
             }
         }
     }

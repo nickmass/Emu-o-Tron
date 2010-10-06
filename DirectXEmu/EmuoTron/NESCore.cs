@@ -1367,17 +1367,55 @@ namespace EmuoTron
             RegS &= 0xFF;
             return Read((ushort)(RegS + 0x0100));
         }
-        public void AddCycles(int value)
+        public void AddCycles(int value) //I am CLEARLY not using this correctly, adding cycles to the ppu completely destroys any cycle based mapper irq.
         {
             counter += value;
-            PPU.AddCycles(value);
-            APU.AddCycles(value);
+            //PPU.AddCycles(value);
+            //APU.AddCycles(value);
         }
         private void CPUMirror(ushort address, ushort mirrorAddress, ushort length, int repeat)
         {
             for (int j = 0; j < repeat; j++)
                 for (int i = 0; i < length; i++)
                     this.MirrorMap[mirrorAddress + i + (j * length)] = (ushort)(this.MirrorMap[address + i]);
+        }
+        public void EjectDisk(bool diskInserted)
+        {
+            if (rom.mapper == 20)
+            {
+                ((mappers.m020)mapper).EjectDisk(diskInserted);
+            }
+        }
+        public void SetDiskSide(int diskSide)
+        {
+            if (rom.mapper == 20)
+            {
+                ((mappers.m020)mapper).SetDiskSide(diskSide);
+            }
+        }
+        public bool GetEjectDisk()
+        {
+            if (rom.mapper == 20)
+            {
+                return ((mappers.m020)mapper).diskInserted;
+            }
+            return false;
+        }
+        public int GetDiskSide()
+        {
+            if (rom.mapper == 20)
+            {
+                return ((mappers.m020)mapper).currentSide;
+            }
+            return 0;
+        }
+        public int GetSideCount()
+        {
+            if (rom.mapper == 20)
+            {
+                return ((mappers.m020)mapper).sideCount;
+            }
+            return 0;
         }
         public SaveState StateSave()
         {

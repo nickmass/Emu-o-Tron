@@ -20,11 +20,7 @@ namespace EmuoTron.mappers
         private bool timerIRQ;
         private bool soundControl;
         private bool dataControl;
-        private bool diskInserted = true;
-        private bool diskWriteProtected;
-        private bool lostData;
-        private byte nextData;
-        private bool dataHandled;
+        public bool diskInserted = true;
         private bool readWrite;
         private bool dataIRQTrigger;
         private bool driveMotor;
@@ -106,7 +102,6 @@ namespace EmuoTron.mappers
                             if ((diskPointer >= 0) && (diskPointer < 65000))
                             {
                                 diskData[currentSide, diskPointer] = value;
-                                dataHandled = true;
                                 dataIRQ = false;
                                 diskOperationCounter = diskOperationTime;
                                 if (diskPointer < 64999)
@@ -153,8 +148,6 @@ namespace EmuoTron.mappers
                             value |= 1;
                         if (dataIRQ) 
                             value |= 2;
-                        if (lostData)
-                            value |= 0x40;
                         if(diskInserted)
                             value |= 0x80; //reable or writable
                         dataIRQ = false;
@@ -164,12 +157,10 @@ namespace EmuoTron.mappers
                         if (diskInserted)
                         {
                             value = diskData[currentSide, diskPointer];
-                            dataHandled = true;
                             dataIRQ = false;
                             diskOperationCounter = diskOperationTime;
                             if (diskPointer < 64999)
                                 diskPointer++;
-                            nextData = 0;
                         }
                         break;
                     case 0x4032:
@@ -204,6 +195,19 @@ namespace EmuoTron.mappers
             {
                 dataIRQ = true;
             }
+        }
+
+        public void EjectDisk(bool diskInserted)
+        {
+            this.diskInserted = diskInserted;
+            diskPointer = 0;
+            diskOperationCounter = diskOperationTime;
+        }
+        public void SetDiskSide(int diskSide)
+        {
+            this.currentSide = diskSide;
+            diskPointer = 0;
+            diskOperationCounter = diskOperationTime;
         }
         public override void StateLoad(BinaryReader reader) { }
         public override void StateSave(BinaryWriter writer) { }
