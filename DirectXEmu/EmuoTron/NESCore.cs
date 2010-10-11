@@ -707,7 +707,7 @@ namespace EmuoTron
                 APU.AddCycles(opCycles);
                 PPU.AddCycles(opCycles);
                 debug.AddCycles(opCycles);
-                if (rom.mapper == 69 || rom.mapper == 20 || rom.mapper == 21 || rom.mapper == 23 || rom.mapper == 24 || rom.mapper == 25 || rom.mapper == 26 || rom.mapper == 73 || rom.mapper == 85)
+                if (mapper.cycleIRQ)
                     mapper.IRQ(opCycles, 0);
 #if !nestest
                 if (interruptBRK)
@@ -785,6 +785,7 @@ namespace EmuoTron
             diskStream.Close();
             biosStream.Close();
             mapper.Init();
+            mapper.cycleIRQ = true;
             PPU.Power();
             for (int i = 0; i < 0x10000; i++)
             {
@@ -911,6 +912,7 @@ namespace EmuoTron
                 string gameName = "";
                 string board = "";
                 string dbMapper = "";
+                string system = "";
                 bool done = false;
                 bool match = false;
                 XmlTextReader xmlReader = new XmlTextReader(Path.Combine(cartDBLocation, "NesCarts.xml"));
@@ -932,6 +934,8 @@ namespace EmuoTron
                                 {
                                     while (xmlReader.MoveToNextAttribute())
                                     {
+                                        if (xmlReader.Name == "system")
+                                            system = xmlReader.Value;
                                         if (xmlReader.Name == "crc")
                                             if (xmlReader.Value == rom.crc.ToString("X8"))
                                                 match = true;
@@ -965,6 +969,18 @@ namespace EmuoTron
                     debug.LogInfo("Name: " + rom.title);
                     debug.LogInfo("Board: " + board);
                     debug.LogInfo("Mapper: " + rom.mapper);
+                    switch (system)
+                    {
+                        case "Famicom":
+                        case "NES-NTSC":
+                        default:
+                            debug.LogInfo("System: " + system);
+                            break;
+                        case "NES-PAL-A":
+                        case "NES-PAL-B":
+                            debug.LogInfo("System: " + system);
+                            break;
+                    }
                 }
                 else
                 {
@@ -1057,6 +1073,8 @@ namespace EmuoTron
             }
             mapper.Init();
             #endregion
+            if (rom.mapper == 69 || rom.mapper == 20 || rom.mapper == 21 || rom.mapper == 23 || rom.mapper == 24 || rom.mapper == 25 || rom.mapper == 26 || rom.mapper == 73 || rom.mapper == 85)
+                mapper.cycleIRQ = true;
             PPU.Power();
             for (int i = 0; i < 0x10000; i++)
             {
@@ -1169,6 +1187,7 @@ namespace EmuoTron
             nextByte = APU.Read(nextByte, (ushort)address);
             nextByte = PPU.Read(nextByte, (ushort)address);
             nextByte = debug.Read(nextByte, (ushort)address);
+            nextByte = GameGenie(nextByte, (ushort)address);
             return nextByte;
         }
         private int ReadWord(int address)
@@ -1313,7 +1332,7 @@ namespace EmuoTron
             PPU.Write((byte)value, (ushort)address);
             debug.Write((byte)value, (ushort)address);
             Memory[address] = (byte)value;
-            ApplyGameGenie();
+            //ApplyGameGenie();
         }
         private byte PToByte()
         {
@@ -1367,11 +1386,14 @@ namespace EmuoTron
             RegS &= 0xFF;
             return Read((ushort)(RegS + 0x0100));
         }
-        public void AddCycles(int value) //I am CLEARLY not using this correctly, adding cycles to the ppu completely destroys any cycle based mapper irq.
+        public void AddCycles(int value)
         {
             counter += value;
-            //PPU.AddCycles(value);
-            //APU.AddCycles(value);
+            APU.AddCycles(value);
+            PPU.AddCycles(value);
+            debug.AddCycles(value);
+            if (mapper.cycleIRQ)
+                mapper.IRQ(value, 0);
         }
         private void CPUMirror(ushort address, ushort mirrorAddress, ushort length, int repeat)
         {
@@ -1478,6 +1500,22 @@ namespace EmuoTron
                 else if (this.gameGenieCodes[i].code.Length == 8 && this.Memory[this.MirrorMap[this.gameGenieCodes[i].address] + 0x8000] == this.gameGenieCodes[i].check)
                     this.Memory.ForceValue(this.MirrorMap[this.gameGenieCodes[i].address + 0x8000], this.gameGenieCodes[i].value);
             }
+        }
+        private byte GameGenie(byte value, ushort address)
+        {
+            for (int i = 0; i < this.gameGenieCodeNum; i++)
+            {
+                if (gameGenieCodes[i].address == address)
+                {
+                    if (this.gameGenieCodes[i].code == "DUMMY")
+                        return this.gameGenieCodes[i].value;
+                    else if (this.gameGenieCodes[i].code.Length == 6)
+                        return this.gameGenieCodes[i].value;
+                    else if (this.gameGenieCodes[i].code.Length == 8 && value == this.gameGenieCodes[i].check)
+                        return this.gameGenieCodes[i].value;
+                }
+            }
+            return value;
         }
         public byte[] GetSRAM()
         {

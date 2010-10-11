@@ -6,7 +6,7 @@ using System.IO;
 
 namespace EmuoTron
 {
-    public class PPU
+    public class CPPU
     {
         public MemoryStore PPUMemory;
         public ushort[] PPUMirrorMap = new ushort[0x8000];
@@ -43,7 +43,7 @@ namespace EmuoTron
         private Int32 loopyV;
         private byte readBuffer;
 
-        public ushort[,] screen = new ushort[256,240];
+        public ushort[,] screen = new ushort[256, 240];
         public bool displaySprites = true;
         public bool displayBG = true;
         public bool enforceSpriteLimit = true;
@@ -59,13 +59,16 @@ namespace EmuoTron
         public byte[][,] patternTables;
 
         int vblankEnd;
+        int timeToVblank;
+        int lastUpdate;
+        int frameLength = 262*341; //WRONG
 
         bool[] zeroBackground;
         ushort[] spriteLine;
         bool[] spriteAboveLine;
         bool[] spriteBelowLine;
 
-        public PPU(NESCore nes)
+        public CPPU(NESCore nes)
         {
             this.nes = nes;
             if (nes.rom.vROM > 0)
@@ -134,7 +137,6 @@ namespace EmuoTron
             if (address == 0x2002) //PPU Status register
             {
                 nextByte = 0;
-                SpriteZeroHit();
                 if (spriteOverflow)
                     nextByte |= 0x20;
                 if (spriteZeroHit)
@@ -191,7 +193,7 @@ namespace EmuoTron
             }
             else if (address == 0x2001) //PPU Mask
             {
-                if((value & 0x01) != 0)
+                if ((value & 0x01) != 0)
                     grayScale = 0x30;
                 else
                     grayScale = 0x3F;
@@ -282,74 +284,54 @@ namespace EmuoTron
         {
             loopyV = (loopyV & 0x7BE0) | (loopyT & 0x041F); //Horz reset
         }
-        private void SpriteZeroHit()
+        public void AddCycles(int cycles)
         {
-            int yPosition = SPRMemory[0] + 1;
-            int xLocation = SPRMemory[3];
-            if(!spriteZeroHit && (backgroundRendering && spriteRendering) && (yPosition <= scanline && yPosition + (tallSprites ? 16 : 8) > scanline) && xLocation <= scanlineCycle)
+            timeToVblank -= (cycles * 3);
+            if (timeToVblank <= 0)
             {
-                int tmpV = loopyV;
-                zeroBackground = new bool[256];
-                for (int tile = 0; tile < 34; tile++)//each tile on line
+                Update();
+                if (nmiEnable)
+                    interruptNMI = true;
+                inVblank = true;
+                timeToVblank += frameLength;
+            }
+        }
+        public void Update()
+        {
+            for (int cycle = lastUpdate; cycle < timeToVblank; cycle++)
+            {
+                scanlineCycle++;
+                if (scanlineCycle >= 341)
                 {
-                    int tileAddr = PPUMirrorMap[0x2000 | (tmpV & 0x0FFF)];
-                    int tileNumber = PPUMemory[tileAddr];
-                    int chrAddress = backgroundTable | (tileNumber << 4) | ((tmpV >> 12) & 7);
-                    byte lowChr = PPUMemory[chrAddress];
-                    byte highChr = PPUMemory[chrAddress | 8];
-                    for (int x = 0; x < 8; x++)//each pixel in tile
+                    scanlineCycle = 0;
+                    zeroBackground = new bool[256];
+                    spriteLine = new ushort[256];
+                    spriteAboveLine = new bool[256];
+                    spriteBelowLine = new bool[256];
+                    scanline++;
+                    if (scanline == vblankEnd)
                     {
-                        int xPosition = ((tile * 8) + x) - (loopyX & 0x7);
-                        if (xPosition >= 0 && xPosition < 256)
-                        {
-                            byte color = (byte)(((lowChr & 0x80) >> 7) + ((highChr & 0x80) >> 6));
-                            zeroBackground[xPosition] = (color == 0 || (!leftmostBackground && xPosition < 8) || !backgroundRendering);
-                        }
-                        lowChr <<= 1;
-                        highChr <<= 1;
+                        spriteOverflow = false;
+                        spriteZeroHit = false;
+                        frameComplete = true;
+                        inVblank = false;
+                        scanline = -1;
                     }
-                    tmpV = (tmpV & 0x7FE0) | ((tmpV + 0x01) & 0x1F);
-                    if ((tmpV & 0x1F) == 0)
-                        tmpV ^= 0x0400;
                 }
-                int spriteTable;
-                int spriteY = (scanline - yPosition);
-                int attr = SPRMemory[2];
-                bool horzFlip = (attr & 0x40) != 0;
-                bool vertFlip = (attr & 0x80) != 0;
-                int spriteTileNumber = SPRMemory[1];
-                if (tallSprites)
+                if (scanline >= 0 && scanline < 240)
                 {
-                    if ((spriteTileNumber & 1) != 0)
-                        spriteTable = 0x1000;
-                    else
-                        spriteTable = 0x0000;
-                    spriteTileNumber &= 0xFE;
-                    if (spriteY > 7)
-                        spriteTileNumber |= 1;
-                }
-                else
-                    spriteTable = this.spriteTable;
-                int spriteChrAddress = (spriteTable | (spriteTileNumber << 4) | (spriteY & 7)) + (vertFlip ? tallSprites ? (spriteY > 7) ? Flip[spriteY & 7] - (1 << 4) : Flip[spriteY & 7] + (1 << 4) : Flip[spriteY & 7] : 0); //this is seriously mental :)
-                byte spriteLowChr = PPUMemory[spriteChrAddress];
-                byte spriteHighChr = PPUMemory[spriteChrAddress | 8];
-                for (int xPosition = horzFlip ? xLocation + 7 : xLocation; horzFlip ? xPosition >= xLocation : xPosition < xLocation + 8; xPosition += horzFlip ? -1 : 1)//each pixel in tile
-                {
-                    if (xPosition < 256 && xPosition <= scanlineCycle)
+                    switch (scanlineCycle)
                     {
-                        byte color = (byte)(((spriteLowChr & 0x80) >> 7) + ((spriteHighChr & 0x80) >> 6));
-                        if (color != 0 && !(!leftmostSprites && xPosition < 8))
-                        {
-                            if (!zeroBackground[xPosition] && xPosition != 255 && scanline != 239)
-                                spriteZeroHit = true;
-                        }
+
                     }
-                    spriteLowChr <<= 1;
-                    spriteHighChr <<= 1;
+                    if (scanlineCycle < 256)
+                    {
+
+                    }
                 }
             }
         }
-        public void AddCycles(int cycles)
+        public void AddCycles(int cycles, int old)
         {
             scanlineCycle += (cycles * 3);
             if (scanlineCycle >= 341)//scanline finished
@@ -508,7 +490,7 @@ namespace EmuoTron
                         VerticalReset();
                     }
                 }
-                else if(!turbo)
+                else if (!turbo)
                 {
                     if (scanline < 240 && scanline >= 0)
                         for (int i = 0; i < 256; i++)
@@ -550,7 +532,7 @@ namespace EmuoTron
                 {
                     for (int tile = 0; tile < 32; tile++)//each tile on line
                     {
-                       
+
                         int tileAddr = PPUMirrorMap[nameTableOffset + ((line / 8) * 32) + tile];
                         int tileNumber = PPUMemory[tileAddr];
                         int addrTableLookup = AttrTableLookup[tileAddr & 0x3FF];
@@ -609,7 +591,7 @@ namespace EmuoTron
                         for (int x = 0; x < 8; x++)//each pixel in tile
                         {
                             byte color = (byte)(((lowChr & 0x80) >> 7) + ((highChr & 0x80) >> 6));
-                            patternTables[patternTable][(column*8) + x, line] = color;
+                            patternTables[patternTable][(column * 8) + x, line] = color;
                             lowChr <<= 1;
                             highChr <<= 1;
                         }
@@ -621,9 +603,9 @@ namespace EmuoTron
         public void StateSave(BinaryWriter writer)
         {
             PPUMemory.StateSave(writer);
-            for(int i = 0; i < 0x100; i++)
+            for (int i = 0; i < 0x100; i++)
                 writer.Write(SPRMemory[i]);
-            for(int i = 0; i < 0x20; i++)
+            for (int i = 0; i < 0x20; i++)
                 writer.Write(PalMemory[i]);
             writer.Write(frameComplete);
             writer.Write(interruptNMI);
@@ -682,7 +664,7 @@ namespace EmuoTron
             loopyV = reader.ReadInt32();
             readBuffer = reader.ReadByte();
         }
-        private int[] Flip = { 7, 5, 3, 1, -1, -3, -5, -7};
+        private int[] Flip = { 7, 5, 3, 1, -1, -3, -5, -7 };
         private ushort[] AttrTableLookup = 
           { 0x0000, 0x0000, 0x2000, 0x2000, 0x0001, 0x0001, 0x2001, 0x2001, 0x0002, 0x0002, 0x2002, 0x2002, 0x0003, 0x0003, 0x2003, 0x2003, 
             0x0004, 0x0004, 0x2004, 0x2004, 0x0005, 0x0005, 0x2005, 0x2005, 0x0006, 0x0006, 0x2006, 0x2006, 0x0007, 0x0007, 0x2007, 0x2007, 

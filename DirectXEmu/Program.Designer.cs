@@ -616,19 +616,19 @@
             // openPaletteDialog
             // 
             this.openPaletteDialog.DefaultExt = "pal";
-            this.openPaletteDialog.Filter = "Palette Files (*.pal)|*.pal|All Files (*.*)|*.*";
+            this.openPaletteDialog.Filter = "Palette Files|*.pal|All Files|*.*";
             this.openPaletteDialog.Title = "Load Palette";
             // 
             // openMovieDialog
             // 
             this.openMovieDialog.DefaultExt = "fm2";
-            this.openMovieDialog.Filter = "FM2 Files (*.fm2)|*.fm2|All Files (*.*)|*.*";
+            this.openMovieDialog.Filter = "FM2 Files|*.fm2|All Files|*.*";
             this.openMovieDialog.Title = "Open Movie";
             // 
             // recordDialog
             // 
             this.recordDialog.DefaultExt = "wav";
-            this.recordDialog.Filter = "Wav files (*.wav)|*.wav";
+            this.recordDialog.Filter = "Wav files|*.wav";
             // 
             // surfaceControl
             // 

@@ -544,6 +544,8 @@ namespace DirectXEmu
             config = new EmuConfig(Path.Combine(this.appPath,  "Emu-o-Tron.cfg"));
             this.config.replacements["{APP-PATH}"] = this.appPath;
             this.LoadKeys();
+            if (!File.Exists(this.config["palette"]))
+                this.config["palette"] = config.defaults["palette"];
             FileStream palFile = File.OpenRead(this.config["palette"]);
             for (int i = 0; i < 0x40; i++)
                 this.colorChart[i] = Color.FromArgb(palFile.ReadByte(), palFile.ReadByte(), palFile.ReadByte());

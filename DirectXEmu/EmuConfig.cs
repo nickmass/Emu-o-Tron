@@ -11,7 +11,7 @@ namespace DirectXEmu
     {
         private string configFile;
         private Dictionary<string, string> settings;
-        private Dictionary<string, string> defaults;
+        public Dictionary<string, string> defaults;
         public Dictionary<string, string> replacements;
         public EmuConfig(string path)
         {

@@ -140,6 +140,7 @@ namespace EmuoTron
                     }
                 }
             }
+            this.address += 0x8000;
             this.code = code;
         }
         public GameGenie(ushort address, byte value)

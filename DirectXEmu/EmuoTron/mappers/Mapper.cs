@@ -9,6 +9,7 @@ namespace EmuoTron.mappers
     public abstract class Mapper
     {
         protected NESCore nes;
+        public bool cycleIRQ;
         public virtual bool interruptMapper
         {
             get;
