@@ -747,6 +747,8 @@ namespace EmuoTron
                 }
 #endif
             }
+            if (debug.debugInterrupt && (PPU.scanlineCycle < 256 && PPU.scanline > -1 && PPU.scanlineCycle < 240))
+                PPU.screen[PPU.scanlineCycle, PPU.scanline] |= 0x1C0;
             emulationRunning = false;
             PPU.frameComplete = false;
             PPU.generateNameTables = false;

@@ -17,7 +17,7 @@ namespace EmuoTron
         public bool turbo;
 
         public int frameBuffer = 1;
-        public int sampleRate = 96000;
+        public int sampleRate = 44100;
         private double sampleRateDivider;
         private double sampleDivider;
 
@@ -135,6 +135,8 @@ namespace EmuoTron
 
         private double[] pulseTable = new double[32];
         private double[] tndTable = new double[204];
+        private int[] pulseTableShort = new int[32];
+        private int[] tndTableShort = new int[204];
 
         public short[] output;
         public int outputPtr;
@@ -169,7 +171,6 @@ namespace EmuoTron
                     modeOneFrameLengths = new int[] { 8314, 8314, 8312, 8314, 8312 };
                     noisePeriods = new ushort[] { 4, 7, 14, 30, 60, 88, 118, 148, 188, 236, 354, 472, 708, 944, 1890, 3778 };
                     dmcRates = new int[] { 398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118, 98, 78, 66, 50 };
-                    //sampleDivider = 1789773 / (sampleRate * 1.0); //I really wish I knew why this gave me the right timing. Just can't quite wrap my head around it.
                     SetFPS(FPS);
                     output = new short[((sampleRate / 50) + 1) * frameBuffer * 2];
                     dmcBuffer = new byte[((sampleRate / 50) + 1) * frameBuffer * 2];
@@ -177,9 +178,15 @@ namespace EmuoTron
 
             }
             for (int i = 0; i < 32; i++)
-                pulseTable[i] = 95.52 / (8128.0 / i + 100);
+            {
+                pulseTable[i] = ((95.52 / (8128.0 / i + 100)) * 2);
+                pulseTableShort[i] = (short)(pulseTable[i] * short.MaxValue * 1);
+            }
             for (int i = 0; i < 204; i++)
-                tndTable[i] = 163.67 / (24329.0 / i + 100);
+            {
+                tndTable[i] = ((163.67 / (24329.0 / i + 100)) * 2);
+                tndTableShort[i] = (short)(tndTable[i] * short.MaxValue);
+            }
              Write(00, 0x4000); //Start-up values
              Write(00, 0x4001);
              Write(00, 0x4002);
@@ -219,10 +226,16 @@ namespace EmuoTron
         }
         public void SetFPS(double fps)
         {
-            if(nes.nesRegion == SystemType.NTSC)
-                sampleDivider = (CPUClock / 60.0) / ((sampleRate * 1.0) / fps);
-            else if (nes.nesRegion == SystemType.PAL)
-                sampleDivider = (1789773 / 50.0) / ((sampleRate * 1.0) / fps);
+            switch (nes.nesRegion)
+            {
+                default:
+                case SystemType.NTSC:
+                    sampleDivider = (CPUClock / 60.0) / ((sampleRate * 1.0) / fps);
+                    break;
+                case SystemType.PAL:
+                    sampleDivider = (CPUClock / 50.0) / ((sampleRate * 1.0) / fps);
+                    break;
+            }
         }
         public byte Read(byte value, ushort address)
         {
@@ -912,18 +925,23 @@ namespace EmuoTron
                 sampleRateDivider++;
                 if (sampleRateDivider > sampleDivider)
                 {
+
+                    //output[outputPtr] = (short)(((pulse1Volume * -16) + (pulse2Volume * -16) + (triangleVolume * 16) + (noiseVolume * 16) + (dmcBuffer[outputPtr] * 2)) * 42);
+                    
                     triangleVolume = (byte)(triangleVolume * volume.triangle);
                     pulse1Volume = (byte)(pulse1Volume * volume.pulse1);
                     pulse2Volume = (byte)(pulse2Volume * volume.pulse2);
                     noiseVolume = (byte)(noiseVolume * volume.noise);
                     dmcVolume = (byte)(dmcBuffer[outputPtr] * volume.dmc);
-                    output[outputPtr] = (short)((
-                                                        tndTable[   (3 * triangleVolume) +
+                    /*output[outputPtr] = (short)((
+                                                        (tndTable[   (3 * triangleVolume) +
                                                                     (2 * noiseVolume) +
-                                                                    dmcVolume] + 
-                                                        pulseTable[ pulse1Volume +
-                                                                    pulse2Volume]
-                                                    ) * short.MaxValue);
+                                                                    dmcVolume] * short.MaxValue) + 
+                                                        (pulseTable[ pulse1Volume +
+                                                                    pulse2Volume]  * short.MaxValue * -1)
+                                                    ));*/
+                    output[outputPtr] = (short)(tndTableShort[(3 * triangleVolume) + (2 * noiseVolume) + dmcVolume] + pulseTableShort[pulse1Volume + pulse2Volume] - short.MaxValue);
+                    
                     outputPtr++;
                     sampleRateDivider -= sampleDivider;
                 }

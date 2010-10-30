@@ -14,6 +14,7 @@ namespace EmuoTron
         public byte[] PalMemory = new byte[0x20];
 
         private NESCore nes;
+        Int32 palCounter;
         public bool frameComplete;
         public bool interruptNMI;
         bool spriteOverflow;
@@ -21,6 +22,7 @@ namespace EmuoTron
         bool addrLatch;
         bool inVblank;
         Int32 spriteAddr;
+
 
         Int32 spriteTable;
         Int32 backgroundTable;
@@ -351,7 +353,20 @@ namespace EmuoTron
         }
         public void AddCycles(int cycles)
         {
-            scanlineCycle += (cycles * 3);
+            if (nes.nesRegion == SystemType.PAL)
+            {
+                for (int i = 0; i < cycles; i++)
+                {
+                    if (palCounter++ % 5 != 0)
+                        scanlineCycle += 3;
+                    else
+                        scanlineCycle += 4;
+                }
+            }
+            else
+            {
+                scanlineCycle += (cycles * 3);
+            }
             if (scanlineCycle >= 341)//scanline finished
             {
                 scanlineCycle -= 341;
@@ -649,6 +664,7 @@ namespace EmuoTron
             writer.Write(loopyX);
             writer.Write(loopyV);
             writer.Write(readBuffer);
+            writer.Write(palCounter);
         }
         public void StateLoad(BinaryReader reader)
         {
@@ -681,6 +697,7 @@ namespace EmuoTron
             loopyX = reader.ReadInt32();
             loopyV = reader.ReadInt32();
             readBuffer = reader.ReadByte();
+            palCounter = reader.ReadInt32();
         }
         private int[] Flip = { 7, 5, 3, 1, -1, -3, -5, -7};
         private ushort[] AttrTableLookup = 
