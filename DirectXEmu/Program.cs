@@ -14,8 +14,6 @@ using SlimDX.Direct3D9;
 using SlimDX.XAudio2;
 using SlimDX.Multimedia;
 using SlimDX.XInput;
-using System.Runtime.Serialization;
-using System.Runtime.Serialization.Formatters.Binary;
 using EmuoTron;
 using NetPlay;
 
@@ -153,6 +151,7 @@ namespace DirectXEmu
             this.InitializeCPU();
             this.InitializeDirect3D();
             thread = new Thread(new ThreadStart(Run));
+            thread.Name = "EmulationThread";
             thread.Start();
             System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
             timer.Interval = 100;
@@ -1091,6 +1090,8 @@ namespace DirectXEmu
             System.Reflection.Assembly thisExe;
             thisExe = System.Reflection.Assembly.GetExecutingAssembly();
             Stream file = thisExe.GetManifestResourceStream("DirectXEmu.images.charSheet.png");
+            if (charSheet != null)
+                charSheet.Dispose();
             charSheet = Texture.FromStream(device, file);
             file.Close();
             charSize = 16;
@@ -1162,6 +1163,8 @@ namespace DirectXEmu
         }
         private void CreateScreenBuffer()
         {
+            if(vertexBuffer != null)
+                vertexBuffer.Dispose();
             vertexBuffer = new VertexBuffer(device, 6 * Marshal.SizeOf(typeof(VertexPositionRhwTexture)), Usage.WriteOnly, VertexFormat.PositionRhw | VertexFormat.Texture1, Pool.Managed);
 
             DataStream stream = vertexBuffer.Lock(0, 0, LockFlags.None);
@@ -1311,6 +1314,8 @@ namespace DirectXEmu
                     texture.Dispose();
                     messageSprite.Dispose();
                     device.Reset(pps);
+                    if (texture != null)
+                        texture.Dispose();
                     texture = new Texture(device, this.imageScaler.xSize, this.imageScaler.ySize, 0, Usage.Dynamic, Format.A8R8G8B8, Pool.Default);
                     LoadCharSheet();
                     CreateScreenBuffer();
@@ -1797,10 +1802,20 @@ namespace DirectXEmu
                 }
             }
             this.closed = true;
-            Thread.Sleep(32);
+            Thread.Sleep(100);
             audioWriter.Close();
             if (wavRecord)
                 wavWriter.Close();
+            dAudio.Dispose();
+            dMouse.Dispose();
+            dKeyboard.Dispose();
+            dInput.Dispose();
+            texture.Dispose();
+            charSheet.Dispose();
+            messageSprite.Dispose();
+            vertexBuffer.Dispose();
+            d3d.Dispose();
+            device.Dispose();
         }
 
         private void romInfoToolStripMenuItem_Click(object sender, EventArgs e)
