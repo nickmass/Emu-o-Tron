@@ -346,6 +346,16 @@ namespace DirectXEmu
                     }
                     audioWriter.BaseStream.Position = 0;
                     audioBuffer.AudioBytes = cpu.APU.outputPtr * (audioFormat.BitsPerSample / 8);
+
+                    if (sVoice.State.BuffersQueued <= 1)// this in theory will reduce skipping, setting to zero should reduce some skipping, while setting it to one should reduce it completely but often seems to just make everything sound very depressing :P
+                    {
+                        if (cpu.APU.curFPS > 0)
+                            cpu.APU.curFPS--;
+                    }
+                    else if (cpu.APU.curFPS < cpu.APU.FPS)
+                        cpu.APU.curFPS++;
+                    cpu.APU.SetFPS(cpu.APU.curFPS); 
+
                     while (sVoice.State.BuffersQueued > 1) //Keep this set as 1 or prepare for clicking
                         Thread.Sleep(1);
                     sVoice.SubmitSourceBuffer(audioBuffer);

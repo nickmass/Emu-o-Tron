@@ -12,6 +12,7 @@ namespace EmuoTron
 
         public int CPUClock;
         public int FPS;
+        public int curFPS;
 
         public bool mute;
         public bool turbo;
@@ -224,18 +225,10 @@ namespace EmuoTron
             timeToClock -= 12;
             frameIRQ = false;
         }
-        public void SetFPS(double fps)
+        public void SetFPS(int FPS)
         {
-            switch (nes.nesRegion)
-            {
-                default:
-                case SystemType.NTSC:
-                    sampleDivider = (CPUClock / 60.0) / ((sampleRate * 1.0) / fps);
-                    break;
-                case SystemType.PAL:
-                    sampleDivider = (CPUClock / 50.0) / ((sampleRate * 1.0) / fps);
-                    break;
-            }
+            curFPS = FPS;
+            sampleDivider = (CPUClock / ((double)this.FPS)) / ((sampleRate * 1.0) / ((double)FPS));
         }
         public byte Read(byte value, ushort address)
         {
