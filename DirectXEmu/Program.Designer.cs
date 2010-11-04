@@ -70,6 +70,7 @@
             this.keyBindingsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.gameGenieCodesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.soundToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.ejectDiskToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.netPlayToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.startGameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.joinGameToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -96,7 +97,6 @@
             this.openMovieDialog = new System.Windows.Forms.OpenFileDialog();
             this.recordDialog = new System.Windows.Forms.SaveFileDialog();
             this.surfaceControl = new System.Windows.Forms.Panel();
-            this.ejectDiskToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -442,6 +442,14 @@
             this.soundToolStripMenuItem.Text = "Sound...";
             this.soundToolStripMenuItem.Click += new System.EventHandler(this.soundToolStripMenuItem_Click);
             // 
+            // ejectDiskToolStripMenuItem
+            // 
+            this.ejectDiskToolStripMenuItem.Name = "ejectDiskToolStripMenuItem";
+            this.ejectDiskToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
+            this.ejectDiskToolStripMenuItem.Text = "Eject Disk";
+            this.ejectDiskToolStripMenuItem.Visible = false;
+            this.ejectDiskToolStripMenuItem.Click += new System.EventHandler(this.ejectDiskToolStripMenuItem_Click);
+            // 
             // netPlayToolStripMenuItem
             // 
             this.netPlayToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -609,8 +617,8 @@
             // openFile
             // 
             this.openFile.DefaultExt = "nes";
-            this.openFile.Filter = "Supported File Types|*.nes;*.fds;*.rar;*.zip;*.7z;*.ips;*.ups|NES Roms|*.nes;*.fds|Archives|*" +
-                ".rar;*.zip;*.7z|Patches|*.ips;*.ups|All Files|*.*";
+            this.openFile.Filter = "Supported File Types|*.nes;*.fds;*.rar;*.zip;*.7z;*.ips;*.ups|NES Roms|*.nes;*.fd" +
+                "s|Archives|*.rar;*.zip;*.7z|Patches|*.ips;*.ups|All Files|*.*";
             this.openFile.Title = "Load Rom";
             // 
             // openPaletteDialog
@@ -638,14 +646,6 @@
             this.surfaceControl.Name = "surfaceControl";
             this.surfaceControl.Size = new System.Drawing.Size(512, 480);
             this.surfaceControl.TabIndex = 3;
-            // 
-            // ejectDiskToolStripMenuItem
-            // 
-            this.ejectDiskToolStripMenuItem.Name = "ejectDiskToolStripMenuItem";
-            this.ejectDiskToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
-            this.ejectDiskToolStripMenuItem.Text = "Eject Disk";
-            this.ejectDiskToolStripMenuItem.Visible = false;
-            this.ejectDiskToolStripMenuItem.Click += new System.EventHandler(this.ejectDiskToolStripMenuItem_Click);
             // 
             // Program
             // 

@@ -24,7 +24,7 @@ namespace EmuoTron.mappers
         private bool readWrite;
         private bool dataIRQTrigger;
         private bool driveMotor;
-        private int diskOperationTime = 152; //96.4khz / 60 fps / 29780 cycles / frame * 8 bits = 152
+        private int diskOperationTime = 152; //96.4khz / 60 fps / 29780 cycles / frame * 8 bits = 152  this timing wouldnt translate to PAL but there was no disc system made for PAL systems so should I even try to emulate something that doesn't exist?
         private int diskOperationCounter;
 
         public override bool interruptMapper
@@ -209,7 +209,39 @@ namespace EmuoTron.mappers
             diskPointer = 0;
             diskOperationCounter = diskOperationTime;
         }
-        public override void StateLoad(BinaryReader reader) { }
-        public override void StateSave(BinaryWriter writer) { }
+        public override void StateLoad(BinaryReader reader)
+        {
+            currentSide = reader.ReadInt32();
+            diskPointer = reader.ReadInt32();
+            irqEnable = reader.ReadBoolean();
+            irqReload = reader.ReadInt32();
+            irqCounter = reader.ReadInt32();
+            dataIRQ = reader.ReadBoolean();
+            timerIRQ = reader.ReadBoolean();
+            soundControl = reader.ReadBoolean();
+            dataControl = reader.ReadBoolean();
+            diskInserted = reader.ReadBoolean();
+            readWrite = reader.ReadBoolean();
+            dataIRQTrigger = reader.ReadBoolean();
+            driveMotor = reader.ReadBoolean();
+            diskOperationCounter = reader.ReadInt32();
+        }
+        public override void StateSave(BinaryWriter writer)
+        {
+            writer.Write(currentSide);
+            writer.Write(diskPointer);
+            writer.Write(irqEnable);
+            writer.Write(irqReload);
+            writer.Write(irqCounter);
+            writer.Write(dataIRQ);
+            writer.Write(timerIRQ);
+            writer.Write(soundControl);
+            writer.Write(dataControl);
+            writer.Write(diskInserted);
+            writer.Write(readWrite);
+            writer.Write(dataIRQTrigger);
+            writer.Write(driveMotor);
+            writer.Write(diskOperationCounter);
+        }
     }
 }

@@ -14,6 +14,7 @@ using SlimDX.Direct3D9;
 using SlimDX.XAudio2;
 using SlimDX.Multimedia;
 using SlimDX.XInput;
+using SlimDX.Windows;
 using EmuoTron;
 using NetPlay;
 
@@ -49,12 +50,14 @@ namespace DirectXEmu
         PresentParameters pps = new PresentParameters();
         Sprite messageSprite;
         Texture texture;
+        Dictionary<char, int> charSheetSprites = new Dictionary<char, int>();
+        Texture charSheet;
+        int charSize;
         NESCore cpu;
-        Thread thread;
         EmuoTron.Controller player1;
         EmuoTron.Controller player2;
+        bool controlStrobe = false;
         Color[] colorChart = new Color[0x200];
-        bool reinitializeD3D = false;
         public int frame = 0;
         public int frameSkipper = 1;
         int maxFrameSkip = 10;
@@ -116,7 +119,6 @@ namespace DirectXEmu
         private bool buttonDown = false;
         private int vibTimer = 0;
 
-
         uint CRC;
         VertexBuffer vertexBuffer;
         private bool fullScreen = false;
@@ -127,11 +129,6 @@ namespace DirectXEmu
         BinaryWriter wavWriter;
         bool wavRecord;
         int wavSamples;
-        Dictionary<char, int> charSheetSprites = new Dictionary<char, int>();
-        Texture charSheet;
-        int charSize;
-
-        bool controlStrobe = false;
 
         [STAThread]
         static void Main(string[] args)
@@ -140,41 +137,19 @@ namespace DirectXEmu
             thisProc.PriorityClass = ProcessPriorityClass.AboveNormal;
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            Program prg;
             if (args.Length == 0)
-                Application.Run(new Program());
+                prg = new Program();
             else
-                Application.Run(new Program(args[0]));
+                prg = new Program(args[0]);
+            MessagePump.Run(prg, new MainLoop(prg.Run));
         }
-        public Program()
-        {
-            InitializeComponent();
-            this.InitializeCPU();
-            this.InitializeDirect3D();
-            thread = new Thread(new ThreadStart(Run));
-            thread.Name = "EmulationThread";
-            thread.Start();
-            System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
-            timer.Interval = 100;
-            timer.Tick += new EventHandler(timer_Tick);
-            timer.Start();
-#if !DEBUG
-            this.openWithFXCEUToolStripMenuItem.Dispose();
-            this.toolStripSeparator3.Dispose();
-#endif
-        }
-        public Program(string arg)
+        public Program(string arg = "")
         {
             this.romPath = arg;
             InitializeComponent();
             this.InitializeCPU();
             this.InitializeDirect3D();
-            thread = new Thread(new ThreadStart(Run));
-            thread.Name = "EmulationThread";
-            thread.Start();
-            System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
-            timer.Interval = 100;
-            timer.Tick += new EventHandler(timer_Tick);
-            timer.Start();
 #if !DEBUG
             this.openWithFXCEUToolStripMenuItem.Dispose();
             this.toolStripSeparator3.Dispose();
@@ -182,32 +157,29 @@ namespace DirectXEmu
         }
         public void Run()
         {
-            while (!this.closed) // This is our message loop
+            if (state == SystemState.Playing && !cpu.debug.debugInterrupt)
             {
-                if (state == SystemState.Playing && !cpu.debug.debugInterrupt)
+                this.RunCPU();
+            }
+            else
+            {
+                if (cpu != null && cpu.debug.debugInterrupt && !debugger.updated)
                 {
-                    this.RunCPU();
+                    message = "Breakpoint";
+                    messageDuration = 1;
+                    debugger.UpdateDebug();
                 }
+                Thread.Sleep(16);
+            }
+            if (state != SystemState.SystemPause && this.frame++ % this.frameSkipper == 0)
+            {
+                if (state != SystemState.Paused)
+                    this.messageDuration--;
                 else
-                {
-                    if (cpu != null && cpu.debug.debugInterrupt && !debugger.updated)
-                    {
-                        message = "Breakpoint";
-                        messageDuration = 1;
-                        debugger.UpdateDebug();
-                    }
-                    Thread.Sleep(16);
-                }
-                if (state != SystemState.SystemPause && this.frame++ % this.frameSkipper == 0)
-                {
-                    if (state != SystemState.Paused)
-                        this.messageDuration--;
-                    else
-                        this.frame--;
-                    if (cpu != null && cpu.debug.debugInterrupt)
-                        messageDuration = 1;
-                    this.Render(); // Keep rendering until the program terminates
-                }
+                    this.frame--;
+                if (cpu != null && cpu.debug.debugInterrupt)
+                    messageDuration = 1;
+                this.Render(); // Keep rendering until the program terminates
             }
         }
         private unsafe void RunCPU()
@@ -354,10 +326,15 @@ namespace DirectXEmu
                     }
                     else if (cpu.APU.curFPS < cpu.APU.FPS)
                         cpu.APU.curFPS++;
-                    cpu.APU.SetFPS(cpu.APU.curFPS); 
+                    cpu.APU.SetFPS(cpu.APU.curFPS);
+                    if (wavRecord) //Willing to put up with a few clicks and pops if it means the wav output sounds perfect
+                        cpu.APU.SetFPS(cpu.APU.FPS);
+
 
                     while (sVoice.State.BuffersQueued > 1) //Keep this set as 1 or prepare for clicking
+                    {
                         Thread.Sleep(1);
+                    }
                     sVoice.SubmitSourceBuffer(audioBuffer);
                 }
                 cpu.APU.ResetBuffer();
@@ -505,7 +482,7 @@ namespace DirectXEmu
                 {
                     if (e.ResultCode == SlimDX.Direct3D9.ResultCode.DeviceLost)
                     {
-                        reinitializeD3D = true;
+                        InitializeDirect3D();
                     }
 #if DEBUG
                     else
@@ -909,15 +886,6 @@ namespace DirectXEmu
                 frames = 0;
             }
         }
-        void timer_Tick(object sender, EventArgs e)
-        {
-            if (reinitializeD3D)
-            {
-                InitializeDirect3D();
-                reinitializeD3D = false;
-            }
-
-        }
         private void nameTablePreviewForm_Closed(object sender, FormClosedEventArgs e)
         {
             this.generateNameTables = false;
@@ -1212,16 +1180,11 @@ namespace DirectXEmu
 
         private void loadToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            SystemState old = state;
-            state = SystemState.SystemPause;
             if (this.openFile.ShowDialog() == DialogResult.OK)
             {
-                state = old;
                 this.OpenFile(this.openFile.FileName);
                 this.openFile.InitialDirectory = Path.GetDirectoryName(this.openFile.FileName);
             }
-            else
-                state = old;
         }
         private void EmuWindow_KeyUp(object sender, KeyEventArgs e)
         {
@@ -1318,9 +1281,6 @@ namespace DirectXEmu
             {
                 if (device != null)
                 {
-                    SystemState old = state;
-                    state = SystemState.SystemPause;
-                    Thread.Sleep(100);
                     texture.Dispose();
                     messageSprite.Dispose();
                     device.Reset(pps);
@@ -1329,7 +1289,6 @@ namespace DirectXEmu
                     texture = new Texture(device, this.imageScaler.xSize, this.imageScaler.ySize, 0, Usage.Dynamic, Format.A8R8G8B8, Pool.Default);
                     LoadCharSheet();
                     CreateScreenBuffer();
-                    state = old;
                 }
             }
             catch
@@ -1812,7 +1771,6 @@ namespace DirectXEmu
                 }
             }
             this.closed = true;
-            Thread.Sleep(100);
             audioWriter.Close();
             if (wavRecord)
                 wavWriter.Close();
@@ -1947,11 +1905,7 @@ namespace DirectXEmu
             foreach (ToolStripMenuItem item in videoModeToolStripMenuItem.DropDownItems)
                 item.Checked = false;
             sizeableToolStripMenuItem.Checked = true;
-            SystemState old = state;
-            state = SystemState.SystemPause;
-            Thread.Sleep(100);
             imageScaler = new Sizeable();
-            state = old;
             PrepareScaler();
             config["scaler"] = "sizeable";
         }
@@ -1961,11 +1915,7 @@ namespace DirectXEmu
             foreach (ToolStripMenuItem item in videoModeToolStripMenuItem.DropDownItems)
                 item.Checked = false;
             fillToolStripMenuItem.Checked = true;
-            SystemState old = state;
-            state = SystemState.SystemPause;
-            Thread.Sleep(100);
             imageScaler = new Fill();
-            state = old;
             PrepareScaler();
             config["scaler"] = "fill";
         }
@@ -1975,11 +1925,7 @@ namespace DirectXEmu
             foreach (ToolStripMenuItem item in videoModeToolStripMenuItem.DropDownItems)
                 item.Checked = false;
             xToolStripMenuItem.Checked = true;
-            SystemState old = state;
-            state = SystemState.SystemPause;
-            Thread.Sleep(100);
             imageScaler = new NearestNeighbor1x();
-            state = old;
             PrepareScaler();
             config["scaler"] = "1x";
         }
@@ -1989,11 +1935,7 @@ namespace DirectXEmu
             foreach (ToolStripMenuItem item in videoModeToolStripMenuItem.DropDownItems)
                 item.Checked = false;
             xToolStripMenuItem1.Checked = true;
-            SystemState old = state;
-            state = SystemState.SystemPause;
-            Thread.Sleep(100);
             imageScaler = new NearestNeighbor2x();
-            state = old;
             PrepareScaler();
             config["scaler"] = "2x";
         }
@@ -2003,11 +1945,7 @@ namespace DirectXEmu
             foreach (ToolStripMenuItem item in videoModeToolStripMenuItem.DropDownItems)
                 item.Checked = false;
             scale2xToolStripMenuItem.Checked = true;
-            SystemState old = state;
-            state = SystemState.SystemPause;
-            Thread.Sleep(100);
             imageScaler = new Scale2x();
-            state = old;
             PrepareScaler();
             config["scaler"] = "scale2x";
         }
@@ -2017,11 +1955,7 @@ namespace DirectXEmu
             foreach (ToolStripMenuItem item in videoModeToolStripMenuItem.DropDownItems)
                 item.Checked = false;
             scale3xToolStripMenuItem.Checked = true;
-            SystemState old = state;
-            state = SystemState.SystemPause;
-            Thread.Sleep(100);
             imageScaler = new Scale3x();
-            state = old;
             PrepareScaler();
             config["scaler"] = "scale3x";
         }
@@ -2031,11 +1965,7 @@ namespace DirectXEmu
             foreach (ToolStripMenuItem item in videoModeToolStripMenuItem.DropDownItems)
                 item.Checked = false;
             tVAspectToolStripMenuItem.Checked = true;
-            SystemState old = state;
-            state = SystemState.SystemPause;
-            Thread.Sleep(100);
             imageScaler = new TVAspect();
-            state = old;
             PrepareScaler();
             config["scaler"] = "tv";
         }
