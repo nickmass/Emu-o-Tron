@@ -21,6 +21,8 @@ namespace EmuoTron
         bool spriteZeroHit;
         bool addrLatch;
         bool inVblank;
+        bool wasInVblank;
+        int pendingNMI = 0;
         Int32 spriteAddr;
 
 
@@ -141,10 +143,10 @@ namespace EmuoTron
                     nextByte |= 0x20;
                 if (spriteZeroHit)
                     nextByte |= 0x40;
-                if (inVblank)
+                if ((inVblank && !(scanline == 241 && scanlineCycle == 0)) || (wasInVblank && scanlineCycle == 0 && scanline == -1))
                     nextByte |= 0x80;
                 interruptNMI = false;
-                inVblank = false;
+                inVblank = wasInVblank = false;
                 addrLatch = false;
             }
             else if (address == 0x2004) //OAM Read
@@ -170,12 +172,11 @@ namespace EmuoTron
             }
             return nextByte;
         }
-
         public void Write(byte value, ushort address)
         {
             if (address == 0x2000)
             {
-                //bool wasEnabled = nmiEnable;
+                bool wasEnabled = nmiEnable;
                 loopyT = (loopyT & 0xF3FF) | ((value & 3) << 10);
                 vramInc = (value & 0x04) != 0;
                 if ((value & 0x08) != 0)
@@ -188,8 +189,8 @@ namespace EmuoTron
                     backgroundTable = 0x0000;
                 tallSprites = (value & 0x20) != 0;
                 nmiEnable = (value & 0x80) != 0;
-                //if (inVblank && nmiEnable && !wasEnabled) //This is required to pass Blargg's 04-nmi_control.nes, but this implimentation breaks Adam's Family Pugsley's Scavenger Hunt and Adventures of Lolo 3, so disabled for now.
-                //    interruptNMI = true;
+                if (inVblank && nmiEnable && !wasEnabled)
+                    pendingNMI = 1;
             }
             else if (address == 0x2001) //PPU Mask
             {
@@ -353,6 +354,15 @@ namespace EmuoTron
         }
         public void AddCycles(int cycles)
         {
+            if (pendingNMI == 2) //Blargg's 04-nmi_control.nes tests this, if NMI is enabled during vblank it fires after the NEXT instruction, this is a messy solution to a messy problem
+            {
+                pendingNMI = 0;
+                interruptNMI = true;
+            }
+            if (pendingNMI == 1)
+            {
+                pendingNMI++;
+            }
             if (nes.nesRegion == SystemType.PAL)
             {
                 for (int i = 0; i < cycles; i++)
@@ -548,6 +558,7 @@ namespace EmuoTron
                     spriteOverflow = false;
                     spriteZeroHit = false;
                     frameComplete = true;
+                    wasInVblank = inVblank;
                     inVblank = false; //Blarggs test claims this is about 37 frames too late, but I have no idea how that can be. EDIT, passes Blarggs more recent ppu_vbl_nmi clear test so I guess its alright (kinda)
                     scanline = -1;
                 }

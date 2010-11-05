@@ -1008,6 +1008,7 @@ namespace EmuoTron
                 case 3://CNROM
                     mapper = new mappers.m003(this);
                     break;
+                case 206:
                 case 4: //MMC3
                     mapper = new mappers.m004(this);
                     break;

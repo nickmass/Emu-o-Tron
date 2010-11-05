@@ -722,8 +722,7 @@ namespace EmuoTron
                 {
                     dmcSampleBuffer = nes.Memory[dmcSampleCurrentAddress];
                     dmcDelay = true;
-                    nes.PPU.AddCycles(4);
-                    AddCycles(4);
+                    nes.AddCycles(4);
                     dmcDelay = false;
                     dmcSampleBufferEmpty = false;
                     dmcSampleCurrentAddress++;

@@ -18,20 +18,25 @@ namespace EmuoTron.mappers
             nes.Memory.Swap16kROM(0xC000, (nes.rom.prgROM / 16) - 1);
             nes.PPU.PPUMemory.Swap8kRAM(0x0000, 0);
             //if Fire Hawk
-            //PPUMemory.ScreenOneMirroring();
+            if (nes.rom.crc == 0x1BC686A8)
+            {
+                nes.PPU.PPUMemory.ScreenOneMirroring();
+                nes.debug.LogInfo("Fire Hawk mapper hack.");
+            }
         }
         public override void Write(byte value, ushort address)
         {
             if (address >= 0xC000 && address <= 0xFFFF)
                 nes.Memory.Swap16kROM(0x8000, value % (nes.rom.prgROM / 16));
             //if Fire Hawk
-            /*
-            if (address >= 0x8000 && address <= 0x9FFF)
-                if ((value & 0x10) != 0)
-                    PPUMemory.ScreenOneMirroring();
-                else
-                    PPUMemory.ScreenTwoMirroring();
-             */
+            if (nes.rom.crc == 0x1BC686A8)
+            {
+                if (address >= 0x8000 && address <= 0x9FFF)
+                    if ((value & 0x10) != 0)
+                        nes.PPU.PPUMemory.ScreenOneMirroring();
+                    else
+                        nes.PPU.PPUMemory.ScreenTwoMirroring();
+             }
         }
     }
 }
