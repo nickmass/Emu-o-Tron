@@ -265,7 +265,7 @@ namespace EmuoTron.mappers
                 }
             }
         }
-        public override void IRQ(int scanline, int vblank)
+        public override void IRQ(int scanline)
         {
             bool wasNotZero = (irqCounter != 0);
             if (irqCounter == 0 || irqReload)

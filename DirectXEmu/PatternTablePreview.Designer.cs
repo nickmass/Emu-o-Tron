@@ -31,6 +31,7 @@
             this.patternTableViewer = new System.Windows.Forms.PictureBox();
             this.txtScanline = new System.Windows.Forms.TextBox();
             this.lblScanLine = new System.Windows.Forms.Label();
+            this.testPal = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.patternTableViewer)).BeginInit();
             this.SuspendLayout();
             // 
@@ -59,11 +60,22 @@
             this.lblScanLine.TabIndex = 3;
             this.lblScanLine.Text = "Display on scan line:";
             // 
+            // testPal
+            // 
+            this.testPal.AutoSize = true;
+            this.testPal.Location = new System.Drawing.Point(191, 280);
+            this.testPal.Name = "testPal";
+            this.testPal.Size = new System.Drawing.Size(83, 17);
+            this.testPal.TabIndex = 4;
+            this.testPal.Text = "Test Palette";
+            this.testPal.UseVisualStyleBackColor = true;
+            // 
             // PatternTablePreview
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(535, 380);
+            this.Controls.Add(this.testPal);
             this.Controls.Add(this.lblScanLine);
             this.Controls.Add(this.txtScanline);
             this.Controls.Add(this.patternTableViewer);
@@ -83,5 +95,6 @@
         private System.Windows.Forms.PictureBox patternTableViewer;
         private System.Windows.Forms.TextBox txtScanline;
         private System.Windows.Forms.Label lblScanLine;
+        private System.Windows.Forms.CheckBox testPal;
     }
 }

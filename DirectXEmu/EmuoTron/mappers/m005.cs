@@ -146,9 +146,5 @@ namespace EmuoTron.mappers
                     break;
             }
         }
-        public override byte Read(byte value, ushort address) { return value; }
-        public override void IRQ(int scanline, int vblank) { }
-        public override void StateLoad(BinaryReader reader) { }
-        public override void StateSave(BinaryWriter writer) { }
     }
 }

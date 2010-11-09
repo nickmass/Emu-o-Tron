@@ -18,7 +18,7 @@ namespace EmuoTron.mappers
         public virtual void Init() { }
         public virtual byte Read(byte value, ushort address) { return value; }
         public virtual void Write(byte value, ushort address) { }
-        public virtual void IRQ(int scanline, int vblank) { }
+        public virtual void IRQ(int arg) { }
         public virtual void StateSave(BinaryWriter writer) { }
         public virtual void StateLoad(BinaryReader reader) { }
     }

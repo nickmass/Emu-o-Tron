@@ -178,7 +178,7 @@ namespace EmuoTron.mappers
             return value;
         
         }
-        public override void IRQ(int cycles, int vblank)
+        public override void IRQ(int cycles)
         {
             if (irqEnable)
             {

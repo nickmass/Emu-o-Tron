@@ -12,7 +12,6 @@ namespace DirectXEmu
         private string configFile;
         private Dictionary<string, string> settings;
         public Dictionary<string, string> defaults;
-        public Dictionary<string, string> replacements;
         public EmuConfig(string path)
         {
             this.configFile = path;
@@ -21,19 +20,18 @@ namespace DirectXEmu
                 FileStream tmpFile = File.Create(this.configFile);
                 tmpFile.Close();
             }
-            this.replacements = new Dictionary<string, string>();
             this.defaults = this.LoadDefaults();
             this.settings = this.Load(this.configFile);
         }
         private Dictionary<string, string> LoadDefaults()
         {
             Dictionary<string, string> defaults = new Dictionary<string, string>();
-            defaults["palette"] = @"{APP-PATH}\palettes\FCEUX.pal";
-            defaults["paletteDir"] = @"{APP-PATH}\palettes";
-            defaults["movieDir"] = @"{APP-PATH}\movies";
-            defaults["sramDir"] = @"{APP-PATH}\sav";
-            defaults["savestateDir"] = @"{APP-PATH}\savestates";
-            defaults["romPath1"] = @"{APP-PATH}\roms";
+            defaults["palette"] = @"palettes\FCEUX.pal";
+            defaults["paletteDir"] = @"palettes";
+            defaults["movieDir"] = @"movies";
+            defaults["sramDir"] = @"sav";
+            defaults["savestateDir"] = @"savestates";
+            defaults["romPath1"] = @"roms";
             defaults["romPath2"] = "";
             defaults["romPath3"] = "";
             defaults["romPath4"] = "";
@@ -47,7 +45,7 @@ namespace DirectXEmu
             defaults["previewEmu"] = "";
             defaults["showFPS"] = "0";
             defaults["showInput"] = "0";
-            defaults["helpFile"] = @"{APP-PATH}\Emu-o-Tron.chm";
+            defaults["helpFile"] = @"Emu-o-Tron.chm";
             defaults["player1Up"] = "UpArrow";
             defaults["player1Down"] = "DownArrow";
             defaults["player1Left"] = "LeftArrow";
@@ -81,8 +79,8 @@ namespace DirectXEmu
             defaults["rewindEnabled"] = "1";
             defaults["rewindBufferFreq"] = "2";
             defaults["rewindBufferSeconds"] = "10";
-            defaults["7z"] = @"{APP-PATH}\7z.dll";
-            defaults["tmpDir"] = @"{APP-PATH}\tmp";
+            defaults["7z"] = @"7z.dll";
+            defaults["tmpDir"] = @"tmp";
             defaults["disableSpriteLimit"] = "1";
             defaults["displayBG"] = "1";
             defaults["displaySprites"] = "1";
@@ -91,7 +89,7 @@ namespace DirectXEmu
             defaults["showDebug"] = "0";
             defaults["region"] = ((int)SystemType.NTSC).ToString();
             defaults["serverPort"] = "7878";
-            defaults["fdsBios"] = @"{APP-PATH}\disksys.rom";
+            defaults["fdsBios"] = @"disksys.rom";
 #if DEBUG
             defaults["romPath2"] = @"C:\Games\Emulators\Roms\NES";
             defaults["romPath3"] = @"C:\Games\Emulators\Roms\MapperNes";
@@ -130,8 +128,6 @@ namespace DirectXEmu
             string val;
             if (this.settings.TryGetValue(key, out val))
             {
-                foreach (KeyValuePair<string, string> replace in this.replacements)
-                    val = val.Replace(replace.Key, replace.Value);
                 return val;
             }
             else
@@ -139,8 +135,6 @@ namespace DirectXEmu
                 if (this.defaults.TryGetValue(key, out val))
                 {
                     this.settings[key] = val;
-                    foreach (KeyValuePair<string, string> replace in this.replacements)
-                        val = val.Replace(replace.Key, replace.Value);
                     return val;
                 }
                 else

@@ -708,7 +708,7 @@ namespace EmuoTron
                 PPU.AddCycles(opCycles);
                 debug.AddCycles(opCycles);
                 if (mapper.cycleIRQ)
-                    mapper.IRQ(opCycles, 0);
+                    mapper.IRQ(opCycles);
 #if !nestest
                 if (interruptBRK)
                 {
@@ -776,7 +776,10 @@ namespace EmuoTron
             debug = new Debug(this);
             debug.LogInfo(rom.filePath);
             debug.LogInfo("Mapper: " + rom.mapper);
-            biosStream.Position = 0;
+            if (biosStream.ReadByte() == 'N' && biosStream.ReadByte() == 'E' && biosStream.ReadByte() == 'S' && biosStream.ReadByte() == 0x1A)
+                biosStream.Position = 0x6010;
+            else
+                biosStream.Position = 0;
             for (int i = 0x00; i < 8 * 0x400; i++)
             {
                 Memory.banks[(i / 0x400) + Memory.swapOffset][i % 0x400] = (byte)biosStream.ReadByte();
@@ -1396,7 +1399,7 @@ namespace EmuoTron
             PPU.AddCycles(value);
             debug.AddCycles(value);
             if (mapper.cycleIRQ)
-                mapper.IRQ(value, 0);
+                mapper.IRQ(value);
         }
         private void CPUMirror(ushort address, ushort mirrorAddress, ushort length, int repeat)
         {

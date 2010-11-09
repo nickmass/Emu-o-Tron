@@ -166,7 +166,7 @@ namespace EmuoTron
                 int oldA12 = (loopyV >> 12) & 1;
                 loopyV = (loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF;
                 if (nes.rom.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                    nes.mapper.IRQ(scanline, 0);
+                    nes.mapper.IRQ(scanline);
             }
             return nextByte;
         }
@@ -242,7 +242,7 @@ namespace EmuoTron
                     int oldA12 = ((loopyV >> 12) & 1); ;
                     loopyV = loopyT;
                     if (nes.rom.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                        nes.mapper.IRQ(scanline, 0);
+                        nes.mapper.IRQ(scanline);
                 }
                 addrLatch = !addrLatch;
             }
@@ -256,7 +256,7 @@ namespace EmuoTron
                 int oldA12 = (loopyV >> 12) & 1;
                 loopyV = ((loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF);
                 if (nes.rom.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                    nes.mapper.IRQ(scanline, 0);
+                    nes.mapper.IRQ(scanline);
             }
         }
 
@@ -353,7 +353,7 @@ namespace EmuoTron
                             HorizontalReset();
                         }
                         if (nes.rom.mapper == 4 && scanline < 240)
-                            nes.mapper.IRQ(scanline, 0);
+                            nes.mapper.IRQ(scanline);
                         if (scanline == -1)
                             VerticalReset();
                     }
@@ -393,16 +393,7 @@ namespace EmuoTron
                                 highChr <<= 1;
                             }
                             if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
-                            {
-                                if (chrAddress >= 0xFD0 && chrAddress <= 0xFDF)
-                                    nes.mapper.IRQ(0, 0xFD);
-                                else if (chrAddress >= 0xFE0 && chrAddress <= 0xFEF)
-                                    nes.mapper.IRQ(0, 0xFE);
-                                else if (chrAddress >= 0x1FD0 && chrAddress <= 0x1FDF)
-                                    nes.mapper.IRQ(1, 0xFD);
-                                else if (chrAddress >= 0x1FE0 && chrAddress <= 0x1FEF)
-                                    nes.mapper.IRQ(1, 0xFE);
-                            }
+                                nes.mapper.IRQ(chrAddress);
                             HorizontalIncrement();
                         }
                         VerticalIncrement();
@@ -457,16 +448,7 @@ namespace EmuoTron
                                         highChr <<= 1;
                                     }
                                     if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
-                                    {
-                                        if (chrAddress >= 0xFD0 && chrAddress <= 0xFDF)
-                                            nes.mapper.IRQ(0, 0xFD);
-                                        else if (chrAddress >= 0xFE0 && chrAddress <= 0xFEF)
-                                            nes.mapper.IRQ(0, 0xFE);
-                                        else if (chrAddress >= 0x1FD0 && chrAddress <= 0x1FDF)
-                                            nes.mapper.IRQ(1, 0xFD);
-                                        else if (chrAddress >= 0x1FE0 && chrAddress <= 0x1FEF)
-                                            nes.mapper.IRQ(1, 0xFE);
-                                    }
+                                        nes.mapper.IRQ(chrAddress);
                                 }
                             }
                             if (spritesOnLine > 8)
@@ -484,7 +466,7 @@ namespace EmuoTron
                     }
 
                     if (nes.rom.mapper == 4 && scanline < 240)
-                        nes.mapper.IRQ(scanline, 0);
+                        nes.mapper.IRQ(scanline);
                     if (scanline == -1)
                     {
                         VerticalReset();

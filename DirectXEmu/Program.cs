@@ -155,7 +155,7 @@ namespace DirectXEmu
             this.toolStripSeparator3.Dispose();
 #endif
         }
-        public void Run()
+        public unsafe void Run()
         {
             if (state == SystemState.Playing && !cpu.debug.debugInterrupt)
             {
@@ -363,7 +363,7 @@ namespace DirectXEmu
                     frameBuffer.SetPixel(player2.zapper.x, player2.zapper.y, Color.Magenta);
             }
         }
-        private unsafe void Render()
+        private void Render()
         {
             if (device == null) // If the device is empty don't bother rendering
             {
@@ -373,11 +373,14 @@ namespace DirectXEmu
             {
                 if (state == SystemState.Playing)
                 {
-                    BitmapData frameBMD = frameBuffer.LockBits(new Rectangle(0, 0, frameBuffer.Width, frameBuffer.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-                    DataRectangle drt = texture.LockRectangle(0, LockFlags.None);
-                    imageScaler.PerformScale((int*)frameBMD.Scan0, (int*)drt.Data.DataPointer);
-                    frameBuffer.UnlockBits(frameBMD);
-                    texture.UnlockRectangle(0);
+                    unsafe
+                    {
+                        BitmapData frameBMD = frameBuffer.LockBits(new Rectangle(0, 0, frameBuffer.Width, frameBuffer.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                        DataRectangle drt = texture.LockRectangle(0, LockFlags.None);
+                        imageScaler.PerformScale((int*)frameBMD.Scan0, (int*)drt.Data.DataPointer);
+                        frameBuffer.UnlockBits(frameBMD);
+                        texture.UnlockRectangle(0);
+                    }
                 }
                 device.Clear(ClearFlags.Target, Color.Black, 1.0f, 0);
                 device.BeginScene();
@@ -527,8 +530,8 @@ namespace DirectXEmu
         public void InitializeCPU()
         {
             this.appPath = Path.GetDirectoryName(Application.ExecutablePath);
-            config = new EmuConfig(Path.Combine(this.appPath,  "Emu-o-Tron.cfg"));
-            this.config.replacements["{APP-PATH}"] = this.appPath;
+            Directory.SetCurrentDirectory(appPath);
+            config = new EmuConfig("Emu-o-Tron.cfg");
             this.LoadKeys();
             if (!File.Exists(this.config["palette"]))
                 this.config["palette"] = config.defaults["palette"];
@@ -569,9 +572,9 @@ namespace DirectXEmu
             this.spritesToolStripMenuItem.Checked = (config["displaySprites"] == "1");
             this.backgroundToolStripMenuItem.Checked = (config["displayBG"] == "1");
             this.spriteLimitToolStripMenuItem.Checked = (config["disableSpriteLimit"] == "1");
-            this.openPaletteDialog.InitialDirectory = this.config["paletteDir"];
-            this.openMovieDialog.InitialDirectory = this.config["movieDir"];
-            this.openFile.InitialDirectory = this.config["romPath1"];
+            this.openPaletteDialog.InitialDirectory = Path.GetFullPath(this.config["paletteDir"]);
+            this.openMovieDialog.InitialDirectory = Path.GetFullPath(this.config["movieDir"]);
+            this.openFile.InitialDirectory = Path.GetFullPath(this.config["romPath1"]);
             this.enableSoundToolStripMenuItem.Checked = (config["sound"] == "1");
             this.nTSCToolStripMenuItem.Checked = (SystemType)Convert.ToInt32(config["region"]) == SystemType.NTSC;
             this.pALToolStripMenuItem.Checked = (SystemType)Convert.ToInt32(config["region"]) == SystemType.PAL;
@@ -2280,6 +2283,11 @@ namespace DirectXEmu
                 item.Checked = false;
             nTSCToolStripMenuItem.Checked = true;
             config["region"] = ((int)SystemType.NTSC).ToString();
+            if (state != SystemState.Empty)
+            {
+                this.SaveGame();
+                this.StartEmu();
+            }
         }
 
         private void pALToolStripMenuItem_Click(object sender, EventArgs e)
@@ -2288,6 +2296,11 @@ namespace DirectXEmu
                 item.Checked = false;
             pALToolStripMenuItem.Checked = true;
             config["region"] = ((int)SystemType.PAL).ToString();
+            if (state != SystemState.Empty)
+            {
+                this.SaveGame();
+                this.StartEmu();
+            }
         }
         bool netPlay;
         bool netPlayServer;

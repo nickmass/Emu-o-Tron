@@ -48,6 +48,10 @@ namespace EmuoTron
         private byte readBuffer;
 
         public ushort[,] screen = new ushort[256,240];
+        private ushort[] pixelMasks = new ushort[256];
+        private ushort[] nextPixelMasks = new ushort[256];
+        private byte[] pixelGray = new byte[256];
+        private byte[] nextPixelGray = new byte[256];
         public bool displaySprites = true;
         public bool displayBG = true;
         public bool enforceSpriteLimit = true;
@@ -64,10 +68,12 @@ namespace EmuoTron
 
         int vblankEnd;
 
-        bool[] zeroBackground;
-        ushort[] spriteLine;
-        bool[] spriteAboveLine;
-        bool[] spriteBelowLine;
+        ushort[] zeroUshort = new ushort[256];
+        byte[] zeroGray = new byte[256];
+        bool[] zeroBackground = new bool[256];
+        ushort[] spriteLine = new ushort[256];
+        bool[] spriteAboveLine = new bool[256];
+        bool[] spriteBelowLine = new bool[256];
 
         public PPU(NESCore nes)
         {
@@ -93,7 +99,8 @@ namespace EmuoTron
 
             for (int i = 0; i < 0x20; i++)
                 PalMemory[i] = 0x0F; //Sets the background to black on startup to prevent grey flashes, not exactly accurate but it looks nicer
-
+            for (int i = 0; i < 256; i++)
+                zeroGray[i] = 0x3F;
 
             switch (nes.nesRegion)
             {
@@ -168,7 +175,7 @@ namespace EmuoTron
                 int oldA12 = (loopyV >> 12) & 1;
                 loopyV = (loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF;
                 if (nes.rom.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                    nes.mapper.IRQ(scanline, 0);
+                    nes.mapper.IRQ(scanline);
             }
             return nextByte;
         }
@@ -243,7 +250,7 @@ namespace EmuoTron
                     int oldA12 = ((loopyV >> 12) & 1); ;
                     loopyV = loopyT;
                     if (nes.rom.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                        nes.mapper.IRQ(scanline, 0);
+                        nes.mapper.IRQ(scanline);
                 }
                 addrLatch = !addrLatch;
             }
@@ -257,7 +264,7 @@ namespace EmuoTron
                 int oldA12 = (loopyV >> 12) & 1;
                 loopyV = ((loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF);
                 if (nes.rom.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                    nes.mapper.IRQ(scanline, 0);
+                    nes.mapper.IRQ(scanline);
             }
         }
 
@@ -292,7 +299,7 @@ namespace EmuoTron
             if(!spriteZeroHit && (backgroundRendering && spriteRendering) && (yPosition <= scanline && yPosition + (tallSprites ? 16 : 8) > scanline) && xLocation <= scanlineCycle)
             {
                 int tmpV = loopyV;
-                zeroBackground = new bool[256];
+                Buffer.BlockCopy(zeroUshort, 0, zeroBackground, 0, 256);
                 for (int tile = 0; tile < 34; tile++)//each tile on line
                 {
                     int tileAddr = PPUMirrorMap[0x2000 | (tmpV & 0x0FFF)];
@@ -354,27 +361,63 @@ namespace EmuoTron
         }
         public void AddCycles(int cycles)
         {
-            if (pendingNMI == 2) //Blargg's 04-nmi_control.nes tests this, if NMI is enabled during vblank it fires after the NEXT instruction, this is a messy solution to a messy problem
+            if(cycles > 50) //this is dumb but makes some things easier if every scanline is hit atleast once
+            {
+                AddCycles(cycles - 50);
+                cycles = 50;
+            }
+            else if (pendingNMI == 2) //Blargg's 04-nmi_control.nes tests this, if NMI is enabled during vblank it fires after the NEXT instruction, this is a messy solution to a messy problem
             {
                 pendingNMI = 0;
                 interruptNMI = true;
             }
-            if (pendingNMI == 1)
+            else if (pendingNMI == 1)
             {
                 pendingNMI++;
             }
             if (nes.nesRegion == SystemType.PAL)
             {
+                int palCycles = 0;
                 for (int i = 0; i < cycles; i++)
                 {
                     if (palCounter++ % 5 != 0)
-                        scanlineCycle += 3;
+                        palCycles += 3;
                     else
-                        scanlineCycle += 4;
+                        palCycles += 4;
                 }
+                for (int i = 0; i < palCycles; i++)
+                {
+                    if (i + scanlineCycle >= 341)
+                    {
+                        nextPixelMasks[scanlineCycle + i - 341] = colorMask;
+                        nextPixelGray[scanlineCycle + i - 341] = grayScale;
+                    }
+                    else if (i + scanlineCycle < 256)
+                    {
+                        pixelMasks[scanlineCycle + i] = colorMask;
+                        pixelGray[scanlineCycle + i] = grayScale;
+                    }
+                }
+                scanlineCycle += palCycles;
             }
             else
             {
+                if (scanline < 240 && scanline >= 0)
+                {
+                    for (int i = 0; i < cycles * 3; i++)
+                    {
+                        if (i + scanlineCycle >= 341)
+                        {
+                            nextPixelMasks[scanlineCycle + i - 341] = colorMask;
+                            nextPixelGray[scanlineCycle + i - 341] = grayScale;
+                        }
+                        else if (i + scanlineCycle < 256)
+                        {
+                            pixelMasks[scanlineCycle + i] = colorMask;
+                            pixelGray[scanlineCycle + i] = grayScale;
+                        }
+                    }
+                }
                 scanlineCycle += (cycles * 3);
             }
             if (scanlineCycle >= 341)//scanline finished
@@ -396,21 +439,15 @@ namespace EmuoTron
                             HorizontalReset();
                         }
                         if (nes.rom.mapper == 4 && scanline < 240)
-                            nes.mapper.IRQ(scanline, 0);
+                            nes.mapper.IRQ(scanline);
                         if (scanline == -1)
                             VerticalReset();
                     }
-
                 }
                 if ((backgroundRendering || spriteRendering) && ((turbo && spriteZeroLine) || !turbo))
                 {
                     if (scanline < 240 && scanline >= 0)//real scanline
                     {
-
-                        zeroBackground = new bool[256];
-                        spriteLine = new ushort[256];
-                        spriteAboveLine = new bool[256];
-                        spriteBelowLine = new bool[256];
                         for (int tile = 0; tile < 34; tile++)//each tile on line
                         {
                             int tileAddr = PPUMirrorMap[0x2000 | (loopyV & 0x0FFF)];
@@ -425,27 +462,18 @@ namespace EmuoTron
                                 int xPosition = ((tile * 8) + x) - (loopyX & 0x7);
                                 if (xPosition >= 0 && xPosition < 256)
                                 {
-                                    byte color = (byte)(((lowChr & 0x80) >> 7) + ((highChr & 0x80) >> 6));
+                                    byte color = (byte)(((lowChr & 0x80) >> 7) | ((highChr & 0x80) >> 6));
                                     zeroBackground[xPosition] = (color == 0 || (!leftmostBackground && xPosition < 8) || !backgroundRendering);
                                     if (zeroBackground[xPosition] || !displayBG)
-                                        screen[xPosition, scanline] = (ushort)((PalMemory[0x00] & grayScale) | colorMask);
+                                        screen[xPosition, scanline] = (ushort)((PalMemory[0x00] & pixelGray[xPosition]) | pixelMasks[xPosition]);
                                     else
-                                        screen[xPosition, scanline] = (ushort)((PalMemory[(palette * 4) + color] & grayScale) | colorMask);
+                                        screen[xPosition, scanline] = (ushort)((PalMemory[(palette * 4) + color] & pixelGray[xPosition]) | pixelMasks[xPosition]);
                                 }
                                 lowChr <<= 1;
                                 highChr <<= 1;
                             }
                             if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
-                            {
-                                if (chrAddress >= 0xFD0 && chrAddress <= 0xFDF)
-                                    nes.mapper.IRQ(0, 0xFD);
-                                else if (chrAddress >= 0xFE0 && chrAddress <= 0xFEF)
-                                    nes.mapper.IRQ(0, 0xFE);
-                                else if (chrAddress >= 0x1FD0 && chrAddress <= 0x1FDF)
-                                    nes.mapper.IRQ(1, 0xFD);
-                                else if (chrAddress >= 0x1FE0 && chrAddress <= 0x1FEF)
-                                    nes.mapper.IRQ(1, 0xFE);
-                            }
+                                nes.mapper.IRQ(chrAddress);
                             HorizontalIncrement();
                         }
                         VerticalIncrement();
@@ -486,12 +514,12 @@ namespace EmuoTron
                                     {
                                         if (xPosition < 256 && !(spriteAboveLine[xPosition] || spriteBelowLine[xPosition]))
                                         {
-                                            byte color = (byte)(((lowChr & 0x80) >> 7) + ((highChr & 0x80) >> 6));
+                                            byte color = (byte)(((lowChr & 0x80) >> 7) | ((highChr & 0x80) >> 6));
                                             if (color != 0 && !(!leftmostSprites && xPosition < 8))
                                             {
                                                 spriteAboveLine[xPosition] = (attr & 0x20) == 0;
                                                 spriteBelowLine[xPosition] = !spriteAboveLine[xPosition];
-                                                spriteLine[xPosition] = (ushort)((PalMemory[(palette * 4) + color + 0x10] & grayScale) | colorMask);
+                                                spriteLine[xPosition] = (ushort)((PalMemory[(palette * 4) + color + 0x10] & pixelGray[xPosition]) | pixelMasks[xPosition]);
                                                 if (sprite == 0 && !zeroBackground[xPosition] && xPosition != 255 && scanline != 239)
                                                     spriteZeroHit = true;
                                             }
@@ -500,16 +528,7 @@ namespace EmuoTron
                                         highChr <<= 1;
                                     }
                                     if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
-                                    {
-                                        if (chrAddress >= 0xFD0 && chrAddress <= 0xFDF)
-                                            nes.mapper.IRQ(0, 0xFD);
-                                        else if (chrAddress >= 0xFE0 && chrAddress <= 0xFEF)
-                                            nes.mapper.IRQ(0, 0xFE);
-                                        else if (chrAddress >= 0x1FD0 && chrAddress <= 0x1FDF)
-                                            nes.mapper.IRQ(1, 0xFD);
-                                        else if (chrAddress >= 0x1FE0 && chrAddress <= 0x1FEF)
-                                            nes.mapper.IRQ(1, 0xFE);
-                                    }
+                                        nes.mapper.IRQ(chrAddress);
                                 }
                             }
                             if (spritesOnLine > 8)
@@ -527,17 +546,15 @@ namespace EmuoTron
                     }
 
                     if (nes.rom.mapper == 4 && scanline < 240)
-                        nes.mapper.IRQ(scanline, 0);
+                        nes.mapper.IRQ(scanline);
                     if (scanline == -1)
-                    {
                         VerticalReset();
-                    }
                 }
                 else if(!turbo)
                 {
                     if (scanline < 240 && scanline >= 0)
                         for (int i = 0; i < 256; i++)
-                            screen[i, scanline] = (ushort)((PalMemory[0x00] & grayScale) | colorMask);
+                            screen[i, scanline] = (ushort)((PalMemory[0x00] & pixelGray[i]) | pixelMasks[i]);
                 }
                 if (generateNameTables && scanline == generateLine)
                     nameTables = GenerateNameTables();
@@ -547,6 +564,7 @@ namespace EmuoTron
                     patternTables = GeneratePatternTables();
                 }
                 scanline++;
+                PrepareForNextLine();
                 if (scanline == 241)
                 {
                     if (nmiEnable)
@@ -563,6 +581,21 @@ namespace EmuoTron
                     scanline = -1;
                 }
             }
+        }
+
+        private void PrepareForNextLine()
+        {
+            for (int i = 0; i <= scanlineCycle && i < 256; i++)
+            {
+                pixelMasks[i] = nextPixelMasks[i];
+                pixelGray[i] = nextPixelGray[i];
+            }
+            Buffer.BlockCopy(zeroGray, 0, nextPixelGray, 0, 256);
+            Buffer.BlockCopy(zeroUshort, 0, nextPixelMasks, 0, 512); //Blockcopy is significantly faster then looping over the array, which in turn is faster then allocating a new array.
+            Buffer.BlockCopy(zeroUshort, 0, spriteLine, 0, 512);
+            Buffer.BlockCopy(zeroUshort, 0, spriteBelowLine, 0, 256);
+            Buffer.BlockCopy(zeroUshort, 0, spriteAboveLine, 0, 256);
+            Buffer.BlockCopy(zeroUshort, 0, zeroBackground, 0, 256);
         }
 
         private byte[][,] GenerateNameTables()
@@ -676,6 +709,7 @@ namespace EmuoTron
             writer.Write(loopyV);
             writer.Write(readBuffer);
             writer.Write(palCounter);
+            writer.Write(pendingNMI);
         }
         public void StateLoad(BinaryReader reader)
         {
@@ -709,6 +743,7 @@ namespace EmuoTron
             loopyV = reader.ReadInt32();
             readBuffer = reader.ReadByte();
             palCounter = reader.ReadInt32();
+            pendingNMI = reader.ReadInt32();
         }
         private int[] Flip = { 7, 5, 3, 1, -1, -3, -5, -7};
         private ushort[] AttrTableLookup = 

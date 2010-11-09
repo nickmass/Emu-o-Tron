@@ -109,7 +109,7 @@ namespace EmuoTron.mappers
                 }
             }
         }
-        public override void IRQ(int scanline, int vblank)
+        public override void IRQ(int scanline)
         {
             if (irqCountdown)
             {

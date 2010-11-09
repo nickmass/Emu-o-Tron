@@ -15,6 +15,10 @@ namespace DirectXEmu
         public int generateLine;
         Bitmap patternTableBitmap;
         Panel[] palPanels = new Panel[32];
+        Panel highlightTop;
+        Panel highlightLeft;
+        Panel highlightRight;
+        Panel highlightBottom;
         public byte[][] palette;
         Color[] colorChart;
         private int selectedPal;
@@ -24,6 +28,22 @@ namespace DirectXEmu
             this.generateLine = generateLine;
             this.colorChart = colorChart;
             this.patternTableBitmap = new Bitmap(512, 256, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            highlightTop = new Panel();
+            highlightTop.Size = new Size(128, 2);
+            highlightTop.BackColor = Color.Red;
+            highlightLeft = new Panel();
+            highlightLeft.Size = new Size(2, 32);
+            highlightLeft.BackColor = Color.Red;
+            highlightRight = new Panel();
+            highlightRight.Size = new Size(2, 32);
+            highlightRight.BackColor = Color.Red;
+            highlightBottom = new Panel();
+            highlightBottom.Size = new Size(128, 2);
+            highlightBottom.BackColor = Color.Red;
+            this.Controls.Add(highlightTop);
+            this.Controls.Add(highlightLeft);
+            this.Controls.Add(highlightRight);
+            this.Controls.Add(highlightBottom);
             for (int i = 0; i < 32; i++)
             {
                 palPanels[i] = new Panel();
@@ -34,7 +54,16 @@ namespace DirectXEmu
                 this.Controls.Add(palPanels[i]);
             }
             InitializeComponent();
+            highlightTop.Top = palPanels[0].Top;
+            highlightTop.Left = palPanels[0].Left;
+            highlightLeft.Top = palPanels[0].Top;
+            highlightLeft.Left = palPanels[0].Left;
+            highlightRight.Top = palPanels[0].Top;
+            highlightRight.Left = palPanels[0].Left + 128 - 2;
+            highlightBottom.Top = palPanels[0].Top + 32 - 2;
+            highlightBottom.Left = palPanels[0].Left;
             this.txtScanline.Text = generateLine.ToString();
+            //this.TransparencyKey = Color.Red;
         }
 
         void PatternTablePreview_Click(object sender, EventArgs e)
@@ -86,12 +115,40 @@ namespace DirectXEmu
                     for (int index = 0; index < 4; index++)
                     {
                         palPanels[(pal * 4) + index].BackColor = this.colorChart[this.palette[pal][index]];
+                        if (pal == selectedPal && index == 0 && !testPal.Checked)
+                        {
+                            highlightTop.Visible = highlightLeft.Visible = highlightRight.Visible = highlightBottom.Visible = true;
+                            highlightTop.Top = palPanels[(pal * 4) + index].Top;
+                            highlightTop.Left = palPanels[(pal * 4) + index].Left;
+                            highlightLeft.Top = palPanels[(pal * 4) + index].Top;
+                            highlightLeft.Left = palPanels[(pal * 4) + index].Left;
+                            highlightRight.Top = palPanels[(pal * 4) + index].Top;
+                            highlightRight.Left = palPanels[(pal * 4) + index].Left + 128 - 2;
+                            highlightBottom.Top = palPanels[(pal * 4) + index].Top + 32 - 2;
+                            highlightBottom.Left = palPanels[(pal * 4) + index].Left;
+                        }
                     }
                 }
-                Color col0 = this.colorChart[this.palette[selectedPal][0]];
-                Color col1 = this.colorChart[this.palette[selectedPal][1]];
-                Color col2 = this.colorChart[this.palette[selectedPal][2]];
-                Color col3 = this.colorChart[this.palette[selectedPal][3]];
+                Color col0;
+                Color col1;
+                Color col2;
+                Color col3;
+                if (testPal.Checked)
+                {
+
+                    highlightTop.Visible = highlightLeft.Visible = highlightRight.Visible = highlightBottom.Visible = false;
+                    col0 = this.colorChart[0x0F];
+                    col1 = this.colorChart[0x36];
+                    col2 = this.colorChart[0x26];
+                    col3 = this.colorChart[0x06];
+                }
+                else
+                {
+                    col0 = this.colorChart[this.palette[selectedPal][0]];
+                    col1 = this.colorChart[this.palette[selectedPal][1]];
+                    col2 = this.colorChart[this.palette[selectedPal][2]];
+                    col3 = this.colorChart[this.palette[selectedPal][3]];
+                }
                 System.Drawing.Imaging.BitmapData bmd = patternTableBitmap.LockBits(new Rectangle(0, 0, 512, 256), System.Drawing.Imaging.ImageLockMode.ReadWrite, patternTableBitmap.PixelFormat);
                 for (int t = 0; t < 2; t++)
                 {

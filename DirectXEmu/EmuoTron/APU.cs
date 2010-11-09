@@ -18,7 +18,7 @@ namespace EmuoTron
         public bool turbo;
 
         public int frameBuffer = 1;
-        public int sampleRate = 44100;
+        public int sampleRate = 48000;
         private double sampleRateDivider;
         private double sampleDivider;
 
@@ -768,8 +768,9 @@ namespace EmuoTron
                 dmcDivider = dmcRate;
             }
             dmcSampleRateDivider++;
-            if(dmcSampleRateDivider > sampleDivider)
+            if (dmcSampleRateDivider > sampleDivider && !dmcDelay)
             {
+                //if(dmcPtr < dmcBuffer.Length) //I hate this with a PASSION, really need to figure out how to add cycles to everything more betterer
                 dmcBuffer[dmcPtr] = dmcDeltaCounter;
                 dmcPtr++;
                 dmcSampleRateDivider -= sampleDivider;

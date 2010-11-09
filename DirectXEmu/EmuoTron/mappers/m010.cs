@@ -71,23 +71,27 @@ namespace EmuoTron.mappers
                 }
             }
         }
-        public override void IRQ(int scanline, int vblank)
+        public override void IRQ(int chrAddress)
         {
-            if (scanline == 0)
+            if (chrAddress >= 0xFD0 && chrAddress <= 0xFDF)
             {
-                latch0 = vblank;
-                if (latch0 == 0xFD)
-                    nes.PPU.PPUMemory.Swap4kROM(0x0000, fd0);
-                else
-                    nes.PPU.PPUMemory.Swap4kROM(0x0000, fe0);
+                latch0 = 0xFD;
+                nes.PPU.PPUMemory.Swap4kROM(0x0000, fd0);
             }
-            else if (scanline == 1)
+            else if (chrAddress >= 0xFE0 && chrAddress <= 0xFEF)
             {
-                latch1 = vblank;
-                if (latch1 == 0xFD)
-                    nes.PPU.PPUMemory.Swap4kROM(0x1000, fd1);
-                else
-                    nes.PPU.PPUMemory.Swap4kROM(0x1000, fe1);
+                latch0 = 0xFE;
+                nes.PPU.PPUMemory.Swap4kROM(0x0000, fe0);
+            }
+            else if (chrAddress >= 0x1FD0 && chrAddress <= 0x1FDF)
+            {
+                latch1 = 0xFD;
+                nes.PPU.PPUMemory.Swap4kROM(0x1000, fd1);
+            }
+            else if (chrAddress >= 0x1FE0 && chrAddress <= 0x1FEF)
+            {
+                latch1 = 0xFE;
+                nes.PPU.PPUMemory.Swap4kROM(0x1000, fe1);
             }
         }
         public override void StateLoad(BinaryReader reader)

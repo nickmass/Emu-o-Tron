@@ -119,7 +119,7 @@ namespace EmuoTron.mappers
                 nes.PPU.PPUMemory.Swap1kROM((ushort)(i << 10), (chrReg[i]) % nes.rom.vROM);
             }
         }
-        public override void IRQ(int cycles, int vblank)
+        public override void IRQ(int cycles)
         {
             if (irqEnable)
             {
