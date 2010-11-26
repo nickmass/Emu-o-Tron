@@ -78,8 +78,9 @@ namespace DirectXEmu
             defaults["height"] = "542";
             defaults["rewindEnabled"] = "1";
             defaults["rewindBufferFreq"] = "2";
-            defaults["rewindBufferSeconds"] = "10";
+            defaults["rewindBufferSeconds"] = "30";
             defaults["7z"] = @"7z.dll";
+            defaults["7z64"] = @"7z64.dll";
             defaults["tmpDir"] = @"tmp";
             defaults["disableSpriteLimit"] = "1";
             defaults["displayBG"] = "1";

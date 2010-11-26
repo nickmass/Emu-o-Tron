@@ -747,7 +747,7 @@ namespace EmuoTron
                 }
 #endif
             }
-            if (debug.debugInterrupt && (PPU.scanlineCycle < 256 && PPU.scanline > -1 && PPU.scanlineCycle < 240))
+            if (debug.debugInterrupt && (PPU.scanlineCycle < 256 && PPU.scanline > -1 && PPU.scanline < 240))
                 PPU.screen[PPU.scanlineCycle, PPU.scanline] |= 0x1C0;
             emulationRunning = false;
             PPU.frameComplete = false;
@@ -1071,6 +1071,12 @@ namespace EmuoTron
                     break;
                 case 99: //VS Unisystem
                     mapper = new mappers.m099(this);
+                    break;
+                case 151: //VS Unisystem
+                    mapper = new mappers.m151(this);
+                    break;
+                case 152:
+                    mapper = new mappers.m152(this);
                     break;
                 default:
                     debug.LogInfo("This game will probably not load, mapper unsupported.\r\nMapper:" + rom.mapper.ToString() + " PRG-ROM:" + rom.prgROM.ToString() + "KB CHR-ROM:" + rom.vROM.ToString() + "KB");

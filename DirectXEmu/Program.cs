@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Reflection;
 using System.Diagnostics;
 using System.Threading;
 using SlimDX;
@@ -159,12 +160,14 @@ namespace DirectXEmu
         {
             if (state == SystemState.Playing && !cpu.debug.debugInterrupt)
             {
+                debugger.smartUpdate = false;
                 this.RunCPU();
             }
             else
             {
-                if (cpu != null && cpu.debug.debugInterrupt && !debugger.updated)
+                if (cpu != null && cpu.debug.debugInterrupt && (!debugger.updated || !debugger.smartUpdate))
                 {
+                    debugger.smartUpdate = true;
                     message = "Breakpoint";
                     messageDuration = 1;
                     debugger.UpdateDebug();
@@ -327,6 +330,7 @@ namespace DirectXEmu
                     else if (cpu.APU.curFPS < cpu.APU.FPS)
                         cpu.APU.curFPS++;
                     cpu.APU.SetFPS(cpu.APU.curFPS);
+
                     if (wavRecord) //Willing to put up with a few clicks and pops if it means the wav output sounds perfect
                         cpu.APU.SetFPS(cpu.APU.FPS);
 
@@ -1454,7 +1458,10 @@ namespace DirectXEmu
             string ext = Path.GetExtension(fileName).ToLower();
             if (ext == ".7z" || ext == ".zip" || ext == ".rar")
             {
-                SevenZipFormat Format = new SevenZipFormat(this.config["7z"]);
+                string sevenZ = this.config["7z"];
+                if(IntPtr.Size == 8)
+                    sevenZ = this.config["7z64"]; //replace this with installer logic maybe?
+                SevenZipFormat Format = new SevenZipFormat(sevenZ);
                 KnownSevenZipFormat fileType;
                 switch (ext)
                 {
@@ -1624,6 +1631,8 @@ namespace DirectXEmu
                 debugger.Close();
             debugger = new Debugger(cpu.debug);
             debugger.UpdateDebug();
+            ejectDiskToolStripMenuItem.DropDownItems.Clear();
+            ejectDiskToolStripMenuItem.Text = "Eject Disk";
             ejectDiskToolStripMenuItem.Visible = (cpu.GetSideCount() != 0);
         }
         Debugger debugger;
@@ -2426,7 +2435,7 @@ namespace DirectXEmu
                         ToolStripMenuItem[] diskSides = new ToolStripMenuItem[cpu.GetSideCount()];
                         for (int i = 0; i < cpu.GetSideCount(); i++)
                         {
-                            diskSides[i] = new ToolStripMenuItem("Side " + (i + 1).ToString());
+                            diskSides[i] = new ToolStripMenuItem("Disk " + ((i / 2) + 1).ToString() + " Side " + (i % 2 == 0 ? "A" : "B"));
                             diskSides[i].Tag = (i);
                             diskSides[i].Click += new EventHandler(DiskSide_Click);
                         }

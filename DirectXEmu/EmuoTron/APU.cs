@@ -159,9 +159,6 @@ namespace EmuoTron
                     modeOneFrameLengths = new int[] { 7458, 7456, 7458, 7458, 7452};
                     noisePeriods = new ushort[] { 4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068 };
                     dmcRates = new int[] { 428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54 };
-                    SetFPS(FPS);
-                    output = new short[((sampleRate / 60) + 1) * frameBuffer * 2];
-                    dmcBuffer = new byte[((sampleRate / 60) + 1) * frameBuffer * 2];
                     break;
                 case SystemType.PAL:
                     CPUClock = 1662607;
@@ -172,12 +169,11 @@ namespace EmuoTron
                     modeOneFrameLengths = new int[] { 8314, 8314, 8312, 8314, 8312 };
                     noisePeriods = new ushort[] { 4, 7, 14, 30, 60, 88, 118, 148, 188, 236, 354, 472, 708, 944, 1890, 3778 };
                     dmcRates = new int[] { 398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118, 98, 78, 66, 50 };
-                    SetFPS(FPS);
-                    output = new short[((sampleRate / 50) + 1) * frameBuffer * 2];
-                    dmcBuffer = new byte[((sampleRate / 50) + 1) * frameBuffer * 2];
                     break;
-
             }
+            SetFPS(FPS);
+            output = new short[sampleRate]; //the buffers really don't need to be this large, but it should prevent overflows when the FPS is set exceptionally low.
+            dmcBuffer = new byte[sampleRate];
             for (int i = 0; i < 32; i++)
             {
                 pulseTable[i] = ((95.52 / (8128.0 / i + 100)) * 2);
@@ -770,7 +766,6 @@ namespace EmuoTron
             dmcSampleRateDivider++;
             if (dmcSampleRateDivider > sampleDivider && !dmcDelay)
             {
-                //if(dmcPtr < dmcBuffer.Length) //I hate this with a PASSION, really need to figure out how to add cycles to everything more betterer
                 dmcBuffer[dmcPtr] = dmcDeltaCounter;
                 dmcPtr++;
                 dmcSampleRateDivider -= sampleDivider;
@@ -918,23 +913,12 @@ namespace EmuoTron
                 sampleRateDivider++;
                 if (sampleRateDivider > sampleDivider)
                 {
-
-                    //output[outputPtr] = (short)(((pulse1Volume * -16) + (pulse2Volume * -16) + (triangleVolume * 16) + (noiseVolume * 16) + (dmcBuffer[outputPtr] * 2)) * 42);
-                    
                     triangleVolume = (byte)(triangleVolume * volume.triangle);
                     pulse1Volume = (byte)(pulse1Volume * volume.pulse1);
                     pulse2Volume = (byte)(pulse2Volume * volume.pulse2);
                     noiseVolume = (byte)(noiseVolume * volume.noise);
                     dmcVolume = (byte)(dmcBuffer[outputPtr] * volume.dmc);
-                    /*output[outputPtr] = (short)((
-                                                        (tndTable[   (3 * triangleVolume) +
-                                                                    (2 * noiseVolume) +
-                                                                    dmcVolume] * short.MaxValue) + 
-                                                        (pulseTable[ pulse1Volume +
-                                                                    pulse2Volume]  * short.MaxValue * -1)
-                                                    ));*/
                     output[outputPtr] = (short)(tndTableShort[(3 * triangleVolume) + (2 * noiseVolume) + dmcVolume] + pulseTableShort[pulse1Volume + pulse2Volume] - short.MaxValue);
-                    
                     outputPtr++;
                     sampleRateDivider -= sampleDivider;
                 }

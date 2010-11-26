@@ -13,6 +13,7 @@ namespace DirectXEmu
     {
         EmuoTron.Debug debug;
         public bool updated = false;
+        public bool smartUpdate = false;
         private int logStart;
         public Debugger(EmuoTron.Debug debug)
         {

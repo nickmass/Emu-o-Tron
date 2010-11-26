@@ -422,6 +422,8 @@ namespace EmuoTron
             }
             if (scanlineCycle >= 341)//scanline finished
             {
+                if (nes.rom.crc == 0x279710DC && scanline == 28)
+                    spriteZeroHit = true;
                 scanlineCycle -= 341;
                 bool spriteZeroLine = false;
                 if (turbo)
@@ -553,8 +555,18 @@ namespace EmuoTron
                 else if(!turbo)
                 {
                     if (scanline < 240 && scanline >= 0)
-                        for (int i = 0; i < 256; i++)
-                            screen[i, scanline] = (ushort)((PalMemory[0x00] & pixelGray[i]) | pixelMasks[i]);
+                    {
+                        if ((loopyV & 0x3F00) == 0x3F00)//Direct color control http://wiki.nesdev.com/w/index.php/Full_palette_demo
+                        {
+                            for (int i = 0; i < 256; i++)
+                                screen[i, scanline] = (ushort)((PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] & pixelGray[i]) | pixelMasks[i]);
+                        }
+                        else
+                        {
+                            for (int i = 0; i < 256; i++)
+                                screen[i, scanline] = (ushort)((PalMemory[0x00] & pixelGray[i]) | pixelMasks[i]);
+                        }
+                    }
                 }
                 if (generateNameTables && scanline == generateLine)
                     nameTables = GenerateNameTables();
