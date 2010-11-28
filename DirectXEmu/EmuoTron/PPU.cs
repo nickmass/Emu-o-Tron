@@ -38,6 +38,7 @@ namespace EmuoTron
         bool backgroundRendering;
         bool spriteRendering;
         ushort colorMask;
+        byte lastWrite;
 
         public Int32 scanlineCycle;
         public Int32 scanline = -1;
@@ -155,6 +156,7 @@ namespace EmuoTron
                 interruptNMI = false;
                 inVblank = wasInVblank = false;
                 addrLatch = false;
+                nextByte |= lastWrite;
             }
             else if (address == 0x2004) //OAM Read
             {
@@ -198,6 +200,7 @@ namespace EmuoTron
                 nmiEnable = (value & 0x80) != 0;
                 if (inVblank && nmiEnable && !wasEnabled)
                     pendingNMI = 1;
+                lastWrite = (byte)(value & 0x1F);
             }
             else if (address == 0x2001) //PPU Mask
             {
@@ -210,21 +213,25 @@ namespace EmuoTron
                 backgroundRendering = (value & 0x08) != 0;
                 spriteRendering = (value & 0x10) != 0;
                 colorMask = (ushort)((value << 1) & 0x1C0);
+                lastWrite = (byte)(value & 0x1F);
             }
             else if (address == 0x2003) //OAM Address
             {
                 spriteAddr = value;
+                lastWrite = (byte)(value & 0x1F);
             }
             else if (address == 0x2004) //OAM Write
             {
                 SPRMemory[spriteAddr & 0xFF] = value;
                 spriteAddr++;
+                lastWrite = (byte)(value & 0x1F);
             }
             else if (address == 0x4014) //Sprite DMA
             {
                 int startAddress = value << 8;
                 for (int i = 0; i < 0x100; i++)
                     SPRMemory[(spriteAddr + i) & 0xFF] = nes.Memory[nes.MirrorMap[(startAddress + i) & 0xFFFF]];
+                lastWrite = (byte)(value & 0x1F);
                 nes.AddCycles(513);
             }
             else if (address == 0x2005) //PPUScroll
@@ -237,6 +244,7 @@ namespace EmuoTron
                 else //2nd Write
                     loopyT = ((loopyT & 0x0C1F) | ((value & 0x07) << 12) | ((value & 0xF8) << 2));
                 addrLatch = !addrLatch;
+                lastWrite = (byte)(value & 0x1F);
             }
             else if (address == 0x2006) //PPUAddr
             {
@@ -253,6 +261,7 @@ namespace EmuoTron
                         nes.mapper.IRQ(scanline);
                 }
                 addrLatch = !addrLatch;
+                lastWrite = (byte)(value & 0x1F);
             }
             else if (address == 0x2007) //PPU Write
             {
@@ -265,6 +274,7 @@ namespace EmuoTron
                 loopyV = ((loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF);
                 if (nes.rom.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
                     nes.mapper.IRQ(scanline);
+                lastWrite = (byte)(value & 0x1F);
             }
         }
 
@@ -722,6 +732,7 @@ namespace EmuoTron
             writer.Write(readBuffer);
             writer.Write(palCounter);
             writer.Write(pendingNMI);
+            writer.Write(lastWrite);
         }
         public void StateLoad(BinaryReader reader)
         {
@@ -756,6 +767,7 @@ namespace EmuoTron
             readBuffer = reader.ReadByte();
             palCounter = reader.ReadInt32();
             pendingNMI = reader.ReadInt32();
+            lastWrite = reader.ReadByte();
         }
         private int[] Flip = { 7, 5, 3, 1, -1, -3, -5, -7};
         private ushort[] AttrTableLookup = 

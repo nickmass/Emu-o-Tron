@@ -36,7 +36,7 @@ namespace DirectXEmu
             {
                 address = int.Parse(txtAddress.Text, System.Globalization.NumberStyles.HexNumber);
                 if (!(address >= 0 && address < 0x10000))
-                    throw new FormatException();
+                    throw new Exception("Bad Address");
                 type = 0;
                 if (chkRead.Checked)
                     type |= 1;
@@ -45,18 +45,19 @@ namespace DirectXEmu
                 if (chkExecute.Checked)
                     type |= 4;
                 if (type == 0)
-                    throw new Exception();
+                    throw new Exception("No Breakpoint");
                 DialogResult = System.Windows.Forms.DialogResult.OK;
             }
-            catch (FormatException formatEx)
+            catch (Exception ex)
             {
-                MessageBox.Show("Seek destination must be a hex integer from 0x0000 to 0xFFFF.");
-            }
-            catch (Exception radioException)
-            {
-                MessageBox.Show("Select a breakpoint type.");
-            }
+                if (ex.Message == "Bad Address")
+                    MessageBox.Show("Seek destination must be a hex integer from 0x0000 to 0xFFFF.");
+                else if (ex.Message == "No Breakpoint")
+                    MessageBox.Show("Select a breakpoint type.");
+                else
+                    throw ex;
 
+            }
         }
 
         private void btnCancel_Click(object sender, EventArgs e)

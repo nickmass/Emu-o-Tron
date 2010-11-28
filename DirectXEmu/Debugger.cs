@@ -112,12 +112,15 @@ namespace DirectXEmu
                 }
                 else
                 {
-                    throw new FormatException();
+                    throw new Exception("Address out of Range");
                 }
             }
-            catch (FormatException formatEx)
+            catch (Exception ex)
             {
-                MessageBox.Show("Seek destination must be a hex integer from 0x0000 to 0xFFFF.");
+                if (ex.Message == "Address out of Range")
+                    MessageBox.Show("Seek destination must be a hex integer from 0x0000 to 0xFFFF.");
+                else
+                    throw ex;
             }
 
         }

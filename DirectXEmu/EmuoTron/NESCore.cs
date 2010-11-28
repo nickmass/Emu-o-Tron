@@ -530,6 +530,7 @@ namespace EmuoTron
                         RegA = FlagSign = FlagZero = RegY;
                         break;
                     default:
+                        debug.SetError("Illegal OP");
                         switch (instruction) //Illegal Ops
                         {
                             case OpInfo.IllInstrALR:
@@ -613,6 +614,7 @@ namespace EmuoTron
                                 RegA = FlagSign = FlagZero = (temp & 0xFF);
                                 break;
                             case OpInfo.IllInstrKIL:
+                                debug.SetError("KIL encountered");
                                 //SHOULD crash CPU, but Im going to treat it as a NOP.
                                 break;
                             case OpInfo.IllInstrLAS:
@@ -697,6 +699,7 @@ namespace EmuoTron
                                 FlagSign = FlagZero = RegA;
                                 break;
                             case OpInfo.InstrDummy:
+                                    debug.SetError("Missing OP");
                                     debug.LogInfo("Missing OP: " + OpInfo.GetOpNames()[OpInfo.GetOps()[op] & 0xFF] + " " + op.ToString("X2") + " Program Counter: " + RegPC.ToString("X4"));
                                 break;
                         }
@@ -1051,6 +1054,9 @@ namespace EmuoTron
                 case 34: //BNROM and NINA-001
                     mapper = new mappers.m034(this);
                     break;
+                case 66: //GxROM
+                    mapper = new mappers.m066(this);
+                    break;
                 case 69: //Sunsoft5
                     mapper = new mappers.m069(this);
                     break;
@@ -1079,6 +1085,7 @@ namespace EmuoTron
                     mapper = new mappers.m152(this);
                     break;
                 default:
+                    debug.SetError("Mapper Unsupported");
                     debug.LogInfo("This game will probably not load, mapper unsupported.\r\nMapper:" + rom.mapper.ToString() + " PRG-ROM:" + rom.prgROM.ToString() + "KB CHR-ROM:" + rom.vROM.ToString() + "KB");
                     goto case 0;
 

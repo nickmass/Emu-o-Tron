@@ -13,6 +13,9 @@ namespace EmuoTron
         private int irqCounter = 0;
         public bool debugInterrupt = false;
 
+        public bool pendingError;
+        public string errorMessage;
+        
         public int lastExec;
 
         private bool runTo;
@@ -210,6 +213,11 @@ namespace EmuoTron
             irqCounter = cycles;
             irqEnable = true;
         }
+        public void SetError(string error)
+        {
+            errorMessage = error;
+            pendingError = true;
+        }
         public string LogOp(int address)
         {
             StringBuilder line = new StringBuilder();
@@ -271,9 +279,9 @@ namespace EmuoTron
                 case OpInfo.AddrRelative:
                     int addr = Peek(address + 1);
                     if (addr < 0x80)
-                        addr += (address + 1);
+                        addr += (address + size);
                     else
-                        addr += (address + 1) - 256;
+                        addr += (address + size) - 256;
                     line.AppendFormat("${0}                       ", addr.ToString("X4"));
                     break;
                 case OpInfo.AddrIndirectX:
@@ -364,9 +372,9 @@ namespace EmuoTron
                 case OpInfo.AddrRelative:
                     int addr = Peek(address + 1);
                     if (addr < 0x80)
-                        addr += (address + 1);
+                        addr += (address + size);
                     else
-                        addr += (address + 1) - 256;
+                        addr += (address + size) - 256;
                     line.AppendFormat("${0}                       ", addr.ToString("X4"));
                     break;
                 case OpInfo.AddrIndirectX:

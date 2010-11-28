@@ -134,6 +134,7 @@
       <DependentUpon>DipDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="EmuoTron\Debug.cs" />
+    <Compile Include="EmuoTron\mappers\m066.cs" />
     <Compile Include="EmuoTron\mappers\m151.cs" />
     <Compile Include="EmuoTron\mappers\m152.cs" />
     <Compile Include="EmuoTron\mappers\m020.cs" />

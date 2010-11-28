@@ -101,8 +101,8 @@ namespace EmuoTron.mappers
             nes.Memory.Swap16kROM(0xC000, PrgHigh() % (nes.rom.prgROM / 16));
             if (nes.rom.vROM == 0)
             {
-                nes.PPU.PPUMemory.Swap4kRAM(0x0000, ChrLow());
-                nes.PPU.PPUMemory.Swap4kRAM(0x1000, ChrHigh());
+                nes.PPU.PPUMemory.Swap4kRAM(0x0000, ChrLow() % 8);
+                nes.PPU.PPUMemory.Swap4kRAM(0x1000, ChrHigh() % 8);
             }
             else
             {

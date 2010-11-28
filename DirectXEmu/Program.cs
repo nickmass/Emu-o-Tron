@@ -162,6 +162,12 @@ namespace DirectXEmu
             {
                 debugger.smartUpdate = false;
                 this.RunCPU();
+                if (cpu.debug.pendingError)
+                {
+                    cpu.debug.pendingError = false;
+                    message = cpu.debug.errorMessage;
+                    messageDuration = 90;
+                }
             }
             else
             {
@@ -544,7 +550,7 @@ namespace DirectXEmu
                 this.colorChart[i] = Color.FromArgb(palFile.ReadByte(), palFile.ReadByte(), palFile.ReadByte());
             if (palFile.Length > 0x40 * 3) //shitty hack for vs palette because im LAZY
             {
-                Color[] vsColor = new Color[0x40];
+                Color[] vsColor = new Color[0x200];
                 for (int i = 0; palFile.Position < palFile.Length; i++)
                 {
                     vsColor[i] = colorChart[palFile.ReadByte()];
@@ -650,11 +656,14 @@ namespace DirectXEmu
 
             dAudio = new XAudio2();
             mVoice = new MasteringVoice(dAudio);
-            mVoice.Volume = Convert.ToInt32(config["volume"]) / 100f;
+            if (config["sound"] == "1")
+                mVoice.Volume = Convert.ToInt32(config["volume"]) / 100f;
+            else
+                mVoice.Volume = 0;
             audioBuffer = new AudioBuffer();
             audioBuffer.AudioData = new MemoryStream();
             audioWriter = new BinaryWriter(audioBuffer.AudioData);
-            volume.master = mVoice.Volume;
+            volume.master = Convert.ToInt32(config["volume"]) / 100f;
             volume.pulse1 = 1;
             volume.pulse2 = 1;
             volume.triangle = 1;
@@ -1383,7 +1392,7 @@ namespace DirectXEmu
                     this.colorChart[i] = Color.FromArgb(palFile.ReadByte(), palFile.ReadByte(), palFile.ReadByte());
                 if (palFile.Length > 0x40 * 3) //shitty hack for vs palette because im LAZY
                 {
-                    Color[] vsColor = new Color[0x40];
+                    Color[] vsColor = new Color[0x200];
                     for (int i = 0; palFile.Position < palFile.Length; i++)
                     {
                         vsColor[i] = colorChart[palFile.ReadByte()];
@@ -2266,6 +2275,10 @@ namespace DirectXEmu
             if (cpu != null)
                 cpu.APU.mute = !enableSoundToolStripMenuItem.Checked;
             config["sound"] = enableSoundToolStripMenuItem.Checked ? "1" : "0";
+            if (enableSoundToolStripMenuItem.Checked)
+                mVoice.Volume = Convert.ToInt32(config["volume"]) / 100f;
+            else
+                mVoice.Volume = 0;
         }
 
         private void soundToolStripMenuItem_Click(object sender, EventArgs e)
