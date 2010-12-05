@@ -4,18 +4,19 @@ using System.Linq;
 using System.Text;
 using System.IO;
 
-namespace EmuoTron.mappers
+namespace EmuoTron.Mappers
 {
     class m001 : Mapper
     {
         private byte[] regs = new byte[4];
         private byte latch;
         private byte latchPos;
+        //private byte lastReg;
         public m001(NESCore nes)
         {
             this.nes = nes;
         }
-        public override void Init()
+        public override void Power()
         {
 		    regs[0] = 0x0C;
 		    regs[1] = 0x00;
@@ -42,7 +43,7 @@ namespace EmuoTron.mappers
                 if (reg != lastReg)
 		            latch = latchPos = 0;
                 lastReg = reg;
-                 */
+                */
                 latch |= (byte)((value & 1) << latchPos++);
                 if (latchPos == 5)
                 {
@@ -97,8 +98,16 @@ namespace EmuoTron.mappers
             //Ignored in MMC1A, defaults to enabled in MMC1B, defaults to disabled in MMC1C
             nes.Memory.SetReadOnly(0x6000, 8, ((regs[3] & 0x10) != 0));
 
-            nes.Memory.Swap16kROM(0x8000, PrgLow() % (nes.rom.prgROM / 16));
-            nes.Memory.Swap16kROM(0xC000, PrgHigh() % (nes.rom.prgROM / 16));
+            if (nes.rom.board == "NES-SUROM" || nes.rom.board == "NES-SXROM")
+            {
+                nes.Memory.Swap16kROM(0x8000, (PrgLow() & 0xF) | (ChrLow() & 0x10));
+                nes.Memory.Swap16kROM(0xC000, (PrgHigh() & 0xF) | (ChrLow() & 0x10));
+            }
+            else
+            {
+                nes.Memory.Swap16kROM(0x8000, PrgLow() % (nes.rom.prgROM / 16));
+                nes.Memory.Swap16kROM(0xC000, PrgHigh() % (nes.rom.prgROM / 16));
+            }
             if (nes.rom.vROM == 0)
             {
                 nes.PPU.PPUMemory.Swap4kRAM(0x0000, ChrLow() % 8);

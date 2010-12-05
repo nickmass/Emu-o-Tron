@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.IO;
 
-namespace EmuoTron.mappers
+namespace EmuoTron.Mappers
 {
     class mVRC4 : Mapper
     {
@@ -36,7 +36,7 @@ namespace EmuoTron.mappers
             altRegAddr[2] = altReg3;
             altRegAddr[3] = altReg4;
         }
-        public override void Init()
+        public override void Power()
         {
             nes.Memory.Swap8kROM(0x8000, 0);
             nes.Memory.Swap8kROM(0xA000, 1);

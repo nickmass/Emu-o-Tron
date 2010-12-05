@@ -15,7 +15,7 @@ namespace EmuoTron
         public SystemType nesRegion;
 
         public Rom rom;
-        public mappers.Mapper mapper;
+        public Mappers.Mapper mapper;
         public APU APU;
         public PPU PPU;
         public Debug debug;
@@ -43,13 +43,9 @@ namespace EmuoTron
         private int[] opList;
 
 
-        private Controller player1;
-        private Controller player2;
-        private Controller player3;
-        private Controller player4;
-        private int controlReg1;
-        private int controlReg2;
-        private bool controlReady;
+        public Controller[] players = new Controller[4];
+        private Inputs.Input PortOne;
+        private Inputs.Input PortTwo;
         public bool fourScore;
         public bool creditService;
         public bool dip1;
@@ -66,10 +62,10 @@ namespace EmuoTron
 
         public void Start(Controller player1, Controller player2, Controller player3, Controller player4, bool turbo)
         {
-            this.player1 = player1;
-            this.player2 = player2;
-            this.player3 = player3;
-            this.player4 = player4;
+            players[0] = player1;
+            players[1] = player2;
+            players[2] = player3;
+            players[3] = player4;
             fourScore = true;
             PPU.turbo = turbo;
             APU.turbo = turbo;
@@ -78,8 +74,8 @@ namespace EmuoTron
 
         public void Start(Controller player1, Controller player2, bool turbo)
         {
-            this.player1 = player1;
-            this.player2 = player2;
+            players[0] = player1;
+            players[1] = player2;
             fourScore = false;
             PPU.turbo = turbo;
             APU.turbo = turbo;
@@ -87,7 +83,7 @@ namespace EmuoTron
         }
         public void Start(Controller player1, bool turbo)
         {
-            this.player1 = player1;
+            players[0] = player1;
             fourScore = false;
             PPU.turbo = turbo;
             APU.turbo = turbo;
@@ -758,7 +754,7 @@ namespace EmuoTron
             PPU.generatePatternTables = false;
             APU.Update();
         }
-        public NESCore(SystemType region, String input, String fdsImage, String cartDBLocation, bool ignoreFileCheck = false) //FDS Load
+        public NESCore(SystemType region, String input, String fdsImage, String cartDBLocation, int sampleRate, int frameBuffer, bool ignoreFileCheck = false) //FDS Load
         {
             this.nesRegion = region;
             opList = OpInfo.GetOps();
@@ -774,7 +770,7 @@ namespace EmuoTron
             Memory = new MemoryStore(0x40, true);
             Memory.swapOffset = 0x20;
             Memory.SetReadOnly(0, 2, false);
-            APU = new APU(this);
+            APU = new APU(this, sampleRate, frameBuffer);
             PPU = new PPU(this);
             debug = new Debug(this);
             debug.LogInfo(rom.filePath);
@@ -787,31 +783,29 @@ namespace EmuoTron
             {
                 Memory.banks[(i / 0x400) + Memory.swapOffset][i % 0x400] = (byte)biosStream.ReadByte();
             }
-            mapper = new mappers.m020(this, diskStream, ignoreFileCheck);
-            rom.crc = ((mappers.m020)mapper).crc; //I don't like this.
+            mapper = new Mappers.m020(this, diskStream, ignoreFileCheck);
+            rom.crc = ((Mappers.m020)mapper).crc; //I don't like this.
             debug.LogInfo("ROM CRC32: " + rom.crc.ToString("X8"));
             diskStream.Close();
             biosStream.Close();
-            mapper.Init();
             mapper.cycleIRQ = true;
-            PPU.Power();
             for (int i = 0; i < 0x10000; i++)
             {
                 this.MirrorMap[i] = (ushort)i;
             }
             this.CPUMirror(0x0000, 0x0800, 0x0800, 3);
             this.CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
-            RegPC = PeekWord(0xFFFC);//entry point
+            Power();
 
         }
-        public NESCore(SystemType region, String input, String cartDBLocation, bool ignoreFileCheck = false) : 
-            this(region, File.OpenRead(input), cartDBLocation, ignoreFileCheck)
+        public NESCore(SystemType region, String input, String cartDBLocation, int sampleRate, int frameBuffer, bool ignoreFileCheck = false) : 
+            this(region, File.OpenRead(input), cartDBLocation, sampleRate, frameBuffer, ignoreFileCheck)
         {
             rom.filePath = input;
             rom.fileName = Path.GetFileNameWithoutExtension(rom.filePath);
             debug.LogInfo(rom.filePath);
         }
-        public NESCore(SystemType region, Stream inputStream, String cartDBLocation, bool ignoreFileCheck = false)
+        public NESCore(SystemType region, Stream inputStream, String cartDBLocation, int sampleRate, int frameBuffer, bool ignoreFileCheck = false)
         {
             this.nesRegion = region;
             opList = OpInfo.GetOps();
@@ -846,7 +840,7 @@ namespace EmuoTron
             Memory = new MemoryStore(0x20 + rom.prgROM, true);
             Memory.swapOffset = 0x20;
             Memory.SetReadOnly(0, 2, false);
-            APU = new APU(this);
+            APU = new APU(this, sampleRate, frameBuffer);
             PPU = new PPU(this);
             debug = new Debug(this);
             debug.LogInfo("Mapper: " + rom.mapper);
@@ -973,6 +967,7 @@ namespace EmuoTron
                 {
                     rom.title = gameName;
                     rom.mapper = Convert.ToInt32(dbMapper);
+                    rom.board = board;
                     debug.LogInfo("Found in database");
                     debug.LogInfo("Name: " + rom.title);
                     debug.LogInfo("Board: " + board);
@@ -1003,86 +998,87 @@ namespace EmuoTron
             switch (rom.mapper)
             {
                 case 0://NROM
-                    mapper = new mappers.m000(this);
+                    mapper = new Mappers.m000(this);
                     break;
                 case 1: //MMC1
-                    mapper = new mappers.m001(this);
+                    mapper = new Mappers.m001(this);
                     break;
                 case 2: //UNROM
-                    mapper = new mappers.m002(this);
+                    mapper = new Mappers.m002(this);
                     break;
                 case 3://CNROM
-                    mapper = new mappers.m003(this);
+                    mapper = new Mappers.m003(this);
                     break;
                 case 206:
+                case 37:
                 case 4: //MMC3
-                    mapper = new mappers.m004(this);
+                    mapper = new Mappers.m004(this);
                     break;
                 case 5: //MMC5
-                    mapper = new mappers.m005(this);
+                    mapper = new Mappers.m005(this);
                     break;
                 case 7: //AOROM
-                    mapper = new mappers.m007(this);
+                    mapper = new Mappers.m007(this);
                     break;
                 case 9: //MMC2
-                    mapper = new mappers.m009(this);
+                    mapper = new Mappers.m009(this);
                     break;
                 case 10: //MMC4
-                    mapper = new mappers.m010(this);
+                    mapper = new Mappers.m010(this);
                     break;
                 case 11: //Color Dreams
-                    mapper = new mappers.m011(this);
+                    mapper = new Mappers.m011(this);
                     break;
                 case 21: //VRC4a, VRC4c
-                    mapper = new mappers.mVRC4(this, 0x00, 0x02, 0x04, 0x06, 0x00, 0x40, 0x80, 0xC0);
+                    mapper = new Mappers.mVRC4(this, 0x00, 0x02, 0x04, 0x06, 0x00, 0x40, 0x80, 0xC0);
                     break;
                 case 22: //VRC2a
-                    mapper = new mappers.m022(this);
+                    mapper = new Mappers.m022(this);
                     break;
                 case 23: //VRC4e, VRC4f
-                    mapper = new mappers.mVRC4(this, 0x00, 0x04, 0x08, 0x0C, 0x00, 0x01, 0x02, 0x03);
+                    mapper = new Mappers.mVRC4(this, 0x00, 0x04, 0x08, 0x0C, 0x00, 0x01, 0x02, 0x03);
                     break;
                 case 24: //VRC6a
-                    mapper = new mappers.mVRC6(this, 0x00, 0x01, 0x02, 0x03);
+                    mapper = new Mappers.mVRC6(this, 0x00, 0x01, 0x02, 0x03);
                     break;
                 case 25: //VRC4b, VRC4d
-                    mapper = new mappers.mVRC4(this, 0x00, 0x02, 0x01, 0x03, 0x00, 0x08, 0x04, 0x0C);
+                    mapper = new Mappers.mVRC4(this, 0x00, 0x02, 0x01, 0x03, 0x00, 0x08, 0x04, 0x0C);
                     break;
                 case 26: //VRC6b
-                    mapper = new mappers.mVRC6(this, 0x00, 0x03, 0x02, 0x01);
+                    mapper = new Mappers.mVRC6(this, 0x00, 0x03, 0x02, 0x01);
                     break;
                 case 34: //BNROM and NINA-001
-                    mapper = new mappers.m034(this);
+                    mapper = new Mappers.m034(this);
                     break;
                 case 66: //GxROM
-                    mapper = new mappers.m066(this);
+                    mapper = new Mappers.m066(this);
                     break;
                 case 69: //Sunsoft5
-                    mapper = new mappers.m069(this);
+                    mapper = new Mappers.m069(this);
                     break;
                 case 70: //Bandai
-                    mapper = new mappers.m070(this);
+                    mapper = new Mappers.m070(this);
                     break;
                 case 71: //Camerica
-                    mapper = new mappers.m071(this);
+                    mapper = new Mappers.m071(this);
                     break;
                 case 73: //VRC3
-                    mapper = new mappers.m073(this);
+                    mapper = new Mappers.m073(this);
                     break;
                 case 75: //VRC1
-                    mapper = new mappers.m075(this);
+                    mapper = new Mappers.m075(this);
                     break;
                 case 85: //VRC7a, VRC7b
-                    mapper = new mappers.m085(this, 0x10, 0x08);
+                    mapper = new Mappers.m085(this, 0x10, 0x08);
                     break;
                 case 99: //VS Unisystem
-                    mapper = new mappers.m099(this);
+                    mapper = new Mappers.m099(this);
                     break;
                 case 151: //VS Unisystem
-                    mapper = new mappers.m151(this);
+                    mapper = new Mappers.m151(this);
                     break;
                 case 152:
-                    mapper = new mappers.m152(this);
+                    mapper = new Mappers.m152(this);
                     break;
                 default:
                     debug.SetError("Mapper Unsupported");
@@ -1090,18 +1086,16 @@ namespace EmuoTron
                     goto case 0;
 
             }
-            mapper.Init();
             #endregion
             if (rom.mapper == 69 || rom.mapper == 20 || rom.mapper == 21 || rom.mapper == 23 || rom.mapper == 24 || rom.mapper == 25 || rom.mapper == 26 || rom.mapper == 73 || rom.mapper == 85)
                 mapper.cycleIRQ = true;
-            PPU.Power();
             for (int i = 0; i < 0x10000; i++)
             {
                 this.MirrorMap[i] = (ushort)i;
             }
             this.CPUMirror(0x0000, 0x0800, 0x0800, 3);
             this.CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
-            RegPC = PeekWord(0xFFFC);//entry point
+            Power();
 #if nestest
             RegPC = 0xC000;
 #endif
@@ -1110,49 +1104,20 @@ namespace EmuoTron
         {
             address = this.MirrorMap[address & 0xFFFF];
             byte nextByte = this.Memory[address];
-            if (address == 0x4016) //Player1 Controller
-            {
-                nextByte = 0;
-                if (player1.zapper.connected)
-                {
-                    if (player1.zapper.triggerPulled)
-                        nextByte |= 0x10;
-                    if (!(((PPU.screen[player1.zapper.x, player1.zapper.y] & 0x3F) == 0x20) || ((PPU.screen[player1.zapper.x, player1.zapper.y] & 0x3F) == 0x30)))
-                        nextByte |= 0x08;
-                }
-                if (controlReady)
-                {
-                    nextByte |= (byte)(controlReg1 & 1);
-                    controlReg1 >>= 1;
-                }
-            }
-            else if (address == 0x4017) //Player2 Controller
-            {
-                nextByte = 0;
-                if (player2.zapper.connected)
-                {
-                    if (player2.zapper.triggerPulled)
-                        nextByte |= 0x10;
-                    if (!(((PPU.screen[player2.zapper.x, player2.zapper.y] & 0x3F) == 0x20) || ((PPU.screen[player2.zapper.x, player2.zapper.y] & 0x3F) == 0x30)))
-                        nextByte |= 0x08;
-                }
-                if (controlReady)
-                {
-                    nextByte |= (byte)(controlReg2 & 1);
-                    controlReg2 >>= 1;
-                }
-            }
+
+            nextByte = PortOne.Read(nextByte, (ushort)address);
+            nextByte = PortTwo.Read(nextByte, (ushort)address);
             if (rom.vsUnisystem)
             {
                 if (address == 0x4016)
                 {
                     //nextbyte should be coming from controller reg with data in bit 1
                     /*
-                     * Port 4016h/Read:
+                        * Port 4016h/Read:
                         Bit2    Credit Service Button       (0=Released, 1=Service Credit)
                         Bit3-4  DIP Switch 1-2              (0=Off, 1=On)
                         Bit5-6  Credit Left/Right Coin Slot (0=None, 1=Coin) (Acknowledge via 4020h)
-                     */
+                        */
                     if (creditService)
                         nextByte |= 0x04;
                     else
@@ -1165,11 +1130,11 @@ namespace EmuoTron
                         nextByte |= 0x10;
                     else
                         nextByte &= 0xEF;
-                    if (player1.coin)
+                    if (players[0].coin)
                         nextByte |= 0x20;
                     else
                         nextByte &= 0xDF;
-                    if (player2.coin)
+                    if (players[1].coin)
                         nextByte |= 0x40;
                     else
                         nextByte &= 0xBF;
@@ -1238,111 +1203,17 @@ namespace EmuoTron
         private void Write(int address, int value)
         {
             address = MirrorMap[address & 0xFFFF];
-            if (address == 0x4016)
-            {
-                if ((value & 0x01) == 1)
-                {
-                    controlReg1 = 0;
-                    if (fourScore)
-                    {
-                        controlReg1 |= 1;
-                        controlReg1 <<= 1;
-                        controlReg1 |= 0;
-                        controlReg1 <<= 1;
-                        controlReg1 |= 0;
-                        controlReg1 <<= 1;
-                        controlReg1 |= 0;
-                        controlReg1 <<= 1;
-                        controlReg1 |= player3.right ? 1 : 0;
-                        controlReg1 <<= 1;
-                        controlReg1 |= player3.left ? 1 : 0;
-                        controlReg1 <<= 1;
-                        controlReg1 |= player3.down ? 1 : 0;
-                        controlReg1 <<= 1;
-                        controlReg1 |= player3.up ? 1 : 0;
-                        controlReg1 <<= 1;
-                        controlReg1 |= player3.start ? 1 : 0;
-                        controlReg1 <<= 1;
-                        controlReg1 |= player3.select ? 1 : 0;
-                        controlReg1 <<= 1;
-                        controlReg1 |= player3.b ? 1 : 0;
-                        controlReg1 <<= 1;
-                        controlReg1 |= player3.a ? 1 : 0;
-                        controlReg1 <<= 1;
-                    }
-                    controlReg1 |= player1.right ? 1 : 0;
-                    controlReg1 <<= 1;
-                    controlReg1 |= player1.left ? 1 : 0;
-                    controlReg1 <<= 1;
-                    controlReg1 |= player1.down ? 1 : 0;
-                    controlReg1 <<= 1;
-                    controlReg1 |= player1.up ? 1 : 0;
-                    controlReg1 <<= 1;
-                    controlReg1 |= player1.start ? 1 : 0;
-                    controlReg1 <<= 1;
-                    controlReg1 |= player1.select ? 1 : 0;
-                    controlReg1 <<= 1;
-                    controlReg1 |= player1.b ? 1 : 0;
-                    controlReg1 <<= 1;
-                    controlReg1 |= player1.a ? 1 : 0;
 
-                    controlReg2 = 0;
-                    if(fourScore)
-                    {
-                        controlReg2 |= 1;
-                        controlReg2 <<= 1;
-                        controlReg2 |= 0;
-                        controlReg2 <<= 1;
-                        controlReg2 |= 0;
-                        controlReg2 <<= 1;
-                        controlReg2 |= player4.right ? 1 : 0;
-                        controlReg2 <<= 1;
-                        controlReg2 |= player4.left ? 1 : 0;
-                        controlReg2 <<= 1;
-                        controlReg2 |= player4.down ? 1 : 0;
-                        controlReg2 <<= 1;
-                        controlReg2 |= player4.up ? 1 : 0;
-                        controlReg2 <<= 1;
-                        controlReg2 |= player4.start ? 1 : 0;
-                        controlReg2 <<= 1;
-                        controlReg2 |= player4.select ? 1 : 0;
-                        controlReg2 <<= 1;
-                        controlReg2 |= player4.b ? 1 : 0;
-                        controlReg2 <<= 1;
-                        controlReg2 |= player4.a ? 1 : 0;
-                        controlReg2 <<= 1;
-                    }
-                    controlReg2 |= player2.right ? 1 : 0;
-                    controlReg2 <<= 1;
-                    controlReg2 |= player2.left ? 1 : 0;
-                    controlReg2 <<= 1;
-                    controlReg2 |= player2.down ? 1 : 0;
-                    controlReg2 <<= 1;
-                    controlReg2 |= player2.up ? 1 : 0;
-                    controlReg2 <<= 1;
-                    controlReg2 |= player2.start ? 1 : 0;
-                    controlReg2 <<= 1;
-                    controlReg2 |= player2.select ? 1 : 0;
-                    controlReg2 <<= 1;
-                    controlReg2 |= player2.b ? 1 : 0;
-                    controlReg2 <<= 1;
-                    controlReg2 |= player2.a ? 1 : 0;
-
-                    controlReady = false;
-                }
-                else
-                {
-                    controlReady = true;
-                }
-            }
+            PortOne.Write((byte)value, (ushort)address);
+            PortTwo.Write((byte)value, (ushort)address);
             if (rom.vsUnisystem)
             {
                 if (address == 0x4020)
                 {
                     if ((value & 1) != 0)
                     {
-                        player1.coin = false;
-                        player2.coin = false;
+                        players[0].coin = false;
+                        players[1].coin = false;
                     }
                 }
             }
@@ -1424,21 +1295,21 @@ namespace EmuoTron
         {
             if (rom.mapper == 20)
             {
-                ((mappers.m020)mapper).EjectDisk(diskInserted);
+                ((Mappers.m020)mapper).EjectDisk(diskInserted);
             }
         }
         public void SetDiskSide(int diskSide)
         {
             if (rom.mapper == 20)
             {
-                ((mappers.m020)mapper).SetDiskSide(diskSide);
+                ((Mappers.m020)mapper).SetDiskSide(diskSide);
             }
         }
         public bool GetEjectDisk()
         {
             if (rom.mapper == 20)
             {
-                return ((mappers.m020)mapper).diskInserted;
+                return ((Mappers.m020)mapper).diskInserted;
             }
             return false;
         }
@@ -1446,7 +1317,7 @@ namespace EmuoTron
         {
             if (rom.mapper == 20)
             {
-                return ((mappers.m020)mapper).currentSide;
+                return ((Mappers.m020)mapper).currentSide;
             }
             return 0;
         }
@@ -1454,9 +1325,45 @@ namespace EmuoTron
         {
             if (rom.mapper == 20)
             {
-                return ((mappers.m020)mapper).sideCount;
+                return ((Mappers.m020)mapper).sideCount;
             }
             return 0;
+        }
+        public void SetControllers(ControllerType portOne, ControllerType portTwo, bool fourScore)
+        {
+            this.fourScore = fourScore;
+            switch (portOne)
+            {
+                case ControllerType.Controller:
+                    PortOne = new Inputs.Controller(this, Inputs.Port.PortOne);
+                    break;
+                case ControllerType.Zapper:
+                    PortOne = new Inputs.Zapper(this, Inputs.Port.PortOne);
+                    break;
+                case ControllerType.Paddle:
+                    PortOne = new Inputs.Paddle(this, Inputs.Port.PortOne);
+                    break;
+                default:
+                case ControllerType.Empty:
+                    PortOne = new Inputs.Empty();
+                    break;
+            }
+            switch (portTwo)
+            {
+                case ControllerType.Controller:
+                    PortTwo = new Inputs.Controller(this, Inputs.Port.PortTwo);
+                    break;
+                case ControllerType.Zapper:
+                    PortTwo = new Inputs.Zapper(this, Inputs.Port.PortTwo);
+                    break;
+                case ControllerType.Paddle:
+                    PortTwo = new Inputs.Paddle(this, Inputs.Port.PortTwo);
+                    break;
+                default:
+                case ControllerType.Empty:
+                    PortTwo = new Inputs.Empty();
+                    break;
+            }
         }
         public SaveState StateSave()
         {
@@ -1473,9 +1380,8 @@ namespace EmuoTron
             writer.Write(counter);
             writer.Write(interruptReset);
             writer.Write(mapper.interruptMapper);
-            writer.Write(controlReg1);
-            writer.Write(controlReg2);
-            writer.Write(controlReady);
+            PortOne.StateSave(writer);
+            PortTwo.StateSave(writer);
             Memory.StateSave(writer);
             mapper.StateSave(writer);
             PPU.StateSave(writer);
@@ -1496,13 +1402,39 @@ namespace EmuoTron
             counter = reader.ReadInt32();
             interruptReset = reader.ReadBoolean();
             mapper.interruptMapper = reader.ReadBoolean();
-            controlReg1 = reader.ReadInt32();
-            controlReg2 = reader.ReadInt32();
-            controlReady = reader.ReadBoolean();
+            PortOne.StateLoad(reader);
+            PortTwo.StateLoad(reader);
             Memory.StateLoad(reader);
             mapper.StateLoad(reader);
             PPU.StateLoad(reader);
             APU.StateLoad(reader);
+        }
+        public void Power()
+        {
+            RegA = 0;
+            RegX = 0;
+            RegY = 0;
+            RegS = 0xFD;
+            RegPC = 0;
+            FlagCarry = 0; //Bit 0 of P
+            FlagZero = 1; //backwards
+            FlagIRQ = 1;
+            FlagDecimal = 0;
+            FlagBreak = 1;
+            FlagNotUsed = 1;
+            FlagOverflow = 0;
+            FlagSign = 0; //Bit 7 of P
+            counter = 0;
+            for (int i = 0; i < 0x800; i++)
+            {
+                Memory[i] = 0;
+            }
+            interruptReset = false;
+            interruptBRK = false;
+            mapper.Power();
+            PPU.Power();
+            APU.Power();
+            RegPC = PeekWord(0xFFFC);//entry point
         }
         public void Reset()
         {
@@ -1570,6 +1502,13 @@ namespace EmuoTron
         public AutoFire bTurbo;
         public Zapper zapper;
     }
+    public enum ControllerType
+    {
+        Controller,
+        Zapper,
+        Paddle,
+        Empty
+    }
     public struct Zapper
     {
         public bool connected;
@@ -1595,6 +1534,7 @@ namespace EmuoTron
     public struct Rom
     {
         public int mapper;
+        public string board;
         public string fileName;
         public string filePath;
         public string title;

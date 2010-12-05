@@ -17,8 +17,8 @@ namespace EmuoTron
         public bool mute;
         public bool turbo;
 
-        public int frameBuffer = 1;
-        public int sampleRate = 48000;
+        public int frameBuffer;
+        public int sampleRate;
         private double sampleRateDivider;
         private double sampleDivider;
 
@@ -144,9 +144,11 @@ namespace EmuoTron
         private byte[] dmcBuffer;
         private int dmcPtr;
         
-        public APU(NESCore nes)
+        public APU(NESCore nes, int sampleRate, int frameBuffer)
         {
             this.nes = nes;
+            this.sampleRate = sampleRate;
+            this.frameBuffer = frameBuffer;
             switch (nes.nesRegion)
             {
                 default:
@@ -176,33 +178,41 @@ namespace EmuoTron
             dmcBuffer = new byte[sampleRate];
             for (int i = 0; i < 32; i++)
             {
-                pulseTable[i] = ((95.52 / (8128.0 / i + 100)) * 2);
-                pulseTableShort[i] = (short)(pulseTable[i] * short.MaxValue * 1);
+                pulseTable[i] = ((95.52 / (8128.0 / i + 100)));
+                pulseTableShort[i] = (short)(pulseTable[i] * short.MaxValue);
             }
             for (int i = 0; i < 204; i++)
             {
-                tndTable[i] = ((163.67 / (24329.0 / i + 100)) * 2);
-                tndTableShort[i] = (short)(tndTable[i] * short.MaxValue);
+                tndTable[i] = ((163.67 / (24329.0 / i + 100)));
+                tndTableShort[i] = (short)(tndTable[i] * short.MinValue);
             }
-             Write(00, 0x4000); //Start-up values
-             Write(00, 0x4001);
-             Write(00, 0x4002);
-             Write(00, 0x4003);
-             Write(00, 0x4004);
-             Write(00, 0x4005);
-             Write(00, 0x4006);
-             Write(00, 0x4007);
-             Write(00, 0x4008);
-             Write(00, 0x4009);
-             Write(00, 0x400A);
-             Write(00, 0x400B);
-             Write(00, 0x400C);
-             Write(00, 0x400D);
-             Write(00, 0x400E);
-             Write(00, 0x400F);
-             Write(00, 0x4015);
-             Write(00, 0x4017);
-             timeToClock = modeZeroDelay - 12;
+        }
+        public void Power()
+        {
+            
+            frameIRQ = false;
+            frameCounter = 0;
+            mode = false;
+            frameIRQInhibit = false;
+            Write(00, 0x4000); //Start-up values
+            Write(00, 0x4001);
+            Write(00, 0x4002);
+            Write(00, 0x4003);
+            Write(00, 0x4004);
+            Write(00, 0x4005);
+            Write(00, 0x4006);
+            Write(00, 0x4007);
+            Write(00, 0x4008);
+            Write(00, 0x4009);
+            Write(00, 0x400A);
+            Write(00, 0x400B);
+            Write(00, 0x400C);
+            Write(00, 0x400D);
+            Write(00, 0x400E);
+            Write(00, 0x400F);
+            Write(00, 0x4015);
+            Write(00, 0x4017);
+            timeToClock = modeZeroDelay - 12;
         }
         public void Reset()
         {
@@ -796,11 +806,17 @@ namespace EmuoTron
             else if (!dutyCycles[pulse1Duty][pulse1DutySequencer % 8])
                 pulse1Volume = 0;
             else if (pulse1ConstantVolume)
+            {
                 pulse1Volume = pulse1Envelope;
+                if (pulse1Timer <= 0)
+                    pulse1Volume = 0;
+            }
             else
+            {
                 pulse1Volume = pulse1EnvelopeCounter;
-            if (pulse1Timer <= 0)
-                pulse1Volume = 7;
+                if (pulse1Timer <= 0)
+                    pulse1Volume = 0;
+            }
 
             byte pulse2Volume = 0;
             if (pulse2LengthCounter == 0)
@@ -810,11 +826,17 @@ namespace EmuoTron
             else if (!dutyCycles[pulse2Duty][pulse2DutySequencer % 8])
                 pulse2Volume = 0;
             else if (pulse2ConstantVolume)
+            {
                 pulse2Volume = pulse2Envelope;
+                if (pulse2Timer <= 0)
+                    pulse2Volume = 0;
+            }
             else
+            {
                 pulse2Volume = pulse2EnvelopeCounter;
-            if (pulse2Timer <= 0)
-                pulse2Volume = 7;
+                if (pulse2Timer <= 0)
+                    pulse2Volume = 0;
+            }
 
             byte noiseVolume = 0;
             if ((noiseShiftReg & 1) == 1)
@@ -870,11 +892,17 @@ namespace EmuoTron
                     else if (!dutyCycles[pulse1Duty][pulse1DutySequencer % 8])
                         pulse1Volume = 0;
                     else if (pulse1ConstantVolume)
+                    {
                         pulse1Volume = pulse1Envelope;
+                        if (pulse1Timer <= 0)
+                            pulse1Volume = 0;
+                    }
                     else
+                    {
                         pulse1Volume = pulse1EnvelopeCounter;
-                    if (pulse1Timer <= 0)
-                        pulse1Volume = 7;
+                        if (pulse1Timer <= 0)
+                            pulse1Volume = 0;
+                    }
                     pulse1DutySequencer++;
                     pulse1Divider = pulse1Freq;
                 }
@@ -888,11 +916,17 @@ namespace EmuoTron
                     else if (!dutyCycles[pulse2Duty][pulse2DutySequencer % 8])
                         pulse2Volume = 0;
                     else if (pulse2ConstantVolume)
+                    {
                         pulse2Volume = pulse2Envelope;
+                        if (pulse2Timer <= 0)
+                            pulse2Volume = 0;
+                    }
                     else
+                    {
                         pulse2Volume = pulse2EnvelopeCounter;
-                    if (pulse2Timer <= 0)
-                        pulse2Volume = 7;
+                        if (pulse2Timer <= 0)
+                            pulse2Volume = 0;
+                    }
                     pulse2DutySequencer++;
                     pulse2Divider = pulse2Freq;
                 }
@@ -918,7 +952,7 @@ namespace EmuoTron
                     pulse2Volume = (byte)(pulse2Volume * volume.pulse2);
                     noiseVolume = (byte)(noiseVolume * volume.noise);
                     dmcVolume = (byte)(dmcBuffer[outputPtr] * volume.dmc);
-                    output[outputPtr] = (short)(tndTableShort[(3 * triangleVolume) + (2 * noiseVolume) + dmcVolume] + pulseTableShort[pulse1Volume + pulse2Volume] - short.MaxValue);
+                    output[outputPtr] = (short)(tndTableShort[(3 * triangleVolume) + (2 * noiseVolume) + dmcVolume] + pulseTableShort[pulse1Volume + pulse2Volume]);
                     outputPtr++;
                     sampleRateDivider -= sampleDivider;
                 }

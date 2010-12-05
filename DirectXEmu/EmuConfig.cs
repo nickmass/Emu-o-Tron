@@ -91,6 +91,10 @@ namespace DirectXEmu
             defaults["region"] = ((int)SystemType.NTSC).ToString();
             defaults["serverPort"] = "7878";
             defaults["fdsBios"] = @"disksys.rom";
+            defaults["sampleRate"] = "48000";
+            defaults["portOne"] = "Controller";
+            defaults["portTwo"] = "Controller";
+            defaults["fourScore"] = "0";
 #if DEBUG
             defaults["romPath2"] = @"C:\Games\Emulators\Roms\NES";
             defaults["romPath3"] = @"C:\Games\Emulators\Roms\MapperNes";

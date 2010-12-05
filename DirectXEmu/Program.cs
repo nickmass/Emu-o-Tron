@@ -390,6 +390,7 @@ namespace DirectXEmu
                         imageScaler.PerformScale((int*)frameBMD.Scan0, (int*)drt.Data.DataPointer);
                         frameBuffer.UnlockBits(frameBMD);
                         texture.UnlockRectangle(0);
+
                     }
                 }
                 device.Clear(ClearFlags.Target, Color.Black, 1.0f, 0);
@@ -649,13 +650,15 @@ namespace DirectXEmu
             audioFormat = new WaveFormat();
             audioFormat.BitsPerSample = 16;
             audioFormat.Channels = 1;
-            audioFormat.SamplesPerSecond = 44100;
+            audioFormat.SamplesPerSecond = Convert.ToInt32(this.config["sampleRate"]);
             audioFormat.BlockAlignment = (short)(audioFormat.BitsPerSample * audioFormat.Channels / 8);
             audioFormat.AverageBytesPerSecond = (audioFormat.BitsPerSample / 8) * audioFormat.SamplesPerSecond;
             audioFormat.FormatTag = WaveFormatTag.Pcm;
 
             dAudio = new XAudio2();
             mVoice = new MasteringVoice(dAudio);
+            sVoice = new SourceVoice(dAudio, audioFormat, VoiceFlags.None);
+            sVoice.Start();
             if (config["sound"] == "1")
                 mVoice.Volume = Convert.ToInt32(config["volume"]) / 100f;
             else
@@ -1000,15 +1003,21 @@ namespace DirectXEmu
                 tmpPoint.Y -= surfaceControl.Location.Y;
                 tmpPoint.X = (int)((frameBuffer.Width * tmpPoint.X) / (surfaceControl.Width * 1.0));
                 tmpPoint.Y = (int)((frameBuffer.Height * tmpPoint.Y) / (surfaceControl.Height * 1.0));
-                if (tmpPoint.X < 0 || tmpPoint.X >= this.frameBuffer.Width)
+                if (tmpPoint.X < 0)
                 {
                     tmpPoint.X = 0;
+                }
+                else if (tmpPoint.X >= this.frameBuffer.Width)
+                {
+                    tmpPoint.X = this.frameBuffer.Width - 1;
+                }
+                if (tmpPoint.Y < 0)
+                {
                     tmpPoint.Y = 0;
                 }
-                if (tmpPoint.Y < 0 || tmpPoint.Y >= this.frameBuffer.Height)
+                else if (tmpPoint.Y >= this.frameBuffer.Height)
                 {
-                    tmpPoint.X = 0;
-                    tmpPoint.Y = 0;
+                    tmpPoint.Y = this.frameBuffer.Height - 1;
                 }
                 player2.zapper.x = (byte)tmpPoint.X;
                 player2.zapper.y = (byte)tmpPoint.Y;
@@ -1232,7 +1241,8 @@ namespace DirectXEmu
             else if (e.KeyCode == keyBindings.Power)
             {
                 this.SaveGame();
-                this.StartEmu();
+                this.cpu.Power();
+                this.LoadGame();
                 this.message = "Power";
                 this.messageDuration = 90;
             }
@@ -1588,9 +1598,9 @@ namespace DirectXEmu
             try
             {
                 if (Path.GetExtension(romPath).ToLower() == ".fds")
-                    this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), config["fdsBios"], this.romPath, this.appPath);
+                    this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), config["fdsBios"], this.romPath, this.appPath, audioFormat.SamplesPerSecond, 1);
                 else
-                    this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath);
+                    this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath, audioFormat.SamplesPerSecond, 1);
             }
             catch (Exception e)
             {
@@ -1598,9 +1608,9 @@ namespace DirectXEmu
                 {
                     if (MessageBox.Show("File appears to be invalid. Attempt load anyway?", "Error", MessageBoxButtons.YesNo) == DialogResult.Yes)
                         if (Path.GetExtension(romPath).ToLower() == ".fds")
-                            this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), config["fdsBios"], this.romPath, this.appPath, true);
+                            this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), config["fdsBios"], this.romPath, this.appPath, audioFormat.SamplesPerSecond, 1, true);
                         else
-                            this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath, true);
+                            this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath, audioFormat.SamplesPerSecond, 1, true);
                     else
                         throw (e);
                 }
@@ -1612,9 +1622,6 @@ namespace DirectXEmu
                 else
                     throw (e);
             }
-            audioFormat.SamplesPerSecond = this.cpu.APU.sampleRate;
-            sVoice = new SourceVoice(dAudio, audioFormat, VoiceFlags.None);
-            sVoice.Start();
             this.frame = 0;
             this.saveBufferAvaliable = 0;
             this.cpu.debug.logging = logState;
@@ -1643,6 +1650,7 @@ namespace DirectXEmu
             ejectDiskToolStripMenuItem.DropDownItems.Clear();
             ejectDiskToolStripMenuItem.Text = "Eject Disk";
             ejectDiskToolStripMenuItem.Visible = (cpu.GetSideCount() != 0);
+            cpu.SetControllers((ControllerType)Enum.Parse(typeof(ControllerType), config["portOne"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["portTwo"]), (config["fourScore"] == "1"));
         }
         Debugger debugger;
         void DipDiag_FormClosing(object sender, FormClosingEventArgs e)
@@ -1884,9 +1892,18 @@ namespace DirectXEmu
         {
             SystemState old = state;
             state = SystemState.SystemPause;
-            Keybind keyBindWindow = new Keybind(keyBindings);
+            Keybind keyBindWindow = new Keybind(keyBindings, (ControllerType)Enum.Parse(typeof(ControllerType), config["portOne"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["portTwo"]), (config["fourScore"] == "1"));
             if (keyBindWindow.ShowDialog() == DialogResult.OK)
+            {
                 keyBindings = keyBindWindow.keys;
+                config["portOne"] = keyBindWindow.portOne.ToString();
+                config["portTwo"] = keyBindWindow.portTwo.ToString();
+                config["fourScore"] = keyBindWindow.fourScore ? "1" : "0";
+                if (cpu != null)
+                {
+                    cpu.SetControllers(keyBindWindow.portOne, keyBindWindow.portTwo, keyBindWindow.fourScore);
+                }
+            }
             state = old;
         }
 

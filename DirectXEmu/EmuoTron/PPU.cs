@@ -98,8 +98,6 @@ namespace EmuoTron
             PPUMirror(0x2000, 0x3000, 0x0F00, 1);
             PPUMirror(0x3F00, 0x3F20, 0x20, 7);
 
-            for (int i = 0; i < 0x20; i++)
-                PalMemory[i] = 0x0F; //Sets the background to black on startup to prevent grey flashes, not exactly accurate but it looks nicer
             for (int i = 0; i < 256; i++)
                 zeroGray[i] = 0x3F;
 
@@ -117,6 +115,12 @@ namespace EmuoTron
         }
         public void Power()
         {
+            for (int i = 0; i < 0x100; i++)
+                SPRMemory[i] = 0;
+            for (int i = 0x2000; i < 0x2800; i++)
+                PPUMemory[i] = 0;
+            for (int i = 0; i < 0x20; i++)
+                PalMemory[i] = 0x0F; //Sets the background to black on startup to prevent grey flashes, not exactly accurate but it looks nicer
             Write(0, 0x2000);
             Write(0, 0x2001);
             Write(0, 0x2003);

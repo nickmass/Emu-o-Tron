@@ -425,7 +425,7 @@
             // 
             this.keyBindingsToolStripMenuItem.Name = "keyBindingsToolStripMenuItem";
             this.keyBindingsToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
-            this.keyBindingsToolStripMenuItem.Text = "Key Bindings...";
+            this.keyBindingsToolStripMenuItem.Text = "Input...";
             this.keyBindingsToolStripMenuItem.Click += new System.EventHandler(this.keyBindingsToolStripMenuItem_Click);
             // 
             // gameGenieCodesToolStripMenuItem

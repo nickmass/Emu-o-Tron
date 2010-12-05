@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.IO;
 
-namespace EmuoTron.mappers
+namespace EmuoTron.Mappers
 {
     class m034 : Mapper
     {
@@ -12,7 +12,7 @@ namespace EmuoTron.mappers
         {
             this.nes = nes;
         }
-        public override void Init()
+        public override void Power()
         {
             if (nes.rom.vROM == 0)//BNROM
             {

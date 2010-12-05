@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.IO;
 
-namespace EmuoTron.mappers
+namespace EmuoTron.Mappers
 {
     class m010 : Mapper
     {
@@ -18,7 +18,7 @@ namespace EmuoTron.mappers
         {
             this.nes = nes;
         }
-        public override void Init()
+        public override void Power()
         {
             nes.Memory.Swap16kROM(0x8000, 0);
             nes.Memory.Swap16kROM(0xC000, (nes.rom.prgROM / 16) - 1);

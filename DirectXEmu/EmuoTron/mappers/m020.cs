@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.IO;
 
-namespace EmuoTron.mappers
+namespace EmuoTron.Mappers
 {
     class m020 : Mapper
     {
@@ -63,7 +63,7 @@ namespace EmuoTron.mappers
             nes.debug.LogInfo("Disk Sides: " + sideCount.ToString());
             crc = crc ^ 0xFFFFFFFF;
         }
-        public override void Init()
+        public override void Power()
         {
             nes.Memory.Swap8kROM(0xE000, 0);
             nes.Memory.Swap8kRAM(0x8000, 1);
