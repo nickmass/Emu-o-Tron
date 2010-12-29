@@ -36,9 +36,12 @@ namespace DirectXEmu
                 case ControllerType.Paddle:
                     cboPortOne.SelectedIndex = 2;
                     break;
+                case ControllerType.FamiPaddle:
+                    cboPortOne.SelectedIndex = 3;
+                    break;
                 default:
                 case ControllerType.Empty:
-                    cboPortOne.SelectedIndex = 3;
+                    cboPortOne.SelectedIndex = 4;
                     break;
             }
             switch (portTwo)
@@ -52,9 +55,12 @@ namespace DirectXEmu
                 case ControllerType.Paddle:
                     cboPortTwo.SelectedIndex = 2;
                     break;
+                case ControllerType.FamiPaddle:
+                    cboPortTwo.SelectedIndex = 3;
+                    break;
                 default:
                 case ControllerType.Empty:
-                    cboPortTwo.SelectedIndex = 3;
+                    cboPortTwo.SelectedIndex = 4;
                     break;
             }
 
@@ -90,6 +96,9 @@ namespace DirectXEmu
                     portOne = ControllerType.Paddle;
                     break;
                 case 3:
+                    portOne = ControllerType.FamiPaddle;
+                    break;
+                case 4:
                     portOne = ControllerType.Empty;
                     break;
             }
@@ -110,6 +119,9 @@ namespace DirectXEmu
                     portTwo = ControllerType.Paddle;
                     break;
                 case 3:
+                    portTwo = ControllerType.FamiPaddle;
+                    break;
+                case 4:
                     portTwo = ControllerType.Empty;
                     break;
             }

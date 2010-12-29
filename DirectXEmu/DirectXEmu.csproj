@@ -135,6 +135,7 @@
     </Compile>
     <Compile Include="EmuoTron\Debug.cs" />
     <Compile Include="EmuoTron\Inputs\Controller.cs" />
+    <Compile Include="EmuoTron\Inputs\FamiPaddle.cs" />
     <Compile Include="EmuoTron\Inputs\Empty.cs" />
     <Compile Include="EmuoTron\Inputs\Input.cs" />
     <Compile Include="EmuoTron\Inputs\Paddle.cs" />
@@ -467,6 +468,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="palettes\Inverted.pal">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="palettes\Nestopia.pal">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="palettes\VSMario.pal">

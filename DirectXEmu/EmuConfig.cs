@@ -26,7 +26,7 @@ namespace DirectXEmu
         private Dictionary<string, string> LoadDefaults()
         {
             Dictionary<string, string> defaults = new Dictionary<string, string>();
-            defaults["palette"] = @"palettes\FCEUX.pal";
+            defaults["palette"] = @"palettes\Nestopia.pal";
             defaults["paletteDir"] = @"palettes";
             defaults["movieDir"] = @"movies";
             defaults["sramDir"] = @"sav";
@@ -96,6 +96,7 @@ namespace DirectXEmu
             defaults["portTwo"] = "Controller";
             defaults["fourScore"] = "0";
 #if DEBUG
+            defaults["romPath1"] = @"C:\Games\Emulators\Roms\NES";
             defaults["romPath2"] = @"C:\Games\Emulators\Roms\NES";
             defaults["romPath3"] = @"C:\Games\Emulators\Roms\MapperNes";
             defaults["romPath4"] = @"C:\Games\Emulators\Roms\TestNes";

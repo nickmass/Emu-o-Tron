@@ -75,6 +75,7 @@
             "Controller",
             "Zapper",
             "Paddle",
+            "FamiPaddle",
             "Empty"});
             this.cboPortOne.Location = new System.Drawing.Point(71, 21);
             this.cboPortOne.Name = "cboPortOne";
@@ -90,6 +91,7 @@
             "Controller",
             "Zapper",
             "Paddle",
+            "FamiPaddle",
             "Empty"});
             this.cboPortTwo.Location = new System.Drawing.Point(71, 48);
             this.cboPortTwo.Name = "cboPortTwo";

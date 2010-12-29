@@ -31,7 +31,6 @@ namespace EmuoTron.Inputs
         {
             if (address == readAddress)
             {
-                value = 0;
                 if (controlReady)
                 {
                     value |= (byte)(controlReg & 1);

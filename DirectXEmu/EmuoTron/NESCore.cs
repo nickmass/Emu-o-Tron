@@ -42,7 +42,6 @@ namespace EmuoTron
         private OpInfo OpCodes = new OpInfo();
         private int[] opList;
 
-
         public Controller[] players = new Controller[4];
         private Inputs.Input PortOne;
         private Inputs.Input PortTwo;
@@ -1222,7 +1221,6 @@ namespace EmuoTron
             PPU.Write((byte)value, (ushort)address);
             debug.Write((byte)value, (ushort)address);
             Memory[address] = (byte)value;
-            //ApplyGameGenie();
         }
         private byte PToByte()
         {
@@ -1343,6 +1341,9 @@ namespace EmuoTron
                 case ControllerType.Paddle:
                     PortOne = new Inputs.Paddle(this, Inputs.Port.PortOne);
                     break;
+                case ControllerType.FamiPaddle:
+                    PortOne = new Inputs.FamiPaddle(this, Inputs.Port.PortOne);
+                    break;
                 default:
                 case ControllerType.Empty:
                     PortOne = new Inputs.Empty();
@@ -1358,6 +1359,9 @@ namespace EmuoTron
                     break;
                 case ControllerType.Paddle:
                     PortTwo = new Inputs.Paddle(this, Inputs.Port.PortTwo);
+                    break;
+                case ControllerType.FamiPaddle:
+                    PortTwo = new Inputs.FamiPaddle(this, Inputs.Port.PortTwo);
                     break;
                 default:
                 case ControllerType.Empty:
@@ -1440,18 +1444,6 @@ namespace EmuoTron
         {
             this.interruptReset = true;
         }
-        private void ApplyGameGenie()
-        {
-            for (int i = 0; i < this.gameGenieCodeNum; i++)
-            {
-                if (this.gameGenieCodes[i].code == "DUMMY")
-                    this.Memory.ForceValue(this.MirrorMap[this.gameGenieCodes[i].address], this.gameGenieCodes[i].value);
-                else if (this.gameGenieCodes[i].code.Length == 6)
-                    this.Memory.ForceValue(this.MirrorMap[this.gameGenieCodes[i].address + 0x8000],this.gameGenieCodes[i].value);
-                else if (this.gameGenieCodes[i].code.Length == 8 && this.Memory[this.MirrorMap[this.gameGenieCodes[i].address] + 0x8000] == this.gameGenieCodes[i].check)
-                    this.Memory.ForceValue(this.MirrorMap[this.gameGenieCodes[i].address + 0x8000], this.gameGenieCodes[i].value);
-            }
-        }
         private byte GameGenie(byte value, ushort address)
         {
             for (int i = 0; i < this.gameGenieCodeNum; i++)
@@ -1498,29 +1490,17 @@ namespace EmuoTron
         public bool a;
         public bool b;
         public bool coin;
-        public AutoFire aTurbo;
-        public AutoFire bTurbo;
-        public Zapper zapper;
+        public bool triggerPulled;
+        public byte x;
+        public byte y;
     }
     public enum ControllerType
     {
         Controller,
         Zapper,
         Paddle,
+        FamiPaddle,
         Empty
-    }
-    public struct Zapper
-    {
-        public bool connected;
-        public bool triggerPulled;
-        public byte x;
-        public byte y;
-    }
-    public struct AutoFire
-    {
-        public bool on;
-        public int freq;
-        public int count;
     }
     public struct SoundVolume
     {
@@ -1560,5 +1540,6 @@ namespace EmuoTron
     {
         public MemoryStream stateStream;
         public bool isStored;
+        public int frame;
     }
 }

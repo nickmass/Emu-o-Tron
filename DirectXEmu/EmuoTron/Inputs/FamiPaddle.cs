@@ -6,37 +6,37 @@ using System.IO;
 
 namespace EmuoTron.Inputs
 {
-    class Paddle : Input
+    class FamiPaddle : Input
     {
-        int readAddress;
         bool controlReady;
         int paddleValue;
         int playerNum;
-        public Paddle(NESCore nes, Port port)
+        public FamiPaddle(NESCore nes, Port port) //I know this plugged into the expandsion port, but if I dont have a player number how do I know who's keybinds to use?
         {
             this.nes = nes;
             this.port = port;
             if (port == Port.PortOne)
             {
-                readAddress = 0x4016;
                 playerNum = 0;
             }
             else if (port == Port.PortTwo)
             {
-                readAddress = 0x4017;
                 playerNum = 1;
             }
         }
         public override byte Read(byte value, ushort address)
         {
-            if (address == readAddress)
+            if (address == 0x4016)
             {
                 if (nes.players[playerNum].triggerPulled)
-                    value |= 0x8;
+                    value |= 0x2;
+            }
+            else if (address == 0x4017)
+            {
                 if (controlReady)
                 {
                     if ((paddleValue & 0x80) == 0)
-                        value |= 0x10;
+                        value |= 0x2;
                     paddleValue = paddleValue << 1;
                 }
             }
@@ -48,7 +48,7 @@ namespace EmuoTron.Inputs
             {
                 if ((value & 1) != 0)
                 {
-                    paddleValue = ((160 * nes.players[playerNum].x) / 256) + 84;
+                    paddleValue = ((170 * nes.players[playerNum].x) / 256) + 74; //Tweaked range for Arkanoid 2, paddle can reach both playfield sides this way.
                     controlReady = false;
                 }
                 else

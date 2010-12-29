@@ -97,6 +97,8 @@
             this.openMovieDialog = new System.Windows.Forms.OpenFileDialog();
             this.recordDialog = new System.Windows.Forms.SaveFileDialog();
             this.surfaceControl = new System.Windows.Forms.Panel();
+            this.saveMovieToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.saveMovie = new System.Windows.Forms.SaveFileDialog();
             this.menuStrip.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -462,14 +464,14 @@
             // startGameToolStripMenuItem
             // 
             this.startGameToolStripMenuItem.Name = "startGameToolStripMenuItem";
-            this.startGameToolStripMenuItem.Size = new System.Drawing.Size(132, 22);
+            this.startGameToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.startGameToolStripMenuItem.Text = "Start Game";
             this.startGameToolStripMenuItem.Click += new System.EventHandler(this.startGameToolStripMenuItem_Click);
             // 
             // joinGameToolStripMenuItem
             // 
             this.joinGameToolStripMenuItem.Name = "joinGameToolStripMenuItem";
-            this.joinGameToolStripMenuItem.Size = new System.Drawing.Size(132, 22);
+            this.joinGameToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.joinGameToolStripMenuItem.Text = "Join Game";
             this.joinGameToolStripMenuItem.Click += new System.EventHandler(this.joinGameToolStripMenuItem_Click);
             // 
@@ -477,7 +479,8 @@
             // 
             this.moiveToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.openMovieToolStripMenuItem,
-            this.playMovieToolStripMenuItem});
+            this.playMovieToolStripMenuItem,
+            this.saveMovieToolStripMenuItem});
             this.moiveToolStripMenuItem.Name = "moiveToolStripMenuItem";
             this.moiveToolStripMenuItem.Size = new System.Drawing.Size(52, 20);
             this.moiveToolStripMenuItem.Text = "Moive";
@@ -485,7 +488,7 @@
             // openMovieToolStripMenuItem
             // 
             this.openMovieToolStripMenuItem.Name = "openMovieToolStripMenuItem";
-            this.openMovieToolStripMenuItem.Size = new System.Drawing.Size(148, 22);
+            this.openMovieToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.openMovieToolStripMenuItem.Text = "Open Movie...";
             this.openMovieToolStripMenuItem.Click += new System.EventHandler(this.openMovieToolStripMenuItem_Click);
             // 
@@ -493,7 +496,7 @@
             // 
             this.playMovieToolStripMenuItem.Enabled = false;
             this.playMovieToolStripMenuItem.Name = "playMovieToolStripMenuItem";
-            this.playMovieToolStripMenuItem.Size = new System.Drawing.Size(148, 22);
+            this.playMovieToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.playMovieToolStripMenuItem.Text = "Play Movie";
             this.playMovieToolStripMenuItem.Click += new System.EventHandler(this.playMovieToolStripMenuItem_Click);
             // 
@@ -637,6 +640,7 @@
             // 
             this.recordDialog.DefaultExt = "wav";
             this.recordDialog.Filter = "Wav files|*.wav";
+            this.recordDialog.Title = "Save Wav";
             // 
             // surfaceControl
             // 
@@ -646,6 +650,19 @@
             this.surfaceControl.Name = "surfaceControl";
             this.surfaceControl.Size = new System.Drawing.Size(512, 480);
             this.surfaceControl.TabIndex = 3;
+            // 
+            // saveMovieToolStripMenuItem
+            // 
+            this.saveMovieToolStripMenuItem.Name = "saveMovieToolStripMenuItem";
+            this.saveMovieToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.saveMovieToolStripMenuItem.Text = "Save Movie...";
+            this.saveMovieToolStripMenuItem.Click += new System.EventHandler(this.saveMovieToolStripMenuItem_Click);
+            // 
+            // saveMovie
+            // 
+            this.saveMovie.DefaultExt = "fm2";
+            this.saveMovie.Filter = "FM2 files|*.fm2";
+            this.saveMovie.Title = "Save Movie";
             // 
             // Program
             // 
@@ -740,5 +757,7 @@
         private System.Windows.Forms.ToolStripMenuItem debuggerToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem cheatFinderToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem ejectDiskToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem saveMovieToolStripMenuItem;
+        private System.Windows.Forms.SaveFileDialog saveMovie;
     }
 }

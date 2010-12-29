@@ -29,10 +29,9 @@ namespace EmuoTron.Inputs
         {
             if (address == readAddress)
             {
-                value = 0;
-                if (nes.players[playerNum].zapper.triggerPulled)
+                if (nes.players[playerNum].triggerPulled)
                     value |= 0x10;
-                if (!(((nes.PPU.screen[nes.players[playerNum].zapper.x, nes.players[playerNum].zapper.y] & 0x3F) == 0x20) || ((nes.PPU.screen[nes.players[playerNum].zapper.x, nes.players[playerNum].zapper.y] & 0x3F) == 0x30)))
+                if (!(((nes.PPU.screen[nes.players[playerNum].x, nes.players[playerNum].y] & 0x3F) == 0x20) || ((nes.PPU.screen[nes.players[playerNum].x, nes.players[playerNum].y] & 0x3F) == 0x30)))
                     value |= 0x08;
             }
             return value;

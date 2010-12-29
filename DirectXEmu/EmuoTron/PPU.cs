@@ -170,7 +170,7 @@ namespace EmuoTron
             {
                 if ((loopyV & 0x3F00) == 0x3F00)
                 {
-                    nextByte = PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F];
+                    nextByte = (byte)(PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] & grayScale); //random wiki readings claim gray scale is applied here but have seen no roms that test it or evidence to support it.
                     readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x2FFF]];
                 }
                 else
@@ -310,7 +310,7 @@ namespace EmuoTron
         {
             int yPosition = SPRMemory[0] + 1;
             int xLocation = SPRMemory[3];
-            if(!spriteZeroHit && (backgroundRendering && spriteRendering) && (yPosition <= scanline && yPosition + (tallSprites ? 16 : 8) > scanline) && xLocation <= scanlineCycle)
+            if(!spriteZeroHit && (backgroundRendering && spriteRendering) && scanline < 240 && (yPosition <= scanline && yPosition + (tallSprites ? 16 : 8) > scanline) && xLocation <= scanlineCycle)
             {
                 int tmpV = loopyV;
                 Buffer.BlockCopy(zeroUshort, 0, zeroBackground, 0, 256);
@@ -364,7 +364,7 @@ namespace EmuoTron
                         byte color = (byte)(((spriteLowChr & 0x80) >> 7) + ((spriteHighChr & 0x80) >> 6));
                         if (color != 0 && !(!leftmostSprites && xPosition < 8))
                         {
-                            if (!zeroBackground[xPosition] && xPosition != 255 && scanline != 239)
+                            if (!zeroBackground[xPosition] && xPosition != 255)
                                 spriteZeroHit = true;
                         }
                     }
@@ -536,7 +536,7 @@ namespace EmuoTron
                                                 spriteAboveLine[xPosition] = (attr & 0x20) == 0;
                                                 spriteBelowLine[xPosition] = !spriteAboveLine[xPosition];
                                                 spriteLine[xPosition] = (ushort)((PalMemory[(palette * 4) + color + 0x10] & pixelGray[xPosition]) | pixelMasks[xPosition]);
-                                                if (sprite == 0 && !zeroBackground[xPosition] && xPosition != 255 && scanline != 239)
+                                                if (sprite == 0 && !zeroBackground[xPosition] && xPosition != 255)
                                                     spriteZeroHit = true;
                                             }
                                         }

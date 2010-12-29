@@ -28,6 +28,12 @@ namespace DirectXEmu
         Paused,
         SystemPause
     }
+    public struct AutoFire
+    {
+        public bool on;
+        public int freq;
+        public int count;
+    }
     struct VertexPositionRhwTexture
     {
         public Vector4 PositionRhw;
@@ -56,7 +62,11 @@ namespace DirectXEmu
         int charSize;
         NESCore cpu;
         EmuoTron.Controller player1;
+        AutoFire player1A;
+        AutoFire player1B;
         EmuoTron.Controller player2;
+        AutoFire player2A;
+        AutoFire player2B;
         bool controlStrobe = false;
         Color[] colorChart = new Color[0x200];
         public int frame = 0;
@@ -130,6 +140,9 @@ namespace DirectXEmu
         BinaryWriter wavWriter;
         bool wavRecord;
         int wavSamples;
+
+        byte[] movie = new byte[60 * 60 * 60 * 12];//twelve hours should be enough
+        int moviePtr = 0;
 
         [STAThread]
         static void Main(string[] args)
@@ -241,17 +254,24 @@ namespace DirectXEmu
                 if (player1.down)
                     player1.down = (frame % 2) == 1;
             }
-            if (player1.aTurbo.on)
-                player1.a = player1.aTurbo.count++ % player1.aTurbo.freq == 0;
-            if (player1.bTurbo.on)
-                player1.b = player1.bTurbo.count++ % player1.bTurbo.freq == 0;
-            if (player2.aTurbo.on)
-                player2.a = player2.aTurbo.count++ % player2.aTurbo.freq == 0;
-            if (player2.bTurbo.on)
-                player2.b = player2.bTurbo.count++ % player2.bTurbo.freq == 0;
-            if (this.playMovie)
-                this.Fm2Reader();
-
+            if (player1A.on)
+                player1.a = player1A.count++ % player1A.freq == 0;
+            if (player1B.on)
+                player1.b = player1B.count++ % player1B.freq == 0;
+            if (player2A.on)
+                player2.a = player2A.count++ % player2A.freq == 0;
+            if (player2B.on)
+                player2.b = player2B.count++ % player2B.freq == 0;
+            if (playMovie)
+            {
+                playMovie = !Fm2Reader();
+                if (!playMovie)
+                {
+                    this.playMovieToolStripMenuItem.Text = "Play Movie";
+                    message = "Playback Ended";
+                    messageDuration = 90;
+                }
+            }
             if (rewindingEnabled)
             {
                 if (rewinding)
@@ -270,7 +290,10 @@ namespace DirectXEmu
                         saveSafeRewind = true;
                     }
                     if (saveSafeRewind)
+                    {
                         cpu.StateLoad(saveBuffer[saveBufferCounter]);
+                        moviePtr = saveBuffer[saveBufferCounter].frame; 
+                    }
                 }
                 else
                 {
@@ -278,6 +301,7 @@ namespace DirectXEmu
                     if (frame % saveBufferFreq == 0)
                     {
                         saveBuffer[saveBufferCounter] = cpu.StateSave();
+                        saveBuffer[saveBufferCounter].frame = moviePtr;
                         saveBufferCounter++;
                         if (saveBufferCounter >= ((60 / saveBufferFreq) * saveBufferSeconds))
                             saveBufferCounter = 0;
@@ -287,6 +311,8 @@ namespace DirectXEmu
 
                 }
             }
+            movie[moviePtr] = PlayerToByte(player1);
+            moviePtr++;
             UpdateFramerate();
             if (netPlay)
             {
@@ -370,7 +396,7 @@ namespace DirectXEmu
                         framePixels[i] = this.colorChart[cpu.PPU.screen[x, y]].ToArgb();
                 frameBuffer.UnlockBits(frameBMD);
                 if(config["showDebug"] == "1")
-                    frameBuffer.SetPixel(player2.zapper.x, player2.zapper.y, Color.Magenta);
+                    frameBuffer.SetPixel(player2.x, player2.y, Color.Magenta);
             }
         }
         private void Render()
@@ -585,6 +611,7 @@ namespace DirectXEmu
             this.spriteLimitToolStripMenuItem.Checked = (config["disableSpriteLimit"] == "1");
             this.openPaletteDialog.InitialDirectory = Path.GetFullPath(this.config["paletteDir"]);
             this.openMovieDialog.InitialDirectory = Path.GetFullPath(this.config["movieDir"]);
+            this.saveMovie.InitialDirectory = Path.GetFullPath(this.config["movieDir"]);
             this.openFile.InitialDirectory = Path.GetFullPath(this.config["romPath1"]);
             this.enableSoundToolStripMenuItem.Checked = (config["sound"] == "1");
             this.nTSCToolStripMenuItem.Checked = (SystemType)Convert.ToInt32(config["region"]) == SystemType.NTSC;
@@ -635,15 +662,14 @@ namespace DirectXEmu
             saveBufferSeconds = Convert.ToInt32(this.config["rewindBufferSeconds"]);
             saveBuffer = new SaveState[(60 / saveBufferFreq) * saveBufferSeconds];
             x360Controller = new SlimDX.XInput.Controller(UserIndex.One);
-            player1.aTurbo.freq = 2;
-            player1.aTurbo.count = 1;
-            player1.bTurbo.freq = 2;
-            player1.bTurbo.count = 1;
-            player2.aTurbo.freq = 2;
-            player2.aTurbo.count = 1;
-            player2.bTurbo.freq = 2;
-            player2.bTurbo.count = 1;
-            player2.zapper.connected = true;
+            player1A.freq = 2;
+            player1A.count = 1;
+            player1B.freq = 2;
+            player1B.count = 1;
+            player2A.freq = 2;
+            player2A.count = 1;
+            player2B.freq = 2;
+            player2B.count = 1;
             state = SystemState.Empty;
             surfaceControl.Visible = false;
 
@@ -991,7 +1017,7 @@ namespace DirectXEmu
             try
             {
                 MouseState mouseState = dMouse.GetCurrentState();
-                player2.zapper.triggerPulled = mouseState.IsPressed(0);
+                player2.triggerPulled = player1.triggerPulled = mouseState.IsPressed(0);
                 Point tmpPoint = Cursor.Position;
                 tmpPoint.X -= this.Location.X;
                 tmpPoint.Y -= this.Location.Y;
@@ -1019,8 +1045,9 @@ namespace DirectXEmu
                 {
                     tmpPoint.Y = this.frameBuffer.Height - 1;
                 }
-                player2.zapper.x = (byte)tmpPoint.X;
-                player2.zapper.y = (byte)tmpPoint.Y;
+                player2.x = player1.x = (byte)tmpPoint.X;
+                player2.y = player1.y = (byte)tmpPoint.Y;
+                
             }
             catch
             {
@@ -1045,12 +1072,12 @@ namespace DirectXEmu
                 player1.select = keyState.IsPressed(keyBindings.Player1Select);
                 player1.a = keyState.IsPressed(keyBindings.Player1A);
                 player1.b = keyState.IsPressed(keyBindings.Player1B);
-                player1.aTurbo.on = keyState.IsPressed(keyBindings.Player1TurboA);
-                if (!player1.aTurbo.on)
-                    player1.aTurbo.count = 1;
-                player1.bTurbo.on = keyState.IsPressed(keyBindings.Player1TurboB);
-                if (!player1.bTurbo.on)
-                    player1.bTurbo.count = 1;
+                player1A.on = keyState.IsPressed(keyBindings.Player1TurboA);
+                if (!player1A.on)
+                    player1A.count = 1;
+                player1B.on = keyState.IsPressed(keyBindings.Player1TurboB);
+                if (!player1B.on)
+                    player1B.count = 1;
                 player2.up = keyState.IsPressed(keyBindings.Player2Up);
                 player2.down = keyState.IsPressed(keyBindings.Player2Down);
                 player2.left = keyState.IsPressed(keyBindings.Player2Left);
@@ -1059,12 +1086,12 @@ namespace DirectXEmu
                 player2.select = keyState.IsPressed(keyBindings.Player2Select);
                 player2.a = keyState.IsPressed(keyBindings.Player2A);
                 player2.b = keyState.IsPressed(keyBindings.Player2B);
-                player2.aTurbo.on = keyState.IsPressed(keyBindings.Player2TurboA);
-                if (!player2.aTurbo.on)
-                    player2.aTurbo.count = 1;
-                player2.bTurbo.on = keyState.IsPressed(keyBindings.Player2TurboB);
-                if (!player2.bTurbo.on)
-                    player2.bTurbo.count = 1;
+                player2A.on = keyState.IsPressed(keyBindings.Player2TurboA);
+                if (!player2A.on)
+                    player2A.count = 1;
+                player2B.on = keyState.IsPressed(keyBindings.Player2TurboB);
+                if (!player2B.on)
+                    player2B.count = 1;
                 rewinding = keyState.IsPressed(keyBindings.Rewind);
                 if (keyState.IsPressed(keyBindings.FastForward))
                     frameSkipper = maxFrameSkip;
@@ -1233,6 +1260,7 @@ namespace DirectXEmu
             else if (e.KeyCode == keyBindings.Reset)
             {
                 this.SaveGame();
+                moviePtr = 0;
                 this.cpu.Reset();
                 this.LoadGame();
                 this.message = "Reset";
@@ -1241,6 +1269,7 @@ namespace DirectXEmu
             else if (e.KeyCode == keyBindings.Power)
             {
                 this.SaveGame();
+                moviePtr = 0;
                 this.cpu.Power();
                 this.LoadGame();
                 this.message = "Power";
@@ -1335,7 +1364,10 @@ namespace DirectXEmu
             {
                 line = fm2File.ReadLine();
                 if (fm2File.EndOfStream)
-                    return fm2File.EndOfStream;
+                {
+                    fm2File.Close();
+                    return true;
+                }
             }
             player1.right = line[3] != '.';
             player1.left = line[4] != '.';
@@ -1361,9 +1393,7 @@ namespace DirectXEmu
         {
             if (this.openMovieDialog.ShowDialog() == DialogResult.OK)
             {
-                this.fm2File = File.OpenText(this.openMovieDialog.FileName);
                 this.playMovieToolStripMenuItem.Enabled = true;
-
             }
         }
 
@@ -1372,10 +1402,13 @@ namespace DirectXEmu
             if (this.playMovie)
             {
                 this.playMovie = false;
+                this.fm2File.Close();
                 this.playMovieToolStripMenuItem.Text = "Play Movie";
             }
             else
             {
+                this.fm2File = File.OpenText(this.openMovieDialog.FileName);
+                cpu.Power();
                 this.playMovie = true;
                 this.playMovieToolStripMenuItem.Text = "Stop Movie";
             }
@@ -1623,6 +1656,7 @@ namespace DirectXEmu
                     throw (e);
             }
             this.frame = 0;
+            moviePtr = 0;
             this.saveBufferAvaliable = 0;
             this.cpu.debug.logging = logState;
             this.cpu.PPU.displayBG = (config["displayBG"] == "1");
@@ -2472,6 +2506,43 @@ namespace DirectXEmu
                         ejectDiskToolStripMenuItem.DropDownItems.AddRange(diskSides);
                     }
                 }
+            }
+        }
+
+        private void saveMovieToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            saveMovie.FileName = cpu.rom.fileName.ToString() + ".fm2";
+            if (saveMovie.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                FileStream mov = File.Create(saveMovie.FileName);
+                for (int i = 0; i < moviePtr; i++)
+                {
+                    EmuoTron.Controller inp = ByteToPlayer(movie[i]);
+                    mov.WriteByte((byte)'|');
+                    mov.WriteByte((byte)'0');
+                    mov.WriteByte((byte)'|');
+                    mov.WriteByte((byte)(inp.right ? 'R' : '.'));
+                    mov.WriteByte((byte)(inp.left ? 'L' : '.'));
+                    mov.WriteByte((byte)(inp.down ? 'D' : '.'));
+                    mov.WriteByte((byte)(inp.up ? 'U' : '.'));
+                    mov.WriteByte((byte)(inp.start ? 'T' : '.'));
+                    mov.WriteByte((byte)(inp.select ? 'S' : '.'));
+                    mov.WriteByte((byte)(inp.b ? 'B' : '.'));
+                    mov.WriteByte((byte)(inp.a ? 'A' : '.'));
+                    mov.WriteByte((byte)'|');
+                    mov.WriteByte((byte)'.');
+                    mov.WriteByte((byte)'.');
+                    mov.WriteByte((byte)'.');
+                    mov.WriteByte((byte)'.');
+                    mov.WriteByte((byte)'.');
+                    mov.WriteByte((byte)'.');
+                    mov.WriteByte((byte)'.');
+                    mov.WriteByte((byte)'.');
+                    mov.WriteByte((byte)'|');
+                    mov.WriteByte((byte)'|');
+                    mov.WriteByte((byte)'\n');
+                }
+                mov.Close();
             }
         }
     }
