@@ -314,6 +314,10 @@ namespace EmuoTron
             {
                 int tmpV = loopyV;
                 Buffer.BlockCopy(zeroUshort, 0, zeroBackground, 0, 256);
+                if (nes.rom.mapper == 0x05)
+                {
+                    ((Mappers.m005)nes.mapper).StartBackground(tallSprites);
+                }
                 for (int tile = 0; tile < 34; tile++)//each tile on line
                 {
                     int tileAddr = PPUMirrorMap[0x2000 | (tmpV & 0x0FFF)];
@@ -335,6 +339,10 @@ namespace EmuoTron
                     tmpV = (tmpV & 0x7FE0) | ((tmpV + 0x01) & 0x1F);
                     if ((tmpV & 0x1F) == 0)
                         tmpV ^= 0x0400;
+                }
+                if (nes.rom.mapper == 0x05)
+                {
+                    ((Mappers.m005)nes.mapper).StartSprites(tallSprites);
                 }
                 int spriteTable;
                 int spriteY = (scanline - yPosition);
@@ -449,6 +457,11 @@ namespace EmuoTron
                     {
                         if (scanline < 240 && scanline >= 0)//real scanline
                         {
+                            if (nes.rom.mapper == 5)
+                            {
+                                nes.mapper.IRQ(0);
+                                ((Mappers.m005)nes.mapper).StartSprites(tallSprites);
+                            }
                             for (int tile = 0; tile < 34; tile++)//each tile on line
                                 HorizontalIncrement();
                             VerticalIncrement();
@@ -464,6 +477,11 @@ namespace EmuoTron
                 {
                     if (scanline < 240 && scanline >= 0)//real scanline
                     {
+                        if (nes.rom.mapper == 0x05)
+                        {
+                            nes.mapper.IRQ(0);
+                            ((Mappers.m005)nes.mapper).StartBackground(tallSprites);
+                        }
                         for (int tile = 0; tile < 34; tile++)//each tile on line
                         {
                             int tileAddr = PPUMirrorMap[0x2000 | (loopyV & 0x0FFF)];
@@ -496,6 +514,10 @@ namespace EmuoTron
                         HorizontalReset();
                         if (spriteRendering)
                         {
+                            if (nes.rom.mapper == 0x05)
+                            {
+                                ((Mappers.m005)nes.mapper).StartSprites(tallSprites);
+                            }
                             int spritesOnLine = 0;
                             for (int sprite = 0; sprite < 64; sprite++)
                             {
@@ -593,6 +615,8 @@ namespace EmuoTron
                 PrepareForNextLine();
                 if (scanline == 241)
                 {
+                    if (nes.rom.mapper == 0x05)
+                        nes.mapper.IRQ(1);
                     if (nmiEnable)
                         interruptNMI = true;
                     inVblank = true;

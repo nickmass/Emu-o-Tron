@@ -836,7 +836,10 @@ namespace EmuoTron
             rom.PC10 = ((highMapper & 0x02) != 0);
             rom.vsUnisystem = ((highMapper & 0x01) != 0);
             rom.mapper = (lowMapper >> 4) + (highMapper & 0xF0);
-            Memory = new MemoryStore(0x20 + rom.prgROM, true);
+            if (rom.mapper == 5)
+                Memory = new MemoryStore(0x20 + rom.prgROM + 64, true); //give mmc5 64kb prgram to simplify things
+            else
+                Memory = new MemoryStore(0x20 + rom.prgROM, true);
             Memory.swapOffset = 0x20;
             Memory.SetReadOnly(0, 2, false);
             APU = new APU(this, sampleRate, frameBuffer);
