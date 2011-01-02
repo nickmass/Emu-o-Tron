@@ -37,6 +37,7 @@ namespace EmuoTron.Mappers
         public m020(NESCore nes, Stream diskStream, bool ignoreFileCheck)
         {
             this.nes = nes;
+            this.cycleIRQ = true;
             diskStream.Position = 0x0;
             if (!ignoreFileCheck)
             {

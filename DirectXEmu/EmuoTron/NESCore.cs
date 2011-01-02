@@ -787,7 +787,6 @@ namespace EmuoTron
             debug.LogInfo("ROM CRC32: " + rom.crc.ToString("X8"));
             diskStream.Close();
             biosStream.Close();
-            mapper.cycleIRQ = true;
             for (int i = 0; i < 0x10000; i++)
             {
                 this.MirrorMap[i] = (ushort)i;
@@ -1031,6 +1030,11 @@ namespace EmuoTron
                 case 11: //Color Dreams
                     mapper = new Mappers.m011(this);
                     break;
+                case 16: //Bandai - EEPROM
+                case 159:
+                case 153: //I dont think 153 belongs here but bootgod's xml reports Dragon Ball as 153 and I know that's 16
+                    mapper = new Mappers.m016(this);
+                    break;
                 case 21: //VRC4a, VRC4c
                     mapper = new Mappers.mVRC4(this, 0x00, 0x02, 0x04, 0x06, 0x00, 0x40, 0x80, 0xC0);
                     break;
@@ -1054,6 +1058,12 @@ namespace EmuoTron
                     break;
                 case 66: //GxROM
                     mapper = new Mappers.m066(this);
+                    break;
+                case 67: //Sunsoft3
+                    mapper = new Mappers.m067(this);
+                    break;
+                case 68: //Sunsoft4
+                    mapper = new Mappers.m068(this);
                     break;
                 case 69: //Sunsoft5
                     mapper = new Mappers.m069(this);
@@ -1082,6 +1092,15 @@ namespace EmuoTron
                 case 152:
                     mapper = new Mappers.m152(this);
                     break;
+                case 184://Sunsoft
+                    mapper = new Mappers.m184(this);
+                    break;
+                case 226: //76 in 1
+                    mapper = new Mappers.m226(this);
+                    break;
+                case 228: //Action 52, Cheetah Men II
+                    mapper = new Mappers.m228(this);
+                    break;
                 default:
                     debug.SetError("Mapper Unsupported");
                     debug.LogInfo("This game will probably not load, mapper unsupported.\r\nMapper:" + rom.mapper.ToString() + " PRG-ROM:" + rom.prgROM.ToString() + "KB CHR-ROM:" + rom.vROM.ToString() + "KB");
@@ -1089,8 +1108,6 @@ namespace EmuoTron
 
             }
             #endregion
-            if (rom.mapper == 69 || rom.mapper == 20 || rom.mapper == 21 || rom.mapper == 23 || rom.mapper == 24 || rom.mapper == 25 || rom.mapper == 26 || rom.mapper == 73 || rom.mapper == 85)
-                mapper.cycleIRQ = true;
             for (int i = 0; i < 0x10000; i++)
             {
                 this.MirrorMap[i] = (ushort)i;

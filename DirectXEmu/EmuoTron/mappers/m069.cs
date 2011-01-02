@@ -15,6 +15,7 @@ namespace EmuoTron.Mappers
         public m069(NESCore nes)
         {
             this.nes = nes;
+            this.cycleIRQ = true;
         }
         public override void Power()
         {

@@ -27,6 +27,7 @@ namespace EmuoTron.Mappers
         public mVRC4(NESCore nes, byte reg1, byte reg2, byte reg3, byte reg4, byte altReg1, byte altReg2, byte altReg3, byte altReg4)
         {
             this.nes = nes;
+            this.cycleIRQ = true;
             regAddr[0] = reg1;
             regAddr[1] = reg2;
             regAddr[2] = reg3;

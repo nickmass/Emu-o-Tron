@@ -26,6 +26,7 @@ namespace EmuoTron.Mappers
         public m085(NESCore nes, byte reg1, byte altReg1)
         {
             this.nes = nes;
+            this.cycleIRQ = true;
             regAddr = reg1;
             altRegAddr = altReg1;
         }

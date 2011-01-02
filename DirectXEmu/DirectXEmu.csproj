@@ -140,6 +140,12 @@
     <Compile Include="EmuoTron\Inputs\Input.cs" />
     <Compile Include="EmuoTron\Inputs\Paddle.cs" />
     <Compile Include="EmuoTron\Inputs\Zapper.cs" />
+    <Compile Include="EmuoTron\Mappers\m184.cs" />
+    <Compile Include="EmuoTron\Mappers\m067.cs" />
+    <Compile Include="EmuoTron\Mappers\m068.cs" />
+    <Compile Include="EmuoTron\Mappers\m016.cs" />
+    <Compile Include="EmuoTron\Mappers\m228.cs" />
+    <Compile Include="EmuoTron\Mappers\m226.cs" />
     <Compile Include="EmuoTron\Mappers\m066.cs" />
     <Compile Include="EmuoTron\Mappers\m151.cs" />
     <Compile Include="EmuoTron\Mappers\m152.cs" />
