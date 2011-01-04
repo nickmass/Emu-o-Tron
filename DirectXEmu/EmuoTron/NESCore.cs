@@ -1035,6 +1035,10 @@ namespace EmuoTron
                 case 153: //I dont think 153 belongs here but bootgod's xml reports Dragon Ball as 153 and I know that's 16
                     mapper = new Mappers.m016(this);
                     break;
+                case 19:
+                case 210:
+                    mapper = new Mappers.m019(this);
+                    break;
                 case 21: //VRC4a, VRC4c
                     mapper = new Mappers.mVRC4(this, 0x00, 0x02, 0x04, 0x06, 0x00, 0x40, 0x80, 0xC0);
                     break;
@@ -1053,8 +1057,14 @@ namespace EmuoTron
                 case 26: //VRC6b
                     mapper = new Mappers.mVRC6(this, 0x00, 0x03, 0x02, 0x01);
                     break;
+                case 33:
+                    mapper = new Mappers.m033(this);
+                    break;
                 case 34: //BNROM and NINA-001
                     mapper = new Mappers.m034(this);
+                    break;
+                case 48:
+                    mapper = new Mappers.m048(this);
                     break;
                 case 66: //GxROM
                     mapper = new Mappers.m066(this);
@@ -1080,11 +1090,26 @@ namespace EmuoTron
                 case 75: //VRC1
                     mapper = new Mappers.m075(this);
                     break;
+                case 79:
+                    mapper = new Mappers.m079(this);
+                    break;
+                case 80:
+                    mapper = new Mappers.m080(this);
+                    break;
                 case 85: //VRC7a, VRC7b
                     mapper = new Mappers.m085(this, 0x10, 0x08);
                     break;
+                case 86: //Jaleco
+                    mapper = new Mappers.m086(this);
+                    break;
+                case 87: //Jaleco/Konami
+                    mapper = new Mappers.m087(this);
+                    break;
                 case 99: //VS Unisystem
                     mapper = new Mappers.m099(this);
+                    break;
+                case 113:
+                    mapper = new Mappers.m113(this);
                     break;
                 case 151: //VS Unisystem
                     mapper = new Mappers.m151(this);
@@ -1094,6 +1119,9 @@ namespace EmuoTron
                     break;
                 case 184://Sunsoft
                     mapper = new Mappers.m184(this);
+                    break;
+                case 207:
+                    mapper = new Mappers.m207(this);
                     break;
                 case 226: //76 in 1
                     mapper = new Mappers.m226(this);

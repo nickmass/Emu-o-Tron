@@ -140,6 +140,15 @@
     <Compile Include="EmuoTron\Inputs\Input.cs" />
     <Compile Include="EmuoTron\Inputs\Paddle.cs" />
     <Compile Include="EmuoTron\Inputs\Zapper.cs" />
+    <Compile Include="EmuoTron\Mappers\m019.cs" />
+    <Compile Include="EmuoTron\Mappers\m048.cs" />
+    <Compile Include="EmuoTron\Mappers\m033.cs" />
+    <Compile Include="EmuoTron\Mappers\m207.cs" />
+    <Compile Include="EmuoTron\Mappers\m080.cs" />
+    <Compile Include="EmuoTron\Mappers\m113.cs" />
+    <Compile Include="EmuoTron\Mappers\m079.cs" />
+    <Compile Include="EmuoTron\Mappers\m086.cs" />
+    <Compile Include="EmuoTron\Mappers\m087.cs" />
     <Compile Include="EmuoTron\Mappers\m184.cs" />
     <Compile Include="EmuoTron\Mappers\m067.cs" />
     <Compile Include="EmuoTron\Mappers\m068.cs" />
@@ -227,6 +236,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="docs\2C02 technical reference.TXT" />
+    <Content Include="docs\6502_cpu.txt" />
     <Content Include="docs\everynes.htm" />
     <Content Include="docs\loopyppu\SKINNY.TXT" />
     <Content Include="docs\loopyppu\SKINNYNT.TXT" />

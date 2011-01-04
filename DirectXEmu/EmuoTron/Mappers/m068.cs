@@ -65,17 +65,17 @@ namespace EmuoTron.Mappers
             {
                 if (mirroring)
                 {//Vert
-                    nes.PPU.PPUMemory.memMap[0x8] = (nes.PPU.PPUMemory.swapOffset + ntReg1) % nes.rom.vROM;
-                    nes.PPU.PPUMemory.memMap[0x9] = (nes.PPU.PPUMemory.swapOffset + ntReg2) % nes.rom.vROM;
-                    nes.PPU.PPUMemory.memMap[0xA] = (nes.PPU.PPUMemory.swapOffset + ntReg1) % nes.rom.vROM;
-                    nes.PPU.PPUMemory.memMap[0xB] = (nes.PPU.PPUMemory.swapOffset + ntReg2) % nes.rom.vROM;
+                    nes.PPU.PPUMemory.memMap[0x8] = nes.PPU.PPUMemory.swapOffset + (ntReg1 % nes.rom.vROM);
+                    nes.PPU.PPUMemory.memMap[0x9] = nes.PPU.PPUMemory.swapOffset + (ntReg2 % nes.rom.vROM);
+                    nes.PPU.PPUMemory.memMap[0xA] = nes.PPU.PPUMemory.swapOffset + (ntReg1 % nes.rom.vROM);
+                    nes.PPU.PPUMemory.memMap[0xB] = nes.PPU.PPUMemory.swapOffset + (ntReg2 % nes.rom.vROM);
                 }
                 else
                 {//Horz
-                    nes.PPU.PPUMemory.memMap[0x8] = (nes.PPU.PPUMemory.swapOffset + ntReg1) % nes.rom.vROM;
-                    nes.PPU.PPUMemory.memMap[0x9] = (nes.PPU.PPUMemory.swapOffset + ntReg1) % nes.rom.vROM;
-                    nes.PPU.PPUMemory.memMap[0xA] = (nes.PPU.PPUMemory.swapOffset + ntReg2) % nes.rom.vROM;
-                    nes.PPU.PPUMemory.memMap[0xB] = (nes.PPU.PPUMemory.swapOffset + ntReg2) % nes.rom.vROM;
+                    nes.PPU.PPUMemory.memMap[0x8] = nes.PPU.PPUMemory.swapOffset + (ntReg1 % nes.rom.vROM);
+                    nes.PPU.PPUMemory.memMap[0x9] = nes.PPU.PPUMemory.swapOffset + (ntReg1 % nes.rom.vROM);
+                    nes.PPU.PPUMemory.memMap[0xA] = nes.PPU.PPUMemory.swapOffset + (ntReg2 % nes.rom.vROM);
+                    nes.PPU.PPUMemory.memMap[0xB] = nes.PPU.PPUMemory.swapOffset + (ntReg2 % nes.rom.vROM);
                 }
             }
             else

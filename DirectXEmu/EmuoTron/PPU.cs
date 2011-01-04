@@ -79,7 +79,9 @@ namespace EmuoTron
         public PPU(NESCore nes)
         {
             this.nes = nes;
-            if (nes.rom.vROM > 0)
+            if (nes.rom.mapper == 19 || nes.rom.mapper == 210)
+                PPUMemory = new MemoryStore(0x20 + (nes.rom.vROM) + 8, true);
+            else if (nes.rom.vROM > 0)
                 PPUMemory = new MemoryStore(0x20 + (nes.rom.vROM), true);
             else
             {
@@ -180,7 +182,7 @@ namespace EmuoTron
                 }
                 int oldA12 = (loopyV >> 12) & 1;
                 loopyV = (loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF;
-                if (nes.rom.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
+                if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
                     nes.mapper.IRQ(scanline);
             }
             return nextByte;
@@ -261,7 +263,7 @@ namespace EmuoTron
                     loopyT = ((loopyT & 0x7F00) | value);
                     int oldA12 = ((loopyV >> 12) & 1); ;
                     loopyV = loopyT;
-                    if (nes.rom.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
+                    if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
                         nes.mapper.IRQ(scanline);
                 }
                 addrLatch = !addrLatch;
@@ -276,7 +278,7 @@ namespace EmuoTron
 
                 int oldA12 = (loopyV >> 12) & 1;
                 loopyV = ((loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF);
-                if (nes.rom.mapper == 4 && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
+                if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
                     nes.mapper.IRQ(scanline);
                 lastWrite = (byte)(value & 0x1F);
             }
@@ -467,7 +469,7 @@ namespace EmuoTron
                             VerticalIncrement();
                             HorizontalReset();
                         }
-                        if (nes.rom.mapper == 4 && scanline < 240)
+                        if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && scanline < 240)
                             nes.mapper.IRQ(scanline);
                         if (scanline == -1)
                             VerticalReset();
@@ -583,7 +585,7 @@ namespace EmuoTron
                         }
                     }
 
-                    if (nes.rom.mapper == 4 && scanline < 240)
+                    if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && scanline < 240)
                         nes.mapper.IRQ(scanline);
                     if (scanline == -1)
                         VerticalReset();
