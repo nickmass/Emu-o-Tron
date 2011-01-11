@@ -95,6 +95,7 @@ namespace DirectXEmu
         NameTablePreview nameTablePreview;
         PatternTablePreview patternTablePreview;
         MemoryViewer memoryViewer;
+        Debugger debugger;
 
         EmuConfig config;
 
@@ -1686,7 +1687,6 @@ namespace DirectXEmu
             ejectDiskToolStripMenuItem.Visible = (cpu.GetSideCount() != 0);
             cpu.SetControllers((ControllerType)Enum.Parse(typeof(ControllerType), config["portOne"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["portTwo"]), (config["fourScore"] == "1"));
         }
-        Debugger debugger;
         void DipDiag_FormClosing(object sender, FormClosingEventArgs e)
         {
             this.cpu.dip1 = ((DipDialog)sender).dip1.Checked;

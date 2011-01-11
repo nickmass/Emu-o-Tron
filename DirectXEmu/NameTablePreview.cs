@@ -19,7 +19,7 @@ namespace DirectXEmu
         {
             this.generateLine = generateLine;
             this.colorChart = colorChart;
-            this.nameTableBitmap = new Bitmap(512, 480, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            this.nameTableBitmap = new Bitmap(512, 480, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
             InitializeComponent();
             this.txtScanline.Text = generateLine.ToString();
         }
@@ -49,12 +49,12 @@ namespace DirectXEmu
                     }
                     for (int y = 0; y < 240; y++)
                     {
-                        byte* row = (byte*)bmd.Scan0 + ((y + ty) * bmd.Stride);
+                        int* row = (int*)bmd.Scan0 + ((y + ty) * (bmd.Stride/4));
                         for (int x = 0; x < 256; x++)
                         {
-                            row[(x + tx) * 3] = this.colorChart[nameTables[t][x, y]].B;
-                            row[((x + tx) * 3) + 1] = this.colorChart[nameTables[t][x, y]].G;
-                            row[((x + tx) * 3) + 2] = this.colorChart[nameTables[t][x, y]].R;
+                            row[(x + tx)] = this.colorChart[nameTables[t][x, y] & 0x3F].ToArgb();
+                            if ((nameTables[t][x, y] & 0x80) != 0 && chkScrollLines.Checked)
+                                row[(x + tx)] ^= -1;
                         }
                     }
                 }

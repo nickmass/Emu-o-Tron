@@ -31,6 +31,7 @@
             this.nameTableView = new System.Windows.Forms.PictureBox();
             this.lblTackBar = new System.Windows.Forms.Label();
             this.txtScanline = new System.Windows.Forms.TextBox();
+            this.chkScrollLines = new System.Windows.Forms.CheckBox();
             ((System.ComponentModel.ISupportInitialize)(this.nameTableView)).BeginInit();
             this.SuspendLayout();
             // 
@@ -60,11 +61,24 @@
             this.txtScanline.Text = "0";
             this.txtScanline.TextChanged += new System.EventHandler(this.txtScanline_TextChanged);
             // 
+            // chkScrollLines
+            // 
+            this.chkScrollLines.AutoSize = true;
+            this.chkScrollLines.Checked = true;
+            this.chkScrollLines.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.chkScrollLines.Location = new System.Drawing.Point(184, 503);
+            this.chkScrollLines.Name = "chkScrollLines";
+            this.chkScrollLines.Size = new System.Drawing.Size(110, 17);
+            this.chkScrollLines.TabIndex = 5;
+            this.chkScrollLines.Text = "Show Scroll Lines";
+            this.chkScrollLines.UseVisualStyleBackColor = true;
+            // 
             // NameTablePreview
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(535, 531);
+            this.Controls.Add(this.chkScrollLines);
             this.Controls.Add(this.txtScanline);
             this.Controls.Add(this.lblTackBar);
             this.Controls.Add(this.nameTableView);
@@ -84,5 +98,6 @@
         private System.Windows.Forms.PictureBox nameTableView;
         private System.Windows.Forms.Label lblTackBar;
         private System.Windows.Forms.TextBox txtScanline;
+        private System.Windows.Forms.CheckBox chkScrollLines;
     }
 }

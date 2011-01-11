@@ -27,6 +27,33 @@ namespace EmuoTron
         public int RegY = 0;
         public int RegS = 0xFD;
         public int RegPC = 0;
+        public int RegP
+        {
+            get
+            {
+                byte value = 0;
+                if (FlagCarry != 0) value |= 0x01;
+                if (FlagZero == 0) value |= 0x02;
+                if (FlagIRQ != 0) value |= 0x04;
+                if (FlagDecimal != 0) value |= 0x08;
+                if (FlagBreak != 0) value |= 0x10;
+                if (FlagNotUsed != 0) value |= 0x10;
+                if (FlagOverflow != 0) value |= 0x40;
+                if ((FlagSign >> 7) != 0) value |= 0x80;
+                return value;
+            }
+            set
+            {
+                FlagCarry = value & 1;
+                FlagZero = ((value >> 1) & 1) == 0 ? 1 : 0;
+                FlagIRQ = ((value >> 2) & 1);
+                FlagDecimal = ((value >> 3) & 1);
+                FlagBreak = ((value >> 4) & 1);
+                FlagNotUsed = ((value >> 5) & 1);
+                FlagOverflow = ((value >> 6) & 1);
+                FlagSign = ((value >> 7) & 1) != 0 ? 0x80 : 0;
+            }
+        }
         public int FlagCarry = 0; //Bit 0 of P
         public int FlagZero = 1; //backwards
         public int FlagIRQ = 1;
@@ -43,8 +70,8 @@ namespace EmuoTron
         private int[] opList;
 
         public Controller[] players = new Controller[4];
-        private Inputs.Input PortOne;
-        private Inputs.Input PortTwo;
+        private Inputs.Input PortOne = new Inputs.Empty();
+        private Inputs.Input PortTwo = new Inputs.Empty();
         public bool fourScore;
         public bool creditService;
         public bool dip1;
@@ -396,7 +423,7 @@ namespace EmuoTron
                         PushByteStack(RegA);
                         break;
                     case OpInfo.InstrPHP:
-                        value = PToByte();
+                        value = RegP;
                         value |= 0x30;
                         PushByteStack(value);
                         break;
@@ -404,8 +431,7 @@ namespace EmuoTron
                         RegA = FlagSign = FlagZero = PopByteStack();
                         break;
                     case OpInfo.InstrPLP:
-                        value = PopByteStack();
-                        PFromByte(value);
+                        RegP = PopByteStack();
                         FlagBreak = 1;
                         FlagNotUsed = 1;
                         break;
@@ -471,8 +497,7 @@ namespace EmuoTron
                         }
                         break;
                     case OpInfo.InstrRTI:
-                        value = PopByteStack();
-                        PFromByte(value);
+                        RegP = PopByteStack();
                         FlagBreak = 1;
                         FlagNotUsed = 1;
                         RegPC = PopWordStack();
@@ -711,7 +736,7 @@ namespace EmuoTron
                 if (interruptBRK)
                 {
                     PushWordStack((RegPC + 1) & 0xFFFF);
-                    PushByteStack(PToByte() | 0x30);
+                    PushByteStack(RegP | 0x30);
                     FlagIRQ = 1;
                     RegPC = PeekWord(0xFFFE);
                     interruptBRK = false;
@@ -720,7 +745,7 @@ namespace EmuoTron
                 {
                     PushWordStack(RegPC);
                     FlagBreak = 0;
-                    PushByteStack(PToByte());
+                    PushByteStack(RegP);
                     FlagIRQ = 1;
                     RegPC = PeekWord(0xFFFA);
                     PPU.interruptNMI = false;
@@ -729,14 +754,14 @@ namespace EmuoTron
                 {
                     PushWordStack(RegPC);
                     FlagBreak = 0;
-                    PushByteStack(PToByte());
+                    PushByteStack(RegP);
                     FlagIRQ = 1;
                     RegPC = PeekWord(0xFFFE);
                 }
                 else if (interruptReset)
                 {
                     PushWordStack(RegPC);
-                    PushByteStack(PToByte());
+                    PushByteStack(RegP);
                     FlagIRQ = 1;
                     RegPC = PeekWord(0xFFFC);
                     interruptReset = false;
@@ -834,7 +859,7 @@ namespace EmuoTron
             rom.sRAM = ((lowMapper & 0x02) != 0);
             rom.PC10 = ((highMapper & 0x02) != 0);
             rom.vsUnisystem = ((highMapper & 0x01) != 0);
-            rom.mapper = (lowMapper >> 4) + (highMapper & 0xF0);
+            rom.mapper = (lowMapper >> 4) | (highMapper & 0xF0);
             if (rom.mapper == 5)
                 Memory = new MemoryStore(0x20 + rom.prgROM + 64, true); //give mmc5 64kb prgram to simplify things
             else
@@ -918,7 +943,7 @@ namespace EmuoTron
                 string system = "";
                 bool done = false;
                 bool match = false;
-                XmlTextReader xmlReader = new XmlTextReader(Path.Combine(cartDBLocation, "NesCarts.xml"));
+                XmlReader xmlReader = XmlReader.Create(File.OpenRead(Path.Combine(cartDBLocation, "NesCarts.xml")));
                 while (xmlReader.Read() && !done)
                 {
                     if (xmlReader.NodeType == XmlNodeType.Element)
@@ -1140,7 +1165,12 @@ namespace EmuoTron
             {
                 this.MirrorMap[i] = (ushort)i;
             }
-            this.CPUMirror(0x0000, 0x0800, 0x0800, 3);
+            Memory.memMap[2] = Memory.memMap[0];
+            Memory.memMap[3] = Memory.memMap[1];
+            Memory.memMap[4] = Memory.memMap[0];
+            Memory.memMap[5] = Memory.memMap[1];
+            Memory.memMap[6] = Memory.memMap[0];
+            Memory.memMap[7] = Memory.memMap[1]; //0x0000 - 0x0800 mirrored 3 times.
             this.CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
             Power();
 #if nestest
@@ -1228,7 +1258,7 @@ namespace EmuoTron
         }
         private int ReadWordWrap(int address)
         {
-            int highAddress = (address & 0xFF00) + ((address + 1) & 0xFF);
+            int highAddress = (address & 0xFF00) | ((address + 1) & 0xFF);
             return (Read(address) + (Read(highAddress) << 8)) & 0xFFFF;
         }
         private byte Peek(int address)
@@ -1270,37 +1300,12 @@ namespace EmuoTron
             debug.Write((byte)value, (ushort)address);
             Memory[address] = (byte)value;
         }
-        private byte PToByte()
-        {
-            byte value = 0;
-            if (FlagCarry != 0) value |= 0x01;
-            if (FlagZero == 0) value |= 0x02;
-            if (FlagIRQ != 0) value |= 0x04;
-            if (FlagDecimal != 0) value |= 0x08;
-            if (FlagBreak != 0) value |= 0x10;
-            if (FlagNotUsed != 0) value |= 0x10;
-            if (FlagOverflow != 0) value |= 0x40;
-            if ((FlagSign >> 7) != 0) value |= 0x80;
-            return value;
-        }
-        private void PFromByte(int p)
-        {
-            p &= 0xFF;
-            FlagCarry =     p & 1;
-            FlagZero =      ((p >> 1) & 1) == 0 ? 1 : 0;
-            FlagIRQ =       ((p >> 2) & 1);
-            FlagDecimal =   ((p >> 3) & 1);
-            FlagBreak =     ((p >> 4) & 1);
-            FlagNotUsed =   ((p >> 5) & 1);
-            FlagOverflow =  ((p >> 6) & 1);
-            FlagSign =      ((p >> 7) & 1) != 0 ? 0x80 : 0;
-        }
         private void PushWordStack(int value)
         {
-            Write((ushort)(RegS + 0x0100), (byte)(value >> 8));
+            Write((ushort)(RegS | 0x0100), (byte)(value >> 8));
             RegS--;
             RegS &= 0xFF;
-            Write((ushort)(RegS + 0x0100), (byte)value);
+            Write((ushort)(RegS | 0x0100), (byte)value);
             RegS--;
             RegS &= 0xFF;
         }
@@ -1308,11 +1313,11 @@ namespace EmuoTron
         {
             RegS += 2;
             RegS &= 0xFF;
-            return ReadWord((ushort)((RegS - 1) + 0x0100));
+            return ReadWordWrap((ushort)(((RegS - 1) & 0xFF) | 0x0100));
         }
         private void PushByteStack(int value)
         {
-            Write((ushort)(RegS + 0x0100), value);
+            Write((ushort)(RegS | 0x0100), value);
             RegS--;
             RegS &= 0xFF;
         }
@@ -1320,7 +1325,7 @@ namespace EmuoTron
         {
             RegS++;
             RegS &= 0xFF;
-            return Read((ushort)(RegS + 0x0100));
+            return Read((ushort)(RegS | 0x0100));
         }
         public void AddCycles(int value)
         {
@@ -1428,7 +1433,7 @@ namespace EmuoTron
             writer.Write(RegX);
             writer.Write(RegY);
             writer.Write(RegS);
-            writer.Write(PToByte());
+            writer.Write(RegP);
             writer.Write(counter);
             writer.Write(interruptReset);
             writer.Write(mapper.interruptMapper);
@@ -1450,7 +1455,7 @@ namespace EmuoTron
             RegX = reader.ReadInt32();
             RegY = reader.ReadInt32();
             RegS = reader.ReadInt32();
-            PFromByte(reader.ReadByte());
+            RegP = reader.ReadInt32();
             counter = reader.ReadInt32();
             interruptReset = reader.ReadBoolean();
             mapper.interruptMapper = reader.ReadBoolean();

@@ -166,7 +166,10 @@ namespace EmuoTron
             }
             else if (address == 0x2004) //OAM Read
             {
-                nextByte = SPRMemory[spriteAddr & 0xFF];
+                if ((spriteAddr & 0x03) == 0x02)
+                    nextByte = (byte)(SPRMemory[spriteAddr & 0xFF] & 0xE3);
+                else
+                    nextByte = SPRMemory[spriteAddr & 0xFF];
             }
             else if (address == 0x2007) //PPU Data
             {
@@ -292,7 +295,7 @@ namespace EmuoTron
         }
         private void VerticalIncrement()
         {
-            loopyV = (loopyV + 0x1000) & 0x7FFF;//Vert Increment
+            loopyV = (loopyV + 0x1000) & 0x7FFF;
             if ((loopyV & 0x7000) == 0)
             {
                 loopyV = (loopyV & 0x7C1F) | ((loopyV + 0x20) & 0x03E0);
@@ -302,11 +305,11 @@ namespace EmuoTron
         }
         private void VerticalReset()
         {
-            loopyV = loopyT; //Vert reset
+            loopyV = loopyT;
         }
         private void HorizontalReset()
         {
-            loopyV = (loopyV & 0x7BE0) | (loopyT & 0x041F); //Horz reset
+            loopyV = (loopyV & 0x7BE0) | (loopyT & 0x041F);
         }
         private void SpriteZeroHit()
         {
@@ -654,11 +657,25 @@ namespace EmuoTron
         {
             byte[][,] nameTables = new byte[4][,];
             ushort nameTableOffset = 0x2000;
+            int xScroll = (((loopyT & 0x3FF) % 32) * 8) + loopyX;
+            int yScroll = (((loopyT & 0x3FF) / 32) * 8) + ((loopyT >> 12) & 7);
+            int ntScroll = (loopyT >> 10) & 3;
+            if (ntScroll == 1 || ntScroll == 3)
+                xScroll += 256;
+            if (ntScroll == 2 || ntScroll == 3)
+                yScroll += 240;
             for (int nameTable = 0; nameTable < 4; nameTable++)
             {
                 nameTables[nameTable] = new byte[256, 240];
+                int ntX = 0;
+                int ntY = 0;
+                if (nameTable == 1 || nameTable == 3)
+                    ntX = 256;
+                if (nameTable == 2 || nameTable == 3)
+                    ntY = 240;
                 for (int line = 0; line < 240; line++)
                 {
+                    int pointY = line + ntY;
                     for (int tile = 0; tile < 32; tile++)//each tile on line
                     {
                        
@@ -676,9 +693,12 @@ namespace EmuoTron
                             {
                                 byte color = (byte)(((lowChr & 0x80) >> 7) + ((highChr & 0x80) >> 6));
                                 if (color == 0)
-                                    nameTables[nameTable][(tile * 8) + x, line] = (byte)((PalMemory[0x00] & grayScale) | colorMask);
+                                    nameTables[nameTable][(tile * 8) + x, line] = PalMemory[0x00];
                                 else
-                                    nameTables[nameTable][(tile * 8) + x, line] = (byte)((PalMemory[(palette * 4) + color] & grayScale) | colorMask);
+                                    nameTables[nameTable][(tile * 8) + x, line] = PalMemory[(palette * 4) + color];
+                                int pointX = xPosition + ntX;
+                                if(xScroll == pointX || yScroll == pointY)
+                                    nameTables[nameTable][(tile * 8) + x, line] |= 0x80;
                             }
                             lowChr <<= 1;
                             highChr <<= 1;
