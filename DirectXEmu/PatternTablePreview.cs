@@ -20,14 +20,14 @@ namespace DirectXEmu
         Panel highlightRight;
         Panel highlightBottom;
         public byte[][] palette;
-        Color[] colorChart;
+        int[] colorChart;
         private int selectedPal;
-        public PatternTablePreview(Color[] colorChart, int generateLine)
+        public PatternTablePreview(int[] colorChart, int generateLine)
         {
             this.selectedPal = 0;
             this.generateLine = generateLine;
             this.colorChart = colorChart;
-            this.patternTableBitmap = new Bitmap(512, 256, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            this.patternTableBitmap = new Bitmap(512, 256, System.Drawing.Imaging.PixelFormat.Format32bppRgb);
             highlightTop = new Panel();
             highlightTop.Size = new Size(128, 2);
             highlightTop.BackColor = Color.Red;
@@ -114,7 +114,7 @@ namespace DirectXEmu
                 {
                     for (int index = 0; index < 4; index++)
                     {
-                        palPanels[(pal * 4) + index].BackColor = this.colorChart[this.palette[pal][index]];
+                        palPanels[(pal * 4) + index].BackColor = Color.FromArgb(this.colorChart[this.palette[pal][index]]);
                         if (pal == selectedPal && index == 0 && !testPal.Checked)
                         {
                             highlightTop.Visible = highlightLeft.Visible = highlightRight.Visible = highlightBottom.Visible = true;
@@ -129,10 +129,10 @@ namespace DirectXEmu
                         }
                     }
                 }
-                Color col0;
-                Color col1;
-                Color col2;
-                Color col3;
+                int col0;
+                int col1;
+                int col2;
+                int col3;
                 if (testPal.Checked)
                 {
 
@@ -157,30 +157,22 @@ namespace DirectXEmu
                         tx = 256;
                     for (int y = 0; y < 256; y++)
                     {
-                        byte* row = (byte*)bmd.Scan0 + (y * bmd.Stride);
+                        int* row = (int*)bmd.Scan0 + (y * (bmd.Stride/4));
                         for (int x = 0; x < 256; x++)
                         {
                             switch (patternTables[t][x / 2, y / 2])
                             {
                                 case 0:
-                                    row[(x + tx) * 3] = col0.B;
-                                    row[((x + tx) * 3) + 1] = col0.G;
-                                    row[((x + tx) * 3) + 2] = col0.R;
+                                    row[(x + tx)] = col0;
                                     break;
                                 case 1:
-                                    row[(x + tx) * 3] = col1.B;
-                                    row[((x + tx) * 3) + 1] = col1.G;
-                                    row[((x + tx) * 3) + 2] = col1.R;
+                                    row[(x + tx)] = col1;
                                     break;
                                 case 2:
-                                    row[(x + tx) * 3] = col2.B;
-                                    row[((x + tx) * 3) + 1] = col2.G;
-                                    row[((x + tx) * 3) + 2] = col2.R;
+                                    row[(x + tx)] = col2;
                                     break;
                                 case 3:
-                                    row[(x + tx) * 3] = col3.B;
-                                    row[((x + tx) * 3) + 1] = col3.G;
-                                    row[((x + tx) * 3) + 2] = col3.R;
+                                    row[(x + tx)] = col3;
                                     break;
                             }
                         }

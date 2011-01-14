@@ -14,8 +14,8 @@ namespace DirectXEmu
         byte[][,] nameTables;
         int generateLine;
         Bitmap nameTableBitmap;
-        Color[] colorChart;
-        public NameTablePreview(Color[] colorChart, int generateLine)
+        int[] colorChart;
+        public NameTablePreview(int[] colorChart, int generateLine)
         {
             this.generateLine = generateLine;
             this.colorChart = colorChart;
@@ -52,7 +52,7 @@ namespace DirectXEmu
                         int* row = (int*)bmd.Scan0 + ((y + ty) * (bmd.Stride/4));
                         for (int x = 0; x < 256; x++)
                         {
-                            row[(x + tx)] = this.colorChart[nameTables[t][x, y] & 0x3F].ToArgb();
+                            row[(x + tx)] = this.colorChart[nameTables[t][x, y] & 0x3F];
                             if ((nameTables[t][x, y] & 0x80) != 0 && chkScrollLines.Checked)
                                 row[(x + tx)] ^= -1;
                         }

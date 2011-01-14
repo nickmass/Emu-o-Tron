@@ -1,7 +1,4 @@
-﻿
-//#define nestest
-
-using System;
+﻿using System;
 using System.Collections;
 using System.Linq;
 using System.Text;
@@ -92,7 +89,6 @@ namespace EmuoTron
             players[1] = player2;
             players[2] = player3;
             players[3] = player4;
-            fourScore = true;
             PPU.turbo = turbo;
             APU.turbo = turbo;
             this.Start();
@@ -102,7 +98,6 @@ namespace EmuoTron
         {
             players[0] = player1;
             players[1] = player2;
-            fourScore = false;
             PPU.turbo = turbo;
             APU.turbo = turbo;
             this.Start();
@@ -110,7 +105,6 @@ namespace EmuoTron
         public void Start(Controller player1, bool turbo)
         {
             players[0] = player1;
-            fourScore = false;
             PPU.turbo = turbo;
             APU.turbo = turbo;
             this.Start();
@@ -130,7 +124,9 @@ namespace EmuoTron
             int value;
             while (!PPU.frameComplete && !debug.debugInterrupt && emulationRunning)
             {
+#if debugger
                 debug.Execute((ushort)RegPC);
+#endif
                 op = Read(RegPC);
                 opInfo = opList[op];
                 opCycles = (opInfo >> 24) & 0xFF;
@@ -729,7 +725,9 @@ namespace EmuoTron
                 counter += opCycles;
                 APU.AddCycles(opCycles);
                 PPU.AddCycles(opCycles);
+#if debugger
                 debug.AddCycles(opCycles);
+#endif
                 if (mapper.cycleIRQ)
                     mapper.IRQ(opCycles);
 #if !nestest
@@ -771,7 +769,7 @@ namespace EmuoTron
 #endif
             }
             if (debug.debugInterrupt && (PPU.scanlineCycle < 256 && PPU.scanline > -1 && PPU.scanline < 240))
-                PPU.screen[PPU.scanlineCycle, PPU.scanline] |= 0x1C0;
+                PPU.screen[PPU.scanline, PPU.scanlineCycle] |= 0x1C0;
             emulationRunning = false;
             PPU.frameComplete = false;
             PPU.generateNameTables = false;
@@ -1247,8 +1245,11 @@ namespace EmuoTron
             nextByte = mapper.Read(nextByte, (ushort)address);
             nextByte = APU.Read(nextByte, (ushort)address);
             nextByte = PPU.Read(nextByte, (ushort)address);
+#if debugger
             nextByte = debug.Read(nextByte, (ushort)address);
-            nextByte = GameGenie(nextByte, (ushort)address);
+#endif
+            if(gameGenieCodeNum != 0) //perhaps a tiny tiny performance increase
+                nextByte = GameGenie(nextByte, (ushort)address);
             return nextByte;
         }
         private int ReadWord(int address)
@@ -1297,7 +1298,9 @@ namespace EmuoTron
             mapper.Write((byte)value, (ushort)address);
             APU.Write((byte)value, (ushort)address);
             PPU.Write((byte)value, (ushort)address);
+#if debugger
             debug.Write((byte)value, (ushort)address);
+#endif
             Memory[address] = (byte)value;
         }
         private void PushWordStack(int value)

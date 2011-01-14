@@ -12,7 +12,7 @@ namespace DirectXEmu
     public partial class AddBreakpoint : Form
     {
         public int address;
-        public int type;
+        public byte type;
         public AddBreakpoint()
         {
             InitializeComponent();

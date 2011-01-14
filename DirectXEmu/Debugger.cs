@@ -185,39 +185,35 @@ namespace DirectXEmu
         {
             breakpoints.Clear();
             lstBreak.Items.Clear();
-            foreach(ushort addr in debug.breakRead)
+            for (int addr = 0; addr < 0x10000; addr++)
             {
-                if(debug.breakWrite.Contains(addr))
+                switch(debug.breakPoints[addr])
                 {
-                    if (debug.breakExecute.Contains(addr))
-                        breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\tRWX"), (7 << 16) | addr);
-                    else
-                        breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\tRW-"), (3 << 16) | addr);
-
-                }
-                else if (debug.breakExecute.Contains(addr))
-                {
-                    breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\tR-X"), (5 << 16) | addr);
-                }
-                else
-                    breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\tR--"), (1 << 16) | addr);
-            }
-            foreach (ushort addr in debug.breakWrite)
-            {
-                if (!debug.breakRead.Contains(addr))
-                {
-                    if (debug.breakExecute.Contains(addr))
-                    {
-                        breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\t-WX"), (6 << 16) | addr);
-                    }
-                    else
+                    default:
+                    case 0:
+                        break;
+                    case 1:
+                        breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\tR--"), (1 << 16) | addr);
+                        break;
+                    case 2:
                         breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\t-W-"), (2 << 16) | addr);
+                        break;
+                    case 3:
+                        breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\tRW-"), (3 << 16) | addr);
+                        break;
+                    case 4:
+                        breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\t--X"), (4 << 16) | addr);
+                        break;
+                    case 5:
+                        breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\tR-X"), (5 << 16) | addr);
+                        break;
+                    case 6:
+                        breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\t-WX"), (6 << 16) | addr);
+                        break;
+                    case 7:
+                        breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\tRWX"), (7 << 16) | addr);
+                        break;
                 }
-            }
-            foreach (ushort addr in debug.breakExecute)
-            {
-                if (!debug.breakRead.Contains(addr) && !debug.breakWrite.Contains(addr))
-                    breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\t--X"), (4 << 16) | addr);
             }
         }
         private void btnAddBreak_Click(object sender, EventArgs e)
@@ -225,12 +221,7 @@ namespace DirectXEmu
             AddBreakpoint addBreak = new AddBreakpoint();
             if (addBreak.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                if ((addBreak.type & 1) != 0)
-                    debug.AddReadBreakpoint((ushort)addBreak.address);
-                if ((addBreak.type & 2) != 0)
-                    debug.AddWriteBreakpoint((ushort)addBreak.address);
-                if ((addBreak.type & 4) != 0)
-                    debug.AddExecuteBreakpoint((ushort)addBreak.address);
+                debug.breakPoints[addBreak.address & 0xFFFF] = (byte)(addBreak.type | debug.breakPoints[addBreak.address & 0xFFFF]);
                 UpdateBreakpoints();
             }
         }
@@ -239,13 +230,7 @@ namespace DirectXEmu
         {
             if (lstBreak.SelectedIndex != -1)
             {
-
-                if (((breakpoints[lstBreak.SelectedIndex] >> 16) & 1) != 0)
-                    debug.breakRead.Remove((ushort)(breakpoints[lstBreak.SelectedIndex] & 0xFFFF));
-                if (((breakpoints[lstBreak.SelectedIndex] >> 16) & 2) != 0)
-                    debug.breakWrite.Remove((ushort)(breakpoints[lstBreak.SelectedIndex] & 0xFFFF));
-                if (((breakpoints[lstBreak.SelectedIndex] >> 16) & 4) != 0)
-                    debug.breakExecute.Remove((ushort)(breakpoints[lstBreak.SelectedIndex] & 0xFFFF));
+                debug.breakPoints[breakpoints[lstBreak.SelectedIndex] & 0xFFFF] = 0;
                 UpdateBreakpoints();
             }
 
@@ -258,18 +243,8 @@ namespace DirectXEmu
                 AddBreakpoint addBreak = new AddBreakpoint(breakpoints[lstBreak.SelectedIndex] >> 16, breakpoints[lstBreak.SelectedIndex] & 0xFFFF);
                 if (addBreak.ShowDialog() == System.Windows.Forms.DialogResult.OK)
                 {
-                    if (((breakpoints[lstBreak.SelectedIndex] >> 16) & 1) != 0)
-                        debug.breakRead.Remove((ushort)(breakpoints[lstBreak.SelectedIndex] & 0xFFFF));
-                    if (((breakpoints[lstBreak.SelectedIndex] >> 16) & 2) != 0)
-                        debug.breakWrite.Remove((ushort)(breakpoints[lstBreak.SelectedIndex] & 0xFFFF));
-                    if (((breakpoints[lstBreak.SelectedIndex] >> 16) & 4) != 0)
-                        debug.breakExecute.Remove((ushort)(breakpoints[lstBreak.SelectedIndex] & 0xFFFF));
-                    if ((addBreak.type & 1) != 0)
-                        debug.AddReadBreakpoint((ushort)addBreak.address);
-                    if ((addBreak.type & 2) != 0)
-                        debug.AddWriteBreakpoint((ushort)addBreak.address);
-                    if ((addBreak.type & 4) != 0)
-                        debug.AddExecuteBreakpoint((ushort)addBreak.address); 
+                    debug.breakPoints[breakpoints[lstBreak.SelectedIndex] & 0xFFFF] = 0;
+                    debug.breakPoints[addBreak.address & 0xFFFF] = (byte)(addBreak.type | debug.breakPoints[addBreak.address & 0xFFFF]);
                     UpdateBreakpoints();
                 }
             }

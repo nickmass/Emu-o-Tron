@@ -45,6 +45,7 @@ namespace DirectXEmu
         string romPath = "";
         SlimDX.Direct3D9.Device device;
         Keyboard dKeyboard;
+        KeyboardState keyState = new KeyboardState();
         Mouse dMouse;
         DirectInput dInput;
         Direct3D d3d;
@@ -68,7 +69,7 @@ namespace DirectXEmu
         AutoFire player2A;
         AutoFire player2B;
         bool controlStrobe = false;
-        Color[] colorChart = new Color[0x200];
+        int[] colorChart = new int[0x200];
         public int frame = 0;
         public int frameSkipper = 1;
         int maxFrameSkip = 10;
@@ -112,7 +113,6 @@ namespace DirectXEmu
         bool showInput;
 
         Scaler imageScaler;
-        Bitmap frameBuffer;
 
         int quickSaveSlot = 0;
         SaveState[] saveSlots;
@@ -388,17 +388,6 @@ namespace DirectXEmu
                 cpu.PPU.generateLine = this.nameTablePreview.UpdateNameTables(cpu.PPU.nameTables);
                 cpu.PPU.generateNameTables = true;
             }
-            if (this.frame % this.frameSkipper == 0)
-            {
-                BitmapData frameBMD = frameBuffer.LockBits(new Rectangle(0, 0, frameBuffer.Width, frameBuffer.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-                int* framePixels = (int*)frameBMD.Scan0;
-                for (int i = 0, y = 0; y < 240; y++)
-                    for (int x = 0; x < 256; x++, i++)
-                        framePixels[i] = this.colorChart[cpu.PPU.screen[x, y]].ToArgb();
-                frameBuffer.UnlockBits(frameBMD);
-                if(config["showDebug"] == "1")
-                    frameBuffer.SetPixel(player2.x, player2.y, Color.Magenta);
-            }
         }
         private void Render()
         {
@@ -412,12 +401,10 @@ namespace DirectXEmu
                 {
                     unsafe
                     {
-                        BitmapData frameBMD = frameBuffer.LockBits(new Rectangle(0, 0, frameBuffer.Width, frameBuffer.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
                         DataRectangle drt = texture.LockRectangle(0, LockFlags.None);
-                        imageScaler.PerformScale((int*)frameBMD.Scan0, (int*)drt.Data.DataPointer);
-                        frameBuffer.UnlockBits(frameBMD);
+                        fixed (int* screenPTR = cpu.PPU.screen)
+                            imageScaler.PerformScale(screenPTR, (int*)drt.Data.DataPointer);
                         texture.UnlockRectangle(0);
-
                     }
                 }
                 device.Clear(ClearFlags.Target, Color.Black, 1.0f, 0);
@@ -575,10 +562,10 @@ namespace DirectXEmu
                 this.config["palette"] = config.defaults["palette"];
             FileStream palFile = File.OpenRead(this.config["palette"]);
             for (int i = 0; i < 0x40; i++)
-                this.colorChart[i] = Color.FromArgb(palFile.ReadByte(), palFile.ReadByte(), palFile.ReadByte());
+                this.colorChart[i] = (0xFF << 24) | (palFile.ReadByte() << 16) | (palFile.ReadByte() << 8) | palFile.ReadByte();
             if (palFile.Length > 0x40 * 3) //shitty hack for vs palette because im LAZY
             {
-                Color[] vsColor = new Color[0x200];
+                int[] vsColor = new int[0x200];
                 for (int i = 0; palFile.Position < palFile.Length; i++)
                 {
                     vsColor[i] = colorChart[palFile.ReadByte()];
@@ -656,7 +643,6 @@ namespace DirectXEmu
                     this.imageScaler = new TVAspect();
                     break;
             }
-            frameBuffer = new Bitmap(256, 240);
             PrepareScaler();
             rewindingEnabled = this.config["rewindEnabled"] == "1" ? true : false;
             saveBufferFreq = Convert.ToInt32(this.config["rewindBufferFreq"]);
@@ -767,10 +753,10 @@ namespace DirectXEmu
                 blue = (blue < 0) ? 0 : blue;
                 for (int j = 0; j < 0x40; j++)
                 {
-                    finalRed = Math.Round(colorChart[j].R * red) > 0xFF ? (byte)0xFF : (byte)Math.Round(colorChart[j].R * red);
-                    finalGreen = Math.Round(colorChart[j].G * green) > 0xFF ? (byte)0xFF : (byte)Math.Round(colorChart[j].G * green);
-                    finalBlue = Math.Round(colorChart[j].B * blue) > 0xFF ? (byte)0xFF : (byte)Math.Round(colorChart[j].B * blue);
-                    colorChart[j | (i << 6)] = Color.FromArgb(finalRed, finalGreen, finalBlue);
+                    finalRed = Math.Round(((colorChart[j] >> 16) & 0xFF) * red) > 0xFF ? (byte)0xFF : (byte)Math.Round(((colorChart[j] >> 16) & 0xFF) * red);
+                    finalGreen = Math.Round(((colorChart[j] >> 8) & 0xFF) * green) > 0xFF ? (byte)0xFF : (byte)Math.Round(((colorChart[j] >> 8) & 0xFF) * green);
+                    finalBlue = Math.Round(((colorChart[j]) & 0xFF) * blue) > 0xFF ? (byte)0xFF : (byte)Math.Round(((colorChart[j]) & 0xFF) * blue);
+                    colorChart[j | (i << 6)] = (0xFF << 24) | (finalRed << 16) | (finalGreen << 8) | finalBlue; 
                 }
             }
         }
@@ -1028,23 +1014,23 @@ namespace DirectXEmu
                 tmpPoint.Y -= titlebarHeight;
                 tmpPoint.X -= surfaceControl.Location.X;
                 tmpPoint.Y -= surfaceControl.Location.Y;
-                tmpPoint.X = (int)((frameBuffer.Width * tmpPoint.X) / (surfaceControl.Width * 1.0));
-                tmpPoint.Y = (int)((frameBuffer.Height * tmpPoint.Y) / (surfaceControl.Height * 1.0));
+                tmpPoint.X = (int)((256 * tmpPoint.X) / (surfaceControl.Width * 1.0));
+                tmpPoint.Y = (int)((240 * tmpPoint.Y) / (surfaceControl.Height * 1.0));
                 if (tmpPoint.X < 0)
                 {
                     tmpPoint.X = 0;
                 }
-                else if (tmpPoint.X >= this.frameBuffer.Width)
+                else if (tmpPoint.X >= 256)
                 {
-                    tmpPoint.X = this.frameBuffer.Width - 1;
+                    tmpPoint.X = 256 - 1;
                 }
                 if (tmpPoint.Y < 0)
                 {
                     tmpPoint.Y = 0;
                 }
-                else if (tmpPoint.Y >= this.frameBuffer.Height)
+                else if (tmpPoint.Y >= 240)
                 {
-                    tmpPoint.Y = this.frameBuffer.Height - 1;
+                    tmpPoint.Y = 240 - 1;
                 }
                 player2.x = player1.x = (byte)tmpPoint.X;
                 player2.y = player1.y = (byte)tmpPoint.Y;
@@ -1063,7 +1049,7 @@ namespace DirectXEmu
                 return;
             try
             {
-                KeyboardState keyState = dKeyboard.GetCurrentState();
+                dKeyboard.GetCurrentState(ref keyState);
                 controlStrobe = keyState.IsPressed(Key.Q);
                 player1.up = keyState.IsPressed(keyBindings.Player1Up);
                 player1.down = keyState.IsPressed(keyBindings.Player1Down);
@@ -1106,7 +1092,7 @@ namespace DirectXEmu
                 dKeyboard.Acquire();
             }
         }
-        private uint GetScreenCRC(ushort[,] scanlines)
+        private uint GetScreenCRC(int[,] scanlines)
         {
             uint crc = 0xFFFFFFFF;
             for (int y = 0; y < 240; y++)
@@ -1433,10 +1419,10 @@ namespace DirectXEmu
                 FileStream palFile = File.OpenRead(this.openPaletteDialog.FileName);
                 this.config["palette"] = this.openPaletteDialog.FileName;
                 for (int i = 0; i < 0x40; i++)
-                    this.colorChart[i] = Color.FromArgb(palFile.ReadByte(), palFile.ReadByte(), palFile.ReadByte());
+                    this.colorChart[i] = (0xFF << 24) | (palFile.ReadByte() << 16) | (palFile.ReadByte() << 8) | palFile.ReadByte();
                 if (palFile.Length > 0x40 * 3) //shitty hack for vs palette because im LAZY
                 {
-                    Color[] vsColor = new Color[0x200];
+                    int[] vsColor = new int[0x200];
                     for (int i = 0; palFile.Position < palFile.Length; i++)
                     {
                         vsColor[i] = colorChart[palFile.ReadByte()];
@@ -1663,6 +1649,7 @@ namespace DirectXEmu
             this.cpu.PPU.displayBG = (config["displayBG"] == "1");
             this.cpu.PPU.displaySprites = (config["displaySprites"] == "1");
             this.cpu.PPU.enforceSpriteLimit = !(config["disableSpriteLimit"] == "1");
+            this.cpu.PPU.colorChart = this.colorChart;
             this.cpu.APU.mute = !(config["sound"] == "1");
             this.LoadGame();
             this.LoadSaveStateFiles();

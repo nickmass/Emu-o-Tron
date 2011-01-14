@@ -318,7 +318,7 @@ namespace DirectXEmu
             else
                 return int.Parse(str);
         }
-        public uint GetScreenCRC(ushort[,] scanlines)
+        public uint GetScreenCRC(int[,] scanlines)
         {
             uint crc = 0xFFFFFFFF;
             for (int y = 0; y < 240; y++)

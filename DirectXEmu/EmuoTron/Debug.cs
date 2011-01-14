@@ -20,10 +20,12 @@ namespace EmuoTron
 
         private bool runTo;
         private ushort runToAddress;
-        public List<ushort> breakExecute = new List<ushort>();
-        public List<ushort> breakRead = new List<ushort>();
-        public List<ushort> breakWrite = new List<ushort>();
 
+        public byte[] breakPoints = new byte[0x10000];
+
+        public byte BREAKPOINTREAD = 0x01;
+        public byte BREAKPOINTWRITE = 0x02;
+        public byte BREAKPOINTEXEC = 0x04;
 
         public StringBuilder romInfo = new StringBuilder();
 
@@ -151,7 +153,7 @@ namespace EmuoTron
                     logBuilder.Remove(0, 1024 * 512 * 95);
                 logBuilder.AppendLine(TraceLog(nes.RegPC));
             }
-            if (breakExecute.Contains(address))
+            if ((breakPoints[address] & BREAKPOINTEXEC) != 0)
                 debugInterrupt = true;
             if (runTo && address == runToAddress)
             {
@@ -161,16 +163,15 @@ namespace EmuoTron
         }
         public byte Read(byte value, ushort address)
         {
-            if (breakRead.Contains(address))
+            if ((breakPoints[address] & BREAKPOINTREAD) != 0)
                 debugInterrupt = true;
             return value;
         }
         public void Write(byte value, ushort address)
         {
-            if (breakWrite.Contains(address))
+            if((breakPoints[address] & BREAKPOINTWRITE) != 0)
                 debugInterrupt = true;
         }
-
         public void LogInfo(string line)
         {
             romInfo.AppendLine(line);
@@ -190,18 +191,15 @@ namespace EmuoTron
         }
         public void AddReadBreakpoint(ushort address)
         {
-            if (!breakRead.Contains(address))
-                breakRead.Add(address);
+            breakPoints[address] |= BREAKPOINTREAD;
         }
         public void AddWriteBreakpoint(ushort address)
         {
-            if (!breakWrite.Contains(address))
-                breakWrite.Add(address);
+            breakPoints[address] |= BREAKPOINTWRITE;
         }
         public void AddExecuteBreakpoint(ushort address)
         {
-            if (!breakExecute.Contains(address))
-                breakExecute.Add(address);
+            breakPoints[address] |= BREAKPOINTEXEC;
         }
         public void RunTo(ushort address)
         {

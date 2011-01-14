@@ -11,6 +11,7 @@ namespace EmuoTron.Inputs
         int readAddress;
         bool controlReady;
         int controlReg;
+        int shiftCount;
         int playerNum;
         public Controller(NESCore nes, Port port)
         {
@@ -33,8 +34,16 @@ namespace EmuoTron.Inputs
             {
                 if (controlReady)
                 {
-                    value |= (byte)(controlReg & 1);
-                    controlReg >>= 1;
+                    if (shiftCount < 0)
+                    {
+                        value |= 1; //Should be a stream of 1s when control data is used up with official controllers
+                    }
+                    else
+                    {
+                        value |= (byte)(controlReg & 1);
+                        controlReg >>= 1;
+                        shiftCount--;
+                    }
                 }
             }
             return value;
@@ -46,47 +55,83 @@ namespace EmuoTron.Inputs
                 if ((value & 0x01) == 1)
                 {
                     controlReg = 0;
+                    shiftCount = 0;
                     if (nes.fourScore)
                     {
-                        controlReg |= 1;
-                        controlReg <<= 1;
+                        //Third Read, Signature
                         controlReg |= 0;
                         controlReg <<= 1;
+                        shiftCount++;
                         controlReg |= 0;
                         controlReg <<= 1;
+                        shiftCount++;
                         controlReg |= 0;
                         controlReg <<= 1;
+                        shiftCount++;
+                        controlReg |= 0;
+                        controlReg <<= 1;
+                        shiftCount++;
+                        controlReg |= (playerNum == 0) ? 1 : 0; //0x10 for player 1
+                        controlReg <<= 1;
+                        shiftCount++;
+                        controlReg |= (playerNum == 1) ? 1 : 0; //0x20 for player 2
+                        controlReg <<= 1;
+                        shiftCount++;
+                        controlReg |= 0;
+                        controlReg <<= 1;
+                        shiftCount++;
+                        controlReg |= 0;
+                        controlReg <<= 1;
+                        shiftCount++;
+
+                        //Second Read, Players 3/4
                         controlReg |= nes.players[playerNum + 2].right ? 1 : 0;
                         controlReg <<= 1;
+                        shiftCount++;
                         controlReg |= nes.players[playerNum + 2].left ? 1 : 0;
                         controlReg <<= 1;
+                        shiftCount++;
                         controlReg |= nes.players[playerNum + 2].down ? 1 : 0;
                         controlReg <<= 1;
+                        shiftCount++;
                         controlReg |= nes.players[playerNum + 2].up ? 1 : 0;
                         controlReg <<= 1;
+                        shiftCount++;
                         controlReg |= nes.players[playerNum + 2].start ? 1 : 0;
                         controlReg <<= 1;
+                        shiftCount++;
                         controlReg |= nes.players[playerNum + 2].select ? 1 : 0;
                         controlReg <<= 1;
+                        shiftCount++;
                         controlReg |= nes.players[playerNum + 2].b ? 1 : 0;
                         controlReg <<= 1;
+                        shiftCount++;
                         controlReg |= nes.players[playerNum + 2].a ? 1 : 0;
                         controlReg <<= 1;
+                        shiftCount++;
                     }
+                    //First Read, Players 1/2
                     controlReg |= nes.players[playerNum].right ? 1 : 0;
                     controlReg <<= 1;
+                    shiftCount++;
                     controlReg |= nes.players[playerNum].left ? 1 : 0;
                     controlReg <<= 1;
+                    shiftCount++;
                     controlReg |= nes.players[playerNum].down ? 1 : 0;
                     controlReg <<= 1;
+                    shiftCount++;
                     controlReg |= nes.players[playerNum].up ? 1 : 0;
                     controlReg <<= 1;
+                    shiftCount++;
                     controlReg |= nes.players[playerNum].start ? 1 : 0;
                     controlReg <<= 1;
+                    shiftCount++;
                     controlReg |= nes.players[playerNum].select ? 1 : 0;
                     controlReg <<= 1;
+                    shiftCount++;
                     controlReg |= nes.players[playerNum].b ? 1 : 0;
                     controlReg <<= 1;
+                    shiftCount++;
                     controlReg |= nes.players[playerNum].a ? 1 : 0;
                     controlReady = false;
                 }
@@ -100,11 +145,13 @@ namespace EmuoTron.Inputs
         {
             writer.Write(controlReady);
             writer.Write(controlReg);
+            writer.Write(shiftCount);
         }
         public override void StateLoad(BinaryReader reader)
         {
             controlReady = reader.ReadBoolean();
             controlReg = reader.ReadInt32();
+            shiftCount = reader.ReadInt32();
         }
     }
 }
