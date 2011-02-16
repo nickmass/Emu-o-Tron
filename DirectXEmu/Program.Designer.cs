@@ -77,6 +77,7 @@
             this.moiveToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.openMovieToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.playMovieToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.saveMovieToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.logToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.debuggerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.nameTablesToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -97,8 +98,8 @@
             this.openMovieDialog = new System.Windows.Forms.OpenFileDialog();
             this.recordDialog = new System.Windows.Forms.SaveFileDialog();
             this.surfaceControl = new System.Windows.Forms.Panel();
-            this.saveMovieToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.saveMovie = new System.Windows.Forms.SaveFileDialog();
+            this.smoothOutputToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -251,6 +252,7 @@
             this.optionsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.enableSoundToolStripMenuItem,
             this.loadPaletteToolStripMenuItem,
+            this.smoothOutputToolStripMenuItem,
             this.videoModeToolStripMenuItem,
             this.regionToolStripMenuItem,
             this.displayToolStripMenuItem,
@@ -294,49 +296,49 @@
             // sizeableToolStripMenuItem
             // 
             this.sizeableToolStripMenuItem.Name = "sizeableToolStripMenuItem";
-            this.sizeableToolStripMenuItem.Size = new System.Drawing.Size(127, 22);
+            this.sizeableToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.sizeableToolStripMenuItem.Text = "Resizable";
             this.sizeableToolStripMenuItem.Click += new System.EventHandler(this.sizeableToolStripMenuItem_Click);
             // 
             // fillToolStripMenuItem
             // 
             this.fillToolStripMenuItem.Name = "fillToolStripMenuItem";
-            this.fillToolStripMenuItem.Size = new System.Drawing.Size(127, 22);
+            this.fillToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.fillToolStripMenuItem.Text = "Fill";
             this.fillToolStripMenuItem.Click += new System.EventHandler(this.fillToolStripMenuItem_Click);
             // 
             // xToolStripMenuItem
             // 
             this.xToolStripMenuItem.Name = "xToolStripMenuItem";
-            this.xToolStripMenuItem.Size = new System.Drawing.Size(127, 22);
+            this.xToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.xToolStripMenuItem.Text = "1x";
             this.xToolStripMenuItem.Click += new System.EventHandler(this.xToolStripMenuItem_Click);
             // 
             // xToolStripMenuItem1
             // 
             this.xToolStripMenuItem1.Name = "xToolStripMenuItem1";
-            this.xToolStripMenuItem1.Size = new System.Drawing.Size(127, 22);
+            this.xToolStripMenuItem1.Size = new System.Drawing.Size(152, 22);
             this.xToolStripMenuItem1.Text = "2x";
             this.xToolStripMenuItem1.Click += new System.EventHandler(this.xToolStripMenuItem1_Click);
             // 
             // scale2xToolStripMenuItem
             // 
             this.scale2xToolStripMenuItem.Name = "scale2xToolStripMenuItem";
-            this.scale2xToolStripMenuItem.Size = new System.Drawing.Size(127, 22);
+            this.scale2xToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.scale2xToolStripMenuItem.Text = "Scale2x";
             this.scale2xToolStripMenuItem.Click += new System.EventHandler(this.scale2xToolStripMenuItem_Click);
             // 
             // scale3xToolStripMenuItem
             // 
             this.scale3xToolStripMenuItem.Name = "scale3xToolStripMenuItem";
-            this.scale3xToolStripMenuItem.Size = new System.Drawing.Size(127, 22);
+            this.scale3xToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.scale3xToolStripMenuItem.Text = "Scale3x";
             this.scale3xToolStripMenuItem.Click += new System.EventHandler(this.scale3xToolStripMenuItem_Click);
             // 
             // tVAspectToolStripMenuItem
             // 
             this.tVAspectToolStripMenuItem.Name = "tVAspectToolStripMenuItem";
-            this.tVAspectToolStripMenuItem.Size = new System.Drawing.Size(127, 22);
+            this.tVAspectToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
             this.tVAspectToolStripMenuItem.Text = "TV Aspect";
             this.tVAspectToolStripMenuItem.Click += new System.EventHandler(this.tVAspectToolStripMenuItem_Click);
             // 
@@ -464,14 +466,14 @@
             // startGameToolStripMenuItem
             // 
             this.startGameToolStripMenuItem.Name = "startGameToolStripMenuItem";
-            this.startGameToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.startGameToolStripMenuItem.Size = new System.Drawing.Size(132, 22);
             this.startGameToolStripMenuItem.Text = "Start Game";
             this.startGameToolStripMenuItem.Click += new System.EventHandler(this.startGameToolStripMenuItem_Click);
             // 
             // joinGameToolStripMenuItem
             // 
             this.joinGameToolStripMenuItem.Name = "joinGameToolStripMenuItem";
-            this.joinGameToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.joinGameToolStripMenuItem.Size = new System.Drawing.Size(132, 22);
             this.joinGameToolStripMenuItem.Text = "Join Game";
             this.joinGameToolStripMenuItem.Click += new System.EventHandler(this.joinGameToolStripMenuItem_Click);
             // 
@@ -488,7 +490,7 @@
             // openMovieToolStripMenuItem
             // 
             this.openMovieToolStripMenuItem.Name = "openMovieToolStripMenuItem";
-            this.openMovieToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.openMovieToolStripMenuItem.Size = new System.Drawing.Size(148, 22);
             this.openMovieToolStripMenuItem.Text = "Open Movie...";
             this.openMovieToolStripMenuItem.Click += new System.EventHandler(this.openMovieToolStripMenuItem_Click);
             // 
@@ -496,9 +498,16 @@
             // 
             this.playMovieToolStripMenuItem.Enabled = false;
             this.playMovieToolStripMenuItem.Name = "playMovieToolStripMenuItem";
-            this.playMovieToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.playMovieToolStripMenuItem.Size = new System.Drawing.Size(148, 22);
             this.playMovieToolStripMenuItem.Text = "Play Movie";
             this.playMovieToolStripMenuItem.Click += new System.EventHandler(this.playMovieToolStripMenuItem_Click);
+            // 
+            // saveMovieToolStripMenuItem
+            // 
+            this.saveMovieToolStripMenuItem.Name = "saveMovieToolStripMenuItem";
+            this.saveMovieToolStripMenuItem.Size = new System.Drawing.Size(148, 22);
+            this.saveMovieToolStripMenuItem.Text = "Save Movie...";
+            this.saveMovieToolStripMenuItem.Click += new System.EventHandler(this.saveMovieToolStripMenuItem_Click);
             // 
             // logToolStripMenuItem
             // 
@@ -651,18 +660,19 @@
             this.surfaceControl.Size = new System.Drawing.Size(512, 480);
             this.surfaceControl.TabIndex = 3;
             // 
-            // saveMovieToolStripMenuItem
-            // 
-            this.saveMovieToolStripMenuItem.Name = "saveMovieToolStripMenuItem";
-            this.saveMovieToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
-            this.saveMovieToolStripMenuItem.Text = "Save Movie...";
-            this.saveMovieToolStripMenuItem.Click += new System.EventHandler(this.saveMovieToolStripMenuItem_Click);
-            // 
             // saveMovie
             // 
             this.saveMovie.DefaultExt = "fm2";
             this.saveMovie.Filter = "FM2 files|*.fm2";
             this.saveMovie.Title = "Save Movie";
+            // 
+            // smoothOutputToolStripMenuItem
+            // 
+            this.smoothOutputToolStripMenuItem.CheckOnClick = true;
+            this.smoothOutputToolStripMenuItem.Name = "smoothOutputToolStripMenuItem";
+            this.smoothOutputToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
+            this.smoothOutputToolStripMenuItem.Text = "Smooth Output";
+            this.smoothOutputToolStripMenuItem.Click += new System.EventHandler(this.smoothOutputToolStripMenuItem_Click);
             // 
             // Program
             // 
@@ -759,5 +769,6 @@
         private System.Windows.Forms.ToolStripMenuItem ejectDiskToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem saveMovieToolStripMenuItem;
         private System.Windows.Forms.SaveFileDialog saveMovie;
+        private System.Windows.Forms.ToolStripMenuItem smoothOutputToolStripMenuItem;
     }
 }

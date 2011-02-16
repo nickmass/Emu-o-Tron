@@ -197,6 +197,8 @@ namespace EmuoTron
             writer.Write(memMap.Length);
             for (int i = 0; i < memMap.Length; i++)
                 writer.Write(memMap[i]);
+            for (int i = 0; i < readOnly.Length; i++)
+                writer.Write(readOnly[i]);
             int changedBanks = 0;
             for (int i = 0; i < saveBanks.Length; i++)
                 if (saveBanks[i])
@@ -208,7 +210,6 @@ namespace EmuoTron
                 {
                     writer.Write("BANK");
                     writer.Write(i);
-                    writer.Write(readOnly[i]);
                     for (int j = 0; j < 0x400; j++)
                     {
                         writer.Write(banks[i][j]);
@@ -222,7 +223,8 @@ namespace EmuoTron
             int memLength = reader.ReadInt32();
             for (int i = 0; i < memLength; i++)
                 memMap[i] = reader.ReadInt32();
-
+            for (int i = 0; i < readOnly.Length; i++)
+                readOnly[i] = reader.ReadBoolean();
             for (int i = 0; i < saveBanks.Length; i++)
                 saveBanks[i] = false;
             int saveLength = reader.ReadInt32();
@@ -231,7 +233,6 @@ namespace EmuoTron
                 string bbb = reader.ReadString();
                 int bankNumber = reader.ReadInt32();
                 saveBanks[bankNumber] = true;
-                readOnly[bankNumber] = reader.ReadBoolean();
                 for (int j = 0; j < 0x400; j++)
                 {
                     banks[bankNumber][j] = reader.ReadByte();

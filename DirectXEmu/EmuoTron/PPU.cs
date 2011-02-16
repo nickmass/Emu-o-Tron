@@ -15,38 +15,37 @@ namespace EmuoTron
         public int[] colorChart = new int[0x200];
 
         private NESCore nes;
-        Int32 palCounter;
+        private int palCounter;
         public bool frameComplete;
         public bool interruptNMI;
-        bool spriteOverflow;
-        bool spriteZeroHit;
-        bool addrLatch;
-        bool inVblank;
-        bool wasInVblank;
-        int pendingNMI = 0;
-        Int32 spriteAddr;
+        private bool spriteOverflow;
+        private bool spriteZeroHit;
+        private bool addrLatch;
+        private bool inVblank;
+        private bool wasInVblank;
+        private int pendingNMI = 0;
+        private int spriteAddr;
 
+        private int spriteTable;
+        private int backgroundTable;
+        private bool tallSprites;
+        private bool nmiEnable;
+        private bool vramInc;
 
-        Int32 spriteTable;
-        Int32 backgroundTable;
-        bool tallSprites;
-        bool nmiEnable;
-        bool vramInc;
+        private byte grayScale;
+        private bool leftmostBackground;
+        private bool leftmostSprites;
+        private bool backgroundRendering;
+        private bool spriteRendering;
+        private ushort colorMask;
+        private byte lastWrite;
 
-        byte grayScale;
-        bool leftmostBackground;
-        bool leftmostSprites;
-        bool backgroundRendering;
-        bool spriteRendering;
-        ushort colorMask;
-        byte lastWrite;
+        public int scanlineCycle;
+        public int scanline = -1;
 
-        public Int32 scanlineCycle;
-        public Int32 scanline = -1;
-
-        private Int32 loopyT;
-        private Int32 loopyX;
-        private Int32 loopyV;
+        private int loopyT;
+        private int loopyX;
+        private int loopyV;
         private byte readBuffer;
 
         public int[,] screen = new int[240,256];
@@ -68,14 +67,14 @@ namespace EmuoTron
         public byte[][] patternTablesPalette;
         public byte[][,] patternTables;
 
-        int vblankEnd;
+        private int vblankEnd;
 
-        ushort[] zeroUshort = new ushort[256];
-        byte[] zeroGray = new byte[256];
-        bool[] zeroBackground = new bool[256];
-        ushort[] spriteLine = new ushort[256];
-        bool[] spriteAboveLine = new bool[256];
-        bool[] spriteBelowLine = new bool[256];
+        private ushort[] zeroUshort = new ushort[256];
+        private byte[] zeroGray = new byte[256];
+        private bool[] zeroBackground = new bool[256];
+        private int[] spriteLine = new int[256];
+        private bool[] spriteAboveLine = new bool[256];
+        private bool[] spriteBelowLine = new bool[256];
 
         public PPU(NESCore nes)
         {
@@ -470,9 +469,9 @@ namespace EmuoTron
                                 nes.mapper.IRQ(0);
                                 ((Mappers.m005)nes.mapper).StartSprites(tallSprites);
                             }
-                            for (int tile = 0; tile < 34; tile++)//each tile on line
+                            for (int tile = 0; tile < 33; tile++)//each tile on line
                                 HorizontalIncrement();
-                            VerticalIncrement();
+                            VerticalIncrement(); //I don't know if I actually need these and Im soo lazy to work out the math for it
                             HorizontalReset();
                         }
                         if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && scanline < 240)
@@ -510,9 +509,9 @@ namespace EmuoTron
                                     color = (lowChr & 0x1) | (highChr & 0x2);
                                     zeroBackground[xPosition] = (color == 0 || (!leftmostBackground && xPosition < 8) || !backgroundRendering);
                                     if (zeroBackground[xPosition] || !displayBG)
-                                        screen[scanline, xPosition] = this.colorChart[(PalMemory[0x00] & pixelGray[xPosition]) | pixelMasks[xPosition]];
+                                        screen[scanline, xPosition] = colorChart[(PalMemory[0x00] & pixelGray[xPosition]) | pixelMasks[xPosition]];
                                     else
-                                        screen[scanline, xPosition] = this.colorChart[(PalMemory[palette | color] & pixelGray[xPosition]) | pixelMasks[xPosition]];
+                                        screen[scanline, xPosition] = colorChart[(PalMemory[palette | color] & pixelGray[xPosition]) | pixelMasks[xPosition]];
                                 }
                                 lowChr >>= 1;
                                 highChr >>= 1;
@@ -531,18 +530,18 @@ namespace EmuoTron
                                 ((Mappers.m005)nes.mapper).StartSprites(tallSprites);
                             }
                             int spritesOnLine = 0;
-                            for (int sprite = 0; sprite < 64; sprite++)
+                            for (int sprite = 0; sprite < 256; sprite += 4)
                             {
-                                int yPosition = SPRMemory[sprite << 2] + 1;
+                                int yPosition = SPRMemory[sprite] + 1;
                                 if (yPosition <= scanline && yPosition + (tallSprites ? 16 : 8) > scanline && (spritesOnLine < 8 || !enforceSpriteLimit))
                                 {
                                     spritesOnLine++;
                                     int spriteTable;
                                     int spriteY = (scanline - yPosition);
-                                    int attr = SPRMemory[(sprite << 2) | 2];
+                                    int attr = SPRMemory[sprite | 2];
                                     bool horzFlip = (attr & 0x40) != 0;
                                     bool vertFlip = (attr & 0x80) != 0;
-                                    int tileNumber = SPRMemory[(sprite << 2) | 1];
+                                    int tileNumber = SPRMemory[sprite | 1];
                                     if (tallSprites)
                                     {
                                         if ((tileNumber & 1) != 0)
@@ -556,26 +555,31 @@ namespace EmuoTron
                                     else
                                         spriteTable = this.spriteTable;
                                     int chrAddress = (spriteTable | (tileNumber << 4) | (spriteY & 7)) + (vertFlip ? tallSprites ? (spriteY > 7) ? Flip[spriteY & 7] - (1 << 4) : Flip[spriteY & 7] + (1 << 4) : Flip[spriteY & 7] : 0); //this is seriously mental :)
-                                    int xLocation = SPRMemory[(sprite << 2) | 3];
-                                    int palette = attr & 0x03;
-                                    byte lowChr = PPUMemory[chrAddress];
-                                    byte highChr = PPUMemory[chrAddress | 8];
-                                    for (int xPosition = horzFlip ? xLocation + 7 : xLocation; horzFlip ? xPosition >= xLocation : xPosition < xLocation + 8; xPosition += horzFlip ? -1 : 1)//each pixel in tile
+                                    int xLocation = SPRMemory[sprite | 3];
+                                    int palette = ((attr & 0x03) << 0x2) | 0x10;
+                                    int lowChr = PPUMemory[chrAddress];
+                                    int highChr = PPUMemory[chrAddress | 8] << 1;
+                                    int color = 0;
+                                    int begin = horzFlip ? xLocation : xLocation + 7;
+                                    int end = horzFlip ? xLocation + 8 : xLocation - 1;
+                                    int direction = horzFlip ? 1 : -1;
+                                    bool above = (attr & 0x20) == 0;
+                                    for (int xPosition = begin; xPosition != end; xPosition += direction)//each pixel in tile
                                     {
                                         if (xPosition < 256 && !(spriteAboveLine[xPosition] || spriteBelowLine[xPosition]))
                                         {
-                                            byte color = (byte)(((lowChr & 0x80) >> 7) | ((highChr & 0x80) >> 6));
+                                            color = (lowChr & 0x1) | (highChr & 0x2);
                                             if (color != 0 && !(!leftmostSprites && xPosition < 8))
                                             {
-                                                spriteAboveLine[xPosition] = (attr & 0x20) == 0;
-                                                spriteBelowLine[xPosition] = !spriteAboveLine[xPosition];
-                                                spriteLine[xPosition] = (ushort)((PalMemory[(palette << 2) | color | 0x10] & pixelGray[xPosition]) | pixelMasks[xPosition]);
+                                                spriteAboveLine[xPosition] = above;
+                                                spriteBelowLine[xPosition] = !above;
+                                                spriteLine[xPosition] = (PalMemory[palette | color] & pixelGray[xPosition]) | pixelMasks[xPosition];
                                                 if (sprite == 0 && !zeroBackground[xPosition] && xPosition != 255)
                                                     spriteZeroHit = true;
                                             }
                                         }
-                                        lowChr <<= 1;
-                                        highChr <<= 1;
+                                        lowChr >>= 1;
+                                        highChr >>= 1;
                                     }
                                     if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
                                         nes.mapper.IRQ(chrAddress);
@@ -589,7 +593,7 @@ namespace EmuoTron
                                 for (int column = 0; column < 256; column++)
                                 {
                                     if (spriteAboveLine[column] || (spriteBelowLine[column] && zeroBackground[column]))
-                                        screen[scanline, column] = this.colorChart[spriteLine[column]];
+                                        screen[scanline, column] = colorChart[spriteLine[column]];
                                 }
                             }
                         }
@@ -607,12 +611,12 @@ namespace EmuoTron
                         if ((loopyV & 0x3F00) == 0x3F00)//Direct color control http://wiki.nesdev.com/w/index.php/Full_palette_demo
                         {
                             for (int i = 0; i < 256; i++)
-                                screen[scanline, i] = this.colorChart[(PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] & pixelGray[i]) | pixelMasks[i]];
+                                screen[scanline, i] = colorChart[(PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] & pixelGray[i]) | pixelMasks[i]];
                         }
                         else
                         {
                             for (int i = 0; i < 256; i++)
-                                screen[scanline, i] = this.colorChart[(PalMemory[0x00] & pixelGray[i]) | pixelMasks[i]];
+                                screen[scanline, i] = colorChart[(PalMemory[0x00] & pixelGray[i]) | pixelMasks[i]];
                         }
                     }
                 }
@@ -632,6 +636,8 @@ namespace EmuoTron
                     if (nmiEnable)
                         interruptNMI = true;
                     inVblank = true;
+                    //I think I will just put this out of my mind and hope the CPPU rewrite solves everything
+                    //scanlineCycle += 36;//Now this makes it pass vbl_clear_time and nmi_sync but fail ppu_vbl_nmi I don't know which is less wrong : /
                 }
                 else if (scanline == vblankEnd)
                 {
@@ -639,12 +645,11 @@ namespace EmuoTron
                     spriteZeroHit = false;
                     frameComplete = true;
                     wasInVblank = inVblank;
-                    inVblank = false; //Blarggs test claims this is about 37 frames too late, but I have no idea how that can be. EDIT, passes Blarggs more recent ppu_vbl_nmi clear test so I guess its alright (kinda)
+                    inVblank = false; //Blarggs test claims this is about 37 cycles too late, but I have no idea how that can be. EDIT, passes Blarggs more recent ppu_vbl_nmi clear test so I guess its alright (kinda)
                     scanline = -1;
                 }
             }
         }
-
         private void PrepareForNextLine()
         {
             for (int i = 0; i <= scanlineCycle && i < 256; i++)
@@ -654,7 +659,6 @@ namespace EmuoTron
             }
             Buffer.BlockCopy(zeroGray, 0, nextPixelGray, 0, 256);
             Buffer.BlockCopy(zeroUshort, 0, nextPixelMasks, 0, 512); //Blockcopy is significantly faster then looping over the array, which in turn is faster then allocating a new array.
-            Buffer.BlockCopy(zeroUshort, 0, spriteLine, 0, 512);
             Buffer.BlockCopy(zeroUshort, 0, spriteBelowLine, 0, 256);
             Buffer.BlockCopy(zeroUshort, 0, spriteAboveLine, 0, 256);
             Buffer.BlockCopy(zeroUshort, 0, zeroBackground, 0, 256);
@@ -722,10 +726,10 @@ namespace EmuoTron
             for (int palette = 0; palette < 8; palette++)
             {
                 pal[palette] = new byte[4];
-                pal[palette][0] = this.PalMemory[0x00];
-                pal[palette][1] = this.PalMemory[(palette * 4) + 1];
-                pal[palette][2] = this.PalMemory[(palette * 4) + 2];
-                pal[palette][3] = this.PalMemory[(palette * 4) + 3];
+                pal[palette][0] = PalMemory[0x00];
+                pal[palette][1] = PalMemory[(palette * 4) + 1];
+                pal[palette][2] = PalMemory[(palette * 4) + 2];
+                pal[palette][3] = PalMemory[(palette * 4) + 3];
             }
             return pal;
         }

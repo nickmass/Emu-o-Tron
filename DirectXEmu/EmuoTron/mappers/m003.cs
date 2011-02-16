@@ -22,10 +22,10 @@ namespace EmuoTron.Mappers
         {
             if (address >= 0x8000)
             {
-                int table = value & 3;
+                int table = value;
                 if (nes.rom.vROM != 0)
                     table = table % (nes.rom.vROM / 8);
-                if (value == nes.Memory[address]) //Bus Conflict
+                //if (value == nes.Memory[address]) //Bus Conflict
                     nes.PPU.PPUMemory.Swap8kROM(0x0000, table);
 
             }

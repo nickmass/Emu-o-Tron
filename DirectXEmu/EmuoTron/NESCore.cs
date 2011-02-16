@@ -91,7 +91,7 @@ namespace EmuoTron
             players[3] = player4;
             PPU.turbo = turbo;
             APU.turbo = turbo;
-            this.Start();
+            Start();
         }
 
         public void Start(Controller player1, Controller player2, bool turbo)
@@ -100,14 +100,14 @@ namespace EmuoTron
             players[1] = player2;
             PPU.turbo = turbo;
             APU.turbo = turbo;
-            this.Start();
+            Start();
         }
         public void Start(Controller player1, bool turbo)
         {
             players[0] = player1;
             PPU.turbo = turbo;
             APU.turbo = turbo;
-            this.Start();
+            Start();
         }
         public void Start()
         {
@@ -731,21 +731,13 @@ namespace EmuoTron
                 if (mapper.cycleIRQ)
                     mapper.IRQ(opCycles);
 #if !nestest
-                if (interruptBRK)
-                {
-                    PushWordStack((RegPC + 1) & 0xFFFF);
-                    PushByteStack(RegP | 0x30);
-                    FlagIRQ = 1;
-                    RegPC = PeekWord(0xFFFE);
-                    interruptBRK = false;
-                }
-                else if (PPU.interruptNMI)
+                if (PPU.interruptNMI)
                 {
                     PushWordStack(RegPC);
                     FlagBreak = 0;
                     PushByteStack(RegP);
                     FlagIRQ = 1;
-                    RegPC = PeekWord(0xFFFA);
+                    RegPC = ReadWord(0xFFFA);
                     PPU.interruptNMI = false;
                 }
                 else if ((mapper.interruptMapper || APU.frameIRQ || APU.dmcInterrupt) && FlagIRQ == 0)
@@ -754,14 +746,22 @@ namespace EmuoTron
                     FlagBreak = 0;
                     PushByteStack(RegP);
                     FlagIRQ = 1;
-                    RegPC = PeekWord(0xFFFE);
+                    RegPC = ReadWord(0xFFFE);
+                }
+                else if (interruptBRK)
+                {
+                    PushWordStack((RegPC + 1) & 0xFFFF);
+                    PushByteStack(RegP | 0x30);
+                    FlagIRQ = 1;
+                    RegPC = ReadWord(0xFFFE);
+                    interruptBRK = false;
                 }
                 else if (interruptReset)
                 {
                     PushWordStack(RegPC);
                     PushByteStack(RegP);
                     FlagIRQ = 1;
-                    RegPC = PeekWord(0xFFFC);
+                    RegPC = ReadWord(0xFFFC);
                     interruptReset = false;
                     APU.Reset();
                     PPU.Reset();
@@ -769,7 +769,7 @@ namespace EmuoTron
 #endif
             }
             if (debug.debugInterrupt && (PPU.scanlineCycle < 256 && PPU.scanline > -1 && PPU.scanline < 240))
-                PPU.screen[PPU.scanline, PPU.scanlineCycle] |= 0x1C0;
+                PPU.screen[PPU.scanline, PPU.scanlineCycle] ^= -1;
             emulationRunning = false;
             PPU.frameComplete = false;
             PPU.generateNameTables = false;
@@ -778,7 +778,7 @@ namespace EmuoTron
         }
         public NESCore(SystemType region, String input, String fdsImage, String cartDBLocation, int sampleRate, int frameBuffer, bool ignoreFileCheck = false) //FDS Load
         {
-            this.nesRegion = region;
+            nesRegion = region;
             opList = OpInfo.GetOps();
             if (!File.Exists(input))
             {
@@ -812,10 +812,10 @@ namespace EmuoTron
             biosStream.Close();
             for (int i = 0; i < 0x10000; i++)
             {
-                this.MirrorMap[i] = (ushort)i;
+                MirrorMap[i] = (ushort)i;
             }
-            this.CPUMirror(0x0000, 0x0800, 0x0800, 3);
-            this.CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
+            CPUMirror(0x0000, 0x0800, 0x0800, 3);
+            CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
             Power();
 
         }
@@ -828,7 +828,7 @@ namespace EmuoTron
         }
         public NESCore(SystemType region, Stream inputStream, String cartDBLocation, int sampleRate, int frameBuffer, bool ignoreFileCheck = false)
         {
-            this.nesRegion = region;
+            nesRegion = region;
             opList = OpInfo.GetOps();
             inputStream.Position = 0;
             if (!ignoreFileCheck)
@@ -884,7 +884,7 @@ namespace EmuoTron
                 debug.LogInfo("Trainer Present");
                 for (int i = 0x00; i < 0x200; i++)
                 {
-                    this.Memory[i + 0x7000] = (byte)inputStream.ReadByte();
+                    Memory[i + 0x7000] = (byte)inputStream.ReadByte();
                 }
             }
             rom.crc = 0xFFFFFFFF;
@@ -1161,7 +1161,7 @@ namespace EmuoTron
             #endregion
             for (int i = 0; i < 0x10000; i++)
             {
-                this.MirrorMap[i] = (ushort)i;
+                MirrorMap[i] = (ushort)i;
             }
             Memory.memMap[2] = Memory.memMap[0];
             Memory.memMap[3] = Memory.memMap[1];
@@ -1169,19 +1169,19 @@ namespace EmuoTron
             Memory.memMap[5] = Memory.memMap[1];
             Memory.memMap[6] = Memory.memMap[0];
             Memory.memMap[7] = Memory.memMap[1]; //0x0000 - 0x0800 mirrored 3 times.
-            this.CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
+            CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
             Power();
 #if nestest
             RegPC = 0xC000;
 #endif
         }
-        public byte Read(int address)
+        public byte Read(int addr)
         {
-            address = this.MirrorMap[address & 0xFFFF];
-            byte nextByte = this.Memory[address];
+            ushort address = MirrorMap[addr & 0xFFFF];
+            byte nextByte = Memory[address];
 
-            nextByte = PortOne.Read(nextByte, (ushort)address);
-            nextByte = PortTwo.Read(nextByte, (ushort)address);
+            nextByte = PortOne.Read(nextByte, address);
+            nextByte = PortTwo.Read(nextByte, address);
             if (rom.vsUnisystem)
             {
                 if (address == 0x4016)
@@ -1242,14 +1242,14 @@ namespace EmuoTron
                         nextByte &= 0x7F;
                 }
             }
-            nextByte = mapper.Read(nextByte, (ushort)address);
-            nextByte = APU.Read(nextByte, (ushort)address);
-            nextByte = PPU.Read(nextByte, (ushort)address);
+            nextByte = mapper.Read(nextByte, address);
+            nextByte = APU.Read(nextByte, address);
+            nextByte = PPU.Read(nextByte, address);
 #if debugger
-            nextByte = debug.Read(nextByte, (ushort)address);
+            nextByte = debug.Read(nextByte, address);
 #endif
             if(gameGenieCodeNum != 0) //perhaps a tiny tiny performance increase
-                nextByte = GameGenie(nextByte, (ushort)address);
+                nextByte = GameGenie(nextByte, address);
             return nextByte;
         }
         private int ReadWord(int address)
@@ -1262,28 +1262,13 @@ namespace EmuoTron
             int highAddress = (address & 0xFF00) | ((address + 1) & 0xFF);
             return (Read(address) + (Read(highAddress) << 8)) & 0xFFFF;
         }
-        private byte Peek(int address)
+        private void Write(int addr, int val)
         {
-            address = address & 0xFFFF;
-            byte nextByte = this.Memory[address];
-            return nextByte;
-        }
-        private int PeekWord(int address)
-        {
-            int highAddress = (address + 1) & 0xFFFF;
-            return (Peek(address) + (Peek(highAddress) << 8)) & 0xFFFF;
-        }
-        private int PeekWordWrap(int address)
-        {
-            int highAddress = (address & 0xFF00) + ((address + 1) & 0xFF);
-            return (Peek(address) + (Peek(highAddress) << 8)) & 0xFFFF;
-        }
-        private void Write(int address, int value)
-        {
-            address = MirrorMap[address & 0xFFFF];
+            ushort address = MirrorMap[addr & 0xFFFF];
+            byte value = (byte)(val & 0xFF);
 
-            PortOne.Write((byte)value, (ushort)address);
-            PortTwo.Write((byte)value, (ushort)address);
+            PortOne.Write(value, address);
+            PortTwo.Write(value, address);
             if (rom.vsUnisystem)
             {
                 if (address == 0x4020)
@@ -1295,20 +1280,20 @@ namespace EmuoTron
                     }
                 }
             }
-            mapper.Write((byte)value, (ushort)address);
-            APU.Write((byte)value, (ushort)address);
-            PPU.Write((byte)value, (ushort)address);
+            mapper.Write(value, address);
+            APU.Write(value, address);
+            PPU.Write(value, address);
 #if debugger
-            debug.Write((byte)value, (ushort)address);
+            debug.Write(value, address);
 #endif
-            Memory[address] = (byte)value;
+            Memory[address] = value;
         }
         private void PushWordStack(int value)
         {
-            Write((ushort)(RegS | 0x0100), (byte)(value >> 8));
+            Write(RegS | 0x0100, value >> 8);
             RegS--;
             RegS &= 0xFF;
-            Write((ushort)(RegS | 0x0100), (byte)value);
+            Write(RegS | 0x0100, value);
             RegS--;
             RegS &= 0xFF;
         }
@@ -1316,11 +1301,11 @@ namespace EmuoTron
         {
             RegS += 2;
             RegS &= 0xFF;
-            return ReadWordWrap((ushort)(((RegS - 1) & 0xFF) | 0x0100));
+            return ReadWordWrap(((RegS - 1) & 0xFF) | 0x0100);
         }
         private void PushByteStack(int value)
         {
-            Write((ushort)(RegS | 0x0100), value);
+            Write(RegS | 0x0100, value);
             RegS--;
             RegS &= 0xFF;
         }
@@ -1328,7 +1313,7 @@ namespace EmuoTron
         {
             RegS++;
             RegS &= 0xFF;
-            return Read((ushort)(RegS | 0x0100));
+            return Read(RegS | 0x0100);
         }
         public void AddCycles(int value)
         {
@@ -1343,7 +1328,7 @@ namespace EmuoTron
         {
             for (int j = 0; j < repeat; j++)
                 for (int i = 0; i < length; i++)
-                    this.MirrorMap[mirrorAddress + i + (j * length)] = (ushort)(this.MirrorMap[address + i]);
+                    MirrorMap[mirrorAddress + i + (j * length)] = MirrorMap[address + i];
         }
         public void EjectDisk(bool diskInserted)
         {
@@ -1494,24 +1479,24 @@ namespace EmuoTron
             mapper.Power();
             PPU.Power();
             APU.Power();
-            RegPC = PeekWord(0xFFFC);//entry point
+            RegPC = ReadWord(0xFFFC);//entry point
         }
         public void Reset()
         {
-            this.interruptReset = true;
+            interruptReset = true;
         }
         private byte GameGenie(byte value, ushort address)
         {
-            for (int i = 0; i < this.gameGenieCodeNum; i++)
+            for (int i = 0; i < gameGenieCodeNum; i++)
             {
                 if (gameGenieCodes[i].address == address)
                 {
-                    if (this.gameGenieCodes[i].code == "DUMMY")
-                        return this.gameGenieCodes[i].value;
-                    else if (this.gameGenieCodes[i].code.Length == 6)
-                        return this.gameGenieCodes[i].value;
-                    else if (this.gameGenieCodes[i].code.Length == 8 && value == this.gameGenieCodes[i].check)
-                        return this.gameGenieCodes[i].value;
+                    if (gameGenieCodes[i].code == "DUMMY")
+                        return gameGenieCodes[i].value;
+                    else if (gameGenieCodes[i].code.Length == 6)
+                        return gameGenieCodes[i].value;
+                    else if (gameGenieCodes[i].code.Length == 8 && value == gameGenieCodes[i].check)
+                        return gameGenieCodes[i].value;
                 }
             }
             return value;
@@ -1520,13 +1505,13 @@ namespace EmuoTron
         {
             byte[] sram = new byte[0x2000];
             for (int i = 0x0; i < 0x2000; i++)
-                sram[i] = this.Memory[i + 0x6000];
+                sram[i] = Memory[i + 0x6000];
             return sram;
         }
         public void SetSRAM(byte[] sram)
         {
             for (int i = 0x0; i < 0x2000; i++)
-                this.Memory[i + 0x6000] = sram[i];
+                Memory[i + 0x6000] = sram[i];
         }
     }
     public enum SystemType

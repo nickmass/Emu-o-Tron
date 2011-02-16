@@ -95,6 +95,7 @@ namespace DirectXEmu
             defaults["portOne"] = "Controller";
             defaults["portTwo"] = "Controller";
             defaults["fourScore"] = "0";
+            defaults["smoothOutput"] = "0";
 #if DEBUG
             defaults["romPath1"] = @"C:\Games\Emulators\Roms\NES";
             defaults["romPath2"] = @"C:\Games\Emulators\Roms\NES";

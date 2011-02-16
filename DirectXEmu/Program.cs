@@ -594,6 +594,7 @@ namespace DirectXEmu
                 this.showInputToolStripMenuItem.Checked = false;
                 this.showInput = false;
             }
+            this.smoothOutputToolStripMenuItem.Checked = (this.config["smoothOutput"] == "1");
             this.spritesToolStripMenuItem.Checked = (config["displaySprites"] == "1");
             this.backgroundToolStripMenuItem.Checked = (config["displayBG"] == "1");
             this.spriteLimitToolStripMenuItem.Checked = (config["disableSpriteLimit"] == "1");
@@ -1187,7 +1188,7 @@ namespace DirectXEmu
             DataStream stream = vertexBuffer.Lock(0, 0, LockFlags.None);
             VertexPositionRhwTexture[] vertexData = new VertexPositionRhwTexture[6];
 
-            vertexData[0].PositionRhw = new Vector4((float)device.Viewport.Width + 1f, (float)device.Viewport.Height, 0f, 1f);
+            vertexData[0].PositionRhw = new Vector4((float)device.Viewport.Width + 0f, (float)device.Viewport.Height, 0f, 1f);
             vertexData[0].Texture1 = new Vector2(1f, 1f);
 
             vertexData[1].PositionRhw = new Vector4(0f, (float)device.Viewport.Height, 0f, 1f);
@@ -1199,17 +1200,24 @@ namespace DirectXEmu
             vertexData[3].PositionRhw = new Vector4(0f, 0f, 0f, 1f);
             vertexData[3].Texture1 = new Vector2(0f, 0f);
 
-            vertexData[4].PositionRhw = new Vector4((float)device.Viewport.Width + 1f, 0f, 0f, 1f);
+            vertexData[4].PositionRhw = new Vector4((float)device.Viewport.Width + 0f, 0f, 0f, 1f);
             vertexData[4].Texture1 = new Vector2(1f, 0f);
 
-            vertexData[5].PositionRhw = new Vector4((float)device.Viewport.Width + 1f, (float)device.Viewport.Height, 0f, 1f);
+            vertexData[5].PositionRhw = new Vector4((float)device.Viewport.Width + 0f, (float)device.Viewport.Height, 0f, 1f);
             vertexData[5].Texture1 = new Vector2(1f, 1f);
 
             stream.WriteRange(vertexData);
             vertexBuffer.Unlock();
-            device.SetRenderState(RenderState.CullMode, Cull.Counterclockwise);
+
             device.VertexFormat = VertexFormat.PositionRhw | VertexFormat.Texture1;
             device.SetStreamSource(0, vertexBuffer, 0, Marshal.SizeOf(typeof(VertexPositionRhwTexture)));
+            if (smoothOutputToolStripMenuItem.Checked)
+                device.SetSamplerState(0, SamplerState.MagFilter, TextureFilter.Linear);
+            else
+                device.SetSamplerState(0, SamplerState.MagFilter, TextureFilter.Point);
+            device.SetSamplerState(0, SamplerState.AddressU, TextureAddress.Clamp);
+            device.SetSamplerState(0, SamplerState.AddressV, TextureAddress.Clamp);
+            device.SetSamplerState(0, SamplerState.AddressW, TextureAddress.Clamp);
             device.SetTexture(0, texture);
         }
         private void exitToolStripMenuItem_Click(object sender, EventArgs e)
@@ -2531,6 +2539,12 @@ namespace DirectXEmu
                 }
                 mov.Close();
             }
+        }
+
+        private void smoothOutputToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            this.config["smoothOutput"] = smoothOutputToolStripMenuItem.Checked ? "1" : "0";
+            ResetDevice();
         }
     }
 }
