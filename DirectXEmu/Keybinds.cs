@@ -4,19 +4,18 @@ using System.Linq;
 using System.Text;
 using System.ComponentModel;
 using System.Windows.Forms;
-using SlimDX.DirectInput;
 namespace DirectXEmu
 {
     public struct Keybinds
     {
         [CategoryAttribute("General")]
-        public Key Rewind
+        public Keys Rewind
         {
             get;
             set;
         }
         [CategoryAttribute("General")]
-        public Key FastForward
+        public Keys FastForward
         {
             get;
             set;
@@ -52,121 +51,121 @@ namespace DirectXEmu
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Key Player1Up
+        public Keys Player1Up
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Key Player1Down
+        public Keys Player1Down
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Key Player1Left
+        public Keys Player1Left
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Key Player1Right
+        public Keys Player1Right
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Key Player1Start
+        public Keys Player1Start
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Key Player1Select
+        public Keys Player1Select
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Key Player1A
+        public Keys Player1A
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Key Player1B
+        public Keys Player1B
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Key Player1TurboA
+        public Keys Player1TurboA
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Key Player1TurboB
+        public Keys Player1TurboB
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Key Player2Up
+        public Keys Player2Up
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Key Player2Down
+        public Keys Player2Down
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Key Player2Left
+        public Keys Player2Left
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Key Player2Right
+        public Keys Player2Right
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Key Player2Start
+        public Keys Player2Start
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Key Player2Select
+        public Keys Player2Select
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Key Player2A
+        public Keys Player2A
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Key Player2B
+        public Keys Player2B
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Key Player2TurboA
+        public Keys Player2TurboA
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Key Player2TurboB
+        public Keys Player2TurboB
         {
             
             get;

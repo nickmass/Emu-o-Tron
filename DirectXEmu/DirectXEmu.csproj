@@ -105,6 +105,8 @@
     <Compile Include="AddBreakpoint.Designer.cs">
       <DependentUpon>AddBreakpoint.cs</DependentUpon>
     </Compile>
+    <Compile Include="Audio\IAudio.cs" />
+    <Compile Include="Audio\NullAudio.cs" />
     <Compile Include="CheatFinder.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -117,8 +119,13 @@
     <Compile Include="Debugger.Designer.cs">
       <DependentUpon>Debugger.cs</DependentUpon>
     </Compile>
+    <Compile Include="Input\DXInput.cs" />
+    <Compile Include="Input\IInput.cs" />
+    <Compile Include="Input\NullInput.cs" />
+    <Compile Include="RomPatching.cs" />
+    <Compile Include="Video\DX9Renderer.cs" />
     <Compile Include="EmuoTron\APU.cs" />
-    <Compile Include="ArchiveCallback.cs" />
+    <Compile Include="7Zip\ArchiveCallback.cs" />
     <Compile Include="Console.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -167,7 +174,7 @@
     <Compile Include="EmuoTron\Mappers\m085.cs" />
     <Compile Include="EmuoTron\Mappers\mVRC4.cs" />
     <Compile Include="EmuoTron\Mappers\mVRC6.cs" />
-    <Compile Include="Fill.cs" />
+    <Compile Include="Video\Scalers\Fill.cs" />
     <Compile Include="EmuoTron\Mappers\m099.cs" />
     <Compile Include="EmuoTron\Mappers\m000.cs" />
     <Compile Include="EmuoTron\Mappers\m001.cs" />
@@ -183,6 +190,8 @@
     <Compile Include="EmuoTron\Mappers\m071.cs" />
     <Compile Include="EmuoTron\Mappers\Mapper.cs" />
     <Compile Include="EmuoTron\MemoryStore.cs" />
+    <Compile Include="Video\GDIRenderer.cs" />
+    <Compile Include="Video\IRenderer.cs" />
     <Compile Include="MemoryViewer.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -222,6 +231,7 @@
     <Compile Include="NetPlay\NetPlayServer.cs" />
     <Compile Include="NetPlay\User.cs" />
     <Compile Include="NetPlay\Users.cs" />
+    <Compile Include="Video\NullRenderer.cs" />
     <Compile Include="Program.Designer.cs">
       <DependentUpon>Program.cs</DependentUpon>
     </Compile>
@@ -231,7 +241,11 @@
     <Compile Include="SoundConfig.Designer.cs">
       <DependentUpon>SoundConfig.cs</DependentUpon>
     </Compile>
-    <Compile Include="TVAspect.cs" />
+    <Compile Include="Video\Scalers\TVAspect.cs" />
+    <Compile Include="Audio\XA2Audio.cs" />
+    <Compile Include="WAVOutput.cs" />
+    <Compile Include="Input\WinInput.cs" />
+    <Compile Include="Input\XInInput.cs" />
     <Content Include="7z64.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -362,10 +376,10 @@
     <Compile Include="RomInfoBox.Designer.cs">
       <DependentUpon>RomInfoBox.cs</DependentUpon>
     </Compile>
-    <Compile Include="Scale3x.cs" />
-    <Compile Include="SevenZipFormat.cs" />
-    <Compile Include="SevenZipInterface.cs" />
-    <Compile Include="Sizeable.cs" />
+    <Compile Include="Video\Scalers\Scale3x.cs" />
+    <Compile Include="7Zip\SevenZipFormat.cs" />
+    <Compile Include="7Zip\SevenZipInterface.cs" />
+    <Compile Include="Video\Scalers\Sizeable.cs" />
     <Compile Include="EmuConfig.cs" />
     <Compile Include="EmuoTron\GameGenie.cs" />
     <Compile Include="GameGenieWindow.cs">
@@ -380,8 +394,8 @@
     <Compile Include="NameTablePreview.Designer.cs">
       <DependentUpon>NameTablePreview.cs</DependentUpon>
     </Compile>
-    <Compile Include="NearestNeighbor1x.cs" />
-    <Compile Include="NearestNeighbor2x.cs" />
+    <Compile Include="Video\Scalers\NearestNeighbor1x.cs" />
+    <Compile Include="Video\Scalers\NearestNeighbor2x.cs" />
     <Compile Include="PatternTablePreview.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -501,8 +515,8 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
-    <Compile Include="Scale2x.cs" />
-    <Compile Include="Scaler.cs" />
+    <Compile Include="Video\Scalers\Scale2x.cs" />
+    <Compile Include="Video\Scalers\Scaler.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="7z.dll">
