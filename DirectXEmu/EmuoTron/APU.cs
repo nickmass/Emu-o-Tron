@@ -176,8 +176,8 @@ namespace EmuoTron
             if (this.sampleRate == -1)
                 this.sampleRate = CPUClock;
             SetFPS(FPS);
-            output = new short[sampleRate]; //the buffers really don't need to be this large, but it should prevent overflows when the FPS is set exceptionally low.
-            dmcBuffer = new byte[sampleRate];
+            output = new short[this.sampleRate]; //the buffers really don't need to be this large, but it should prevent overflows when the FPS is set exceptionally low.
+            dmcBuffer = new byte[this.sampleRate];
             for (int i = 0; i < 32; i++)
             {
                 pulseTable[i] = ((95.52 / (8128.0 / i + 100)));

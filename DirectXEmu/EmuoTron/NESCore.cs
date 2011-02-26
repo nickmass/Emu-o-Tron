@@ -1564,6 +1564,7 @@ namespace EmuoTron
                 currentSong = song;
                 ((Mappers.mNSF)mapper).currentSong = currentSong;
                 RegPC = ((Mappers.mNSF)mapper).initAddress;
+                PushWordStack(((Mappers.mNSF)mapper).playAddress - 1);
                 RegA = (song - 1) & 0xFF;
                 if (RegA == 0xFF)
                     RegA = 0;
