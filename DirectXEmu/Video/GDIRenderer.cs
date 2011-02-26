@@ -61,7 +61,7 @@ namespace DirectXEmu
         {
             unsafe
             {
-                BitmapData bmd = texture.LockBits(new Rectangle(0, 0, texture.Width, texture.Height), ImageLockMode.ReadWrite, PixelFormat.Format32bppArgb);
+                BitmapData bmd = texture.LockBits(new Rectangle(0, 0, texture.Width, texture.Height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
                 fixed (int* screenPTR = screen)
                     imageScaler.PerformScale(screenPTR, (int*)bmd.Scan0);
                 texture.UnlockBits(bmd);
@@ -172,7 +172,7 @@ namespace DirectXEmu
             charSheetSprites['&'] = 43;
             charSheetSprites['$'] = 44;
             charSheetSprites['.'] = 45;
-            charSheetSprites[':'] = 45;
+            charSheetSprites[':'] = 46;
         }
 
         public event EventHandler DrawMessageEvent;

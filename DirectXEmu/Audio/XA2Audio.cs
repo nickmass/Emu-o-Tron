@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if !NO_DX
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -27,7 +28,7 @@ namespace DirectXEmu
             audioFormat = new WaveFormat();
             audioFormat.BitsPerSample = 16;
             audioFormat.Channels = 1;
-            audioFormat.SamplesPerSecond = Convert.ToInt32(sampleRate);
+            audioFormat.SamplesPerSecond = sampleRate;
             audioFormat.BlockAlignment = (short)(audioFormat.BitsPerSample * audioFormat.Channels / 8);
             audioFormat.AverageBytesPerSecond = (audioFormat.BitsPerSample / 8) * audioFormat.SamplesPerSecond;
             audioFormat.FormatTag = WaveFormatTag.Pcm;
@@ -107,3 +108,4 @@ namespace DirectXEmu
         }
     }
 }
+#endif

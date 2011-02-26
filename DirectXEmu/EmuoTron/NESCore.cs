@@ -11,6 +11,9 @@ namespace EmuoTron
     {
         public SystemType nesRegion;
 
+        public bool nsfPlayer;
+        public int currentSong;
+
         public Rom rom;
         public Mappers.Mapper mapper;
         public APU APU;
@@ -124,7 +127,7 @@ namespace EmuoTron
             int value;
             while (!PPU.frameComplete && !debug.debugInterrupt && emulationRunning)
             {
-#if debugger
+#if DEBUGGER
                 debug.Execute((ushort)RegPC);
 #endif
                 op = Read(RegPC);
@@ -722,14 +725,35 @@ namespace EmuoTron
                         break;
                 }
                 #endregion
-                counter += opCycles;
-                APU.AddCycles(opCycles);
-                PPU.AddCycles(opCycles);
-#if debugger
+                if (!nsfPlayer)
+                {
+                    counter += opCycles;
+                    APU.AddCycles(opCycles);
+                    PPU.AddCycles(opCycles);
+                    if (mapper.cycleIRQ)
+                        mapper.IRQ(opCycles);
+                }
+                else
+                {
+                    opCycles = ((Mappers.mNSF)mapper).IRQ(opCycles, instruction);
+                    counter += opCycles;
+                    try
+                    {
+                        APU.AddCycles(opCycles);
+                    }
+                    catch (IndexOutOfRangeException e)//Song never returns and overflows sound buffers, try to recover.
+                    {
+                        APU.outputPtr = APU.sampleRate / (APU.CPUClock / (int)((Mappers.mNSF)mapper).speed);
+                        ((Mappers.mNSF)mapper).counter = ((Mappers.mNSF)mapper).speed;
+                        PPU.frameComplete = true;
+                        RegS = 0xFD; //Stack is more then likely corrupted, try to reset it.
+                        PushWordStack(((Mappers.mNSF)mapper).playAddress - 1);
+                        ((Mappers.mNSF)mapper).overTime = false;
+                    }
+                }
+#if DEBUGGER
                 debug.AddCycles(opCycles);
 #endif
-                if (mapper.cycleIRQ)
-                    mapper.IRQ(opCycles);
 #if !nestest
                 if (PPU.interruptNMI)
                 {
@@ -775,6 +799,156 @@ namespace EmuoTron
             PPU.generateNameTables = false;
             PPU.generatePatternTables = false;
             APU.Update();
+        }
+        public NESCore(string input, int sampleRate, int frameBuffer, bool ignoreFileCheck = false) //NSF Load
+        {
+            nsfPlayer = true;
+            opList = OpInfo.GetOps();
+            rom.fileName = Path.GetFileNameWithoutExtension(input);
+            Stream inputStream = File.OpenRead(input);
+            inputStream.Position = 0;
+            if (!ignoreFileCheck)
+            {
+                if (inputStream.ReadByte() != 'N' || inputStream.ReadByte() != 'E' || inputStream.ReadByte() != 'S' || inputStream.ReadByte() != 'M' || inputStream.ReadByte() != 0x1A)
+                {
+                    inputStream.Close();
+                    throw (new Exception("Invalid File"));
+                }
+            }
+            inputStream.Position = 0x5;
+            int version = inputStream.ReadByte();
+            int totalSongs = inputStream.ReadByte();
+            int startingSong = inputStream.ReadByte();
+            int loadAddress = inputStream.ReadByte() | (inputStream.ReadByte() << 8);
+            int initAddress = inputStream.ReadByte() | (inputStream.ReadByte() << 8);
+            int playAddress = inputStream.ReadByte() | (inputStream.ReadByte() << 8);
+            string songName = "";
+            for (int i = 0; i < 32; i++)
+            {
+                byte nextByte = (byte)inputStream.ReadByte();
+                if (nextByte != 0)
+                    songName += (char)nextByte;
+                else
+                    break;
+            }
+            inputStream.Position = 0x2E;
+            string artist = "";
+            for (int i = 0; i < 32; i++)
+            {
+                byte nextByte = (byte)inputStream.ReadByte();
+                if (nextByte != 0)
+                    artist += (char)nextByte;
+                else
+                    break;
+            }
+            inputStream.Position = 0x4E;
+            string copyright = "";
+            for (int i = 0; i < 32; i++)
+            {
+                byte nextByte = (byte)inputStream.ReadByte();
+                if (nextByte != 0)
+                    copyright += (char)nextByte;
+                else
+                    break;
+            }
+            inputStream.Position = 0x6E;
+            int ntscPBRATE = inputStream.ReadByte() | (inputStream.ReadByte() << 8);
+            byte[] banks = new byte[8];
+            bool bankSwitching = false;
+            for (int i = 0; i < 8; i++)
+            {
+                banks[i] = (byte)inputStream.ReadByte();
+                if (banks[i] != 0)
+                    bankSwitching = true;
+            }
+            int palPBRATE = inputStream.ReadByte() | (inputStream.ReadByte() << 8);
+            int region = inputStream.ReadByte();
+            int PBRATE;
+            int specialChip = inputStream.ReadByte();
+            Memory = new MemoryStore(0x20 + 32, true);
+            Memory.swapOffset = 0x20;
+            Memory.SetReadOnly(0, 2, false);
+            APU = new APU(this, sampleRate, frameBuffer);
+            PPU = new PPU(this);
+            debug = new Debug(this);
+            debug.LogInfo("Mapper: NSF");
+            switch (region & 3)
+            {
+                case 3://dual
+                case 2://dual
+                    debug.LogInfo("Region: Dual");
+                    nesRegion = SystemType.NTSC;
+                    PBRATE = ntscPBRATE;
+                    break;
+                case 0://ntsc
+                default:
+                    debug.LogInfo("Region: NTSC");
+                    nesRegion = SystemType.NTSC;
+                    PBRATE = ntscPBRATE;
+                    break;
+                case 1://pal
+                    debug.LogInfo("Region: PAL");
+                    nesRegion = SystemType.PAL;
+                    PBRATE = palPBRATE;
+                    break;
+            }
+            debug.LogInfo("Name: " + songName);
+            debug.LogInfo("Artist: " + artist);
+            debug.LogInfo("Copyright: " + copyright);
+            debug.LogInfo("Total Songs: " + totalSongs.ToString());
+            debug.LogInfo("Starting Song: " + startingSong.ToString());
+            debug.LogInfo("Playing Speed: " + Math.Round((1000000.0 / PBRATE), 3).ToString() + "hz");
+            if ((specialChip & 1) != 0)
+                debug.LogInfo("VRC4");
+            if ((specialChip & 2) != 0)
+                debug.LogInfo("VRC7");
+            if ((specialChip & 4) != 0)
+                debug.LogInfo("FDS");
+            if ((specialChip & 8) != 0)
+                debug.LogInfo("MMC5");
+            if ((specialChip & 0x10) != 0)
+                debug.LogInfo("Namco 106");
+            if ((specialChip & 0x20) != 0)
+                debug.LogInfo("Sunsoft FME-07");
+            debug.LogInfo("Load Address: 0x" + loadAddress.ToString("X4"));
+            debug.LogInfo("Init Address: 0x" + initAddress.ToString("X4"));
+            debug.LogInfo("Play Address: 0x" + playAddress.ToString("X4"));
+            debug.LogInfo("Bankswitching: " + (bankSwitching ? "Yes" : "No"));
+            if(bankSwitching)
+                debug.LogInfo("Initial Banks: " + banks[0].ToString("X2") + " " + banks[1].ToString("X2") + " " 
+                                                + banks[2].ToString("X2") + " " + banks[3].ToString("X2") + " " 
+                                                + banks[4].ToString("X2") + " " + banks[5].ToString("X2") + " " 
+                                                + banks[6].ToString("X2") + " " + banks[7].ToString("X2") + " ");
+            debug.LogInfo("Data Length: " + (inputStream.Length - 0x80) + "bytes");
+            inputStream.Position = 0x80;
+            int startOffset = bankSwitching ? (loadAddress & 0xFFF) : (loadAddress - 0x8000);
+            for (int i = startOffset; i < 32 * 0x400 && inputStream.Position < inputStream.Length; i++)
+            {
+                byte nextByte = (byte)inputStream.ReadByte();
+                Memory.banks[(i / 0x400) + Memory.swapOffset][i % 0x400] = nextByte;
+            }
+            mapper = new Mappers.mNSF(this, banks, PBRATE);
+            ((Mappers.mNSF)mapper).totalSongs = totalSongs;
+            ((Mappers.mNSF)mapper).startSong = startingSong;
+            ((Mappers.mNSF)mapper).currentSong = startingSong;
+            ((Mappers.mNSF)mapper).initAddress = initAddress;
+            ((Mappers.mNSF)mapper).loadAddress = loadAddress;
+            ((Mappers.mNSF)mapper).playAddress = playAddress;
+            ((Mappers.mNSF)mapper).songName = songName;
+            ((Mappers.mNSF)mapper).artist = artist;
+            ((Mappers.mNSF)mapper).copyright = copyright;
+            for (int i = 0; i < 0x10000; i++)
+            {
+                MirrorMap[i] = (ushort)i;
+            }
+            Memory.memMap[2] = Memory.memMap[0];
+            Memory.memMap[3] = Memory.memMap[1];
+            Memory.memMap[4] = Memory.memMap[0];
+            Memory.memMap[5] = Memory.memMap[1];
+            Memory.memMap[6] = Memory.memMap[0];
+            Memory.memMap[7] = Memory.memMap[1]; //0x0000 - 0x0800 mirrored 3 times.
+            CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
+            Power();
         }
         public NESCore(SystemType region, String input, String fdsImage, String cartDBLocation, int sampleRate, int frameBuffer, bool ignoreFileCheck = false) //FDS Load
         {
@@ -1180,8 +1354,12 @@ namespace EmuoTron
             ushort address = MirrorMap[addr & 0xFFFF];
             byte nextByte = Memory[address];
 
-            nextByte = PortOne.Read(nextByte, address);
-            nextByte = PortTwo.Read(nextByte, address);
+
+            if (!nsfPlayer)
+            {
+                nextByte = PortOne.Read(nextByte, address);
+                nextByte = PortTwo.Read(nextByte, address);
+            }
             if (rom.vsUnisystem)
             {
                 if (address == 0x4016)
@@ -1244,8 +1422,10 @@ namespace EmuoTron
             }
             nextByte = mapper.Read(nextByte, address);
             nextByte = APU.Read(nextByte, address);
-            nextByte = PPU.Read(nextByte, address);
-#if debugger
+
+            if (!nsfPlayer)
+                nextByte = PPU.Read(nextByte, address);
+#if DEBUGGER
             nextByte = debug.Read(nextByte, address);
 #endif
             if(gameGenieCodeNum != 0) //perhaps a tiny tiny performance increase
@@ -1267,8 +1447,12 @@ namespace EmuoTron
             ushort address = MirrorMap[addr & 0xFFFF];
             byte value = (byte)(val & 0xFF);
 
-            PortOne.Write(value, address);
-            PortTwo.Write(value, address);
+
+            if (!nsfPlayer)
+            {
+                PortOne.Write(value, address);
+                PortTwo.Write(value, address);
+            }
             if (rom.vsUnisystem)
             {
                 if (address == 0x4020)
@@ -1282,13 +1466,14 @@ namespace EmuoTron
             }
             mapper.Write(value, address);
             APU.Write(value, address);
-            PPU.Write(value, address);
-#if debugger
+            if (!nsfPlayer)
+                PPU.Write(value, address);
+#if DEBUGGER
             debug.Write(value, address);
 #endif
             Memory[address] = value;
         }
-        private void PushWordStack(int value)
+        public void PushWordStack(int value)
         {
             Write(RegS | 0x0100, value >> 8);
             RegS--;
@@ -1367,6 +1552,37 @@ namespace EmuoTron
                 return ((Mappers.m020)mapper).sideCount;
             }
             return 0;
+        }
+        public void NSFPlay(int song)
+        {
+            if (nsfPlayer)
+            {
+                if (song > ((Mappers.mNSF)mapper).totalSongs)
+                    song = 1;
+                else if (song < 1)
+                    song = ((Mappers.mNSF)mapper).totalSongs;
+                currentSong = song;
+                ((Mappers.mNSF)mapper).currentSong = currentSong;
+                RegPC = ((Mappers.mNSF)mapper).initAddress;
+                RegA = (song - 1) & 0xFF;
+                if (RegA == 0xFF)
+                    RegA = 0;
+                if (nesRegion == SystemType.NTSC)
+                    RegX = 0;
+                else
+                    RegX = 1;
+                Start();
+                APU.ResetBuffer();
+            }
+
+        }
+        public void NSFNextSong()
+        {
+            NSFPlay(currentSong + 1);
+        }
+        public void NSFPreviousSong()
+        {
+            NSFPlay(currentSong - 1);
         }
         public void SetControllers(ControllerType portOne, ControllerType portTwo, bool fourScore)
         {
@@ -1480,6 +1696,10 @@ namespace EmuoTron
             PPU.Power();
             APU.Power();
             RegPC = ReadWord(0xFFFC);//entry point
+            if (nsfPlayer)
+            {
+                NSFPlay(((Mappers.mNSF)mapper).currentSong);
+            }
         }
         public void Reset()
         {

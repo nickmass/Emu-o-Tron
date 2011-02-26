@@ -26,7 +26,7 @@ namespace DirectXEmu
         private Dictionary<string, string> LoadDefaults()
         {
             Dictionary<string, string> defaults = new Dictionary<string, string>();
-            defaults["palette"] = @"palettes\Nestopia.pal";
+            defaults["palette"] = Path.Combine("palettes","Nestopia.pal");
             defaults["paletteDir"] = @"palettes";
             defaults["movieDir"] = @"movies";
             defaults["sramDir"] = @"sav";

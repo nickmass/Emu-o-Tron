@@ -1,5 +1,4 @@
-﻿//#define NO_DX
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
@@ -60,7 +59,6 @@ namespace DirectXEmu
         bool playMovie;
         Keybinds keyBindings;
         SystemState state;
-
         int generateLine = 0;
         bool generateNameTables = false;
         int nameTableUpdate = 10;
@@ -114,13 +112,20 @@ namespace DirectXEmu
         NetPlayServer netServer;
         NetPlayClient netClient;
 
+        NSFScreen nsfScreen;
         bool Closed;
 
+        static bool isMono;
         [STAThread]
         static void Main(string[] args)
         {
-            Process thisProc = Process.GetCurrentProcess();
-            thisProc.PriorityClass = ProcessPriorityClass.AboveNormal;
+            Type t = Type.GetType ("Mono.Runtime");
+            isMono = t != null;
+            if (!isMono)
+            {
+                Process thisProc = Process.GetCurrentProcess();
+                thisProc.PriorityClass = ProcessPriorityClass.AboveNormal;
+            }
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Program prg;
@@ -172,10 +177,16 @@ namespace DirectXEmu
                             cpu.APU.SetFPS(cpu.APU.FPS);
                             wavRecorder.AddSamples(cpu.APU.output, cpu.APU.outputPtr);
                         }
+                        if(cpu.nsfPlayer)
+                            cpu.APU.SetFPS(cpu.APU.FPS);
                         audio.MainLoop(cpu.APU.outputPtr, rewinding);
                     }
                     if (frame % frameSkipper == 0)//draw every n-th frame during turbo
+                    {
+                        if (cpu.nsfPlayer)
+                            nsfScreen.ReDraw();
                         renderer.MainLoop();
+                    }
                     cpu.APU.ResetBuffer();
                 }
                 else
@@ -697,8 +708,15 @@ namespace DirectXEmu
         {
             uint crc = 0xFFFFFFFF;
             for (int y = 0; y < 240; y++)
+            {
                 for (int x = 0; x < 256; x++)
-                    crc = CRC32.crc32_adjust(crc, (byte)(scanlines[x, y] & 0x3F));
+                {
+                    crc = CRC32.crc32_adjust(crc, (byte)(scanlines[y, x] & 0xFF));
+                    crc = CRC32.crc32_adjust(crc, (byte)((scanlines[y, x] >> 8) & 0xFF));
+                    crc = CRC32.crc32_adjust(crc, (byte)((scanlines[y, x] >> 16) & 0xFF));
+                    crc = CRC32.crc32_adjust(crc, (byte)((scanlines[y, x] >> 24) & 0xFF));
+                }
+            }
             crc ^= 0xFFFFFFFF;
             return crc;
         }
@@ -909,6 +927,8 @@ namespace DirectXEmu
         }
         private string ExtractFile(string fileName)
         {
+            if (isMono)
+                return fileName;
             SystemState old = state;
             state = SystemState.SystemPause;
             string ext = Path.GetExtension(fileName).ToLower();
@@ -1038,10 +1058,14 @@ namespace DirectXEmu
                 audio.Destroy();
             if (input != null)
                 input.Destroy();
+            if (config["audio"] == "DXS") //DirectSound has some issues with unusual samplerates
+                config["sampleRate"] = 48000.ToString();
             try
             {
                 if (Path.GetExtension(romPath).ToLower() == ".fds")
                     this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), config["fdsBios"], this.romPath, this.appPath, Convert.ToInt32(this.config["sampleRate"]), 1);
+                else if (Path.GetExtension(romPath).ToLower() == ".nsf")
+                    this.cpu = new NESCore(this.romPath, Convert.ToInt32(this.config["sampleRate"]), 1);
                 else
                     this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath, Convert.ToInt32(this.config["sampleRate"]), 1);
             }
@@ -1052,6 +1076,8 @@ namespace DirectXEmu
                     if (MessageBox.Show("File appears to be invalid. Attempt load anyway?", "Error", MessageBoxButtons.YesNo) == DialogResult.Yes)
                         if (Path.GetExtension(romPath).ToLower() == ".fds")
                             this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), config["fdsBios"], this.romPath, this.appPath, Convert.ToInt32(this.config["sampleRate"]), 1, true);
+                        else if (Path.GetExtension(romPath).ToLower() == ".nsf")
+                            this.cpu = new NESCore(this.romPath, Convert.ToInt32(this.config["sampleRate"]), 1, true);
                         else
                             this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath, Convert.ToInt32(this.config["sampleRate"]), 1, true);
                     else
@@ -1098,6 +1124,9 @@ namespace DirectXEmu
             ejectDiskToolStripMenuItem.Visible = (cpu.GetSideCount() != 0);
             cpu.SetControllers((ControllerType)Enum.Parse(typeof(ControllerType), config["portOne"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["portTwo"]), (config["fourScore"] == "1"));
 
+            if (cpu.nsfPlayer)
+                nsfScreen = new NSFScreen(cpu);
+
             switch (config["renderer"])
             {
 #if NO_DX
@@ -1131,16 +1160,19 @@ namespace DirectXEmu
                 default:
                 case "Null":
                     config["audio"] = "Null";
-                    audio = new NullAudio(Convert.ToInt32(config["sampleRate"]));
+                    audio = new NullAudio(cpu.APU.sampleRate);
                     break;
 #else
                 default:
                 case "XA2":
                     config["audio"] = "XA2";
-                    audio = new XA2Audio(Convert.ToInt32(config["sampleRate"]), cpu.APU.output, Convert.ToInt32(config["volume"]) / 100f);
+                    audio = new XA2Audio(cpu.APU.sampleRate, cpu.APU.output, Convert.ToInt32(config["volume"]) / 100f);
+                    break;
+                case "DXS":
+                    audio = new DXSAudio(cpu.APU.sampleRate, cpu.APU.output, Convert.ToInt32(config["volume"]) / 100f, this.Handle);
                     break;
                 case "Null":
-                    audio = new NullAudio(Convert.ToInt32(config["sampleRate"]));
+                    audio = new NullAudio(cpu.APU.sampleRate);
                     break;
 #endif
             }
@@ -1249,10 +1281,14 @@ namespace DirectXEmu
             else if (key == keyBindings.Player1Left)
             {
                 player1.left = false;
+                if (cpu != null)
+                    cpu.NSFPreviousSong();
             }
             else if (key == keyBindings.Player1Right)
             {
                 player1.right = false;
+                if (cpu != null)
+                    cpu.NSFNextSong();
             }
             else if (key == keyBindings.Player2A)
             {
@@ -1669,6 +1705,7 @@ namespace DirectXEmu
         {
             if (debugger != null)
                 debugger.Close();
+            cpu = null;
             this.SaveGame();
             this.Text = "Emu-o-Tron";
             this.romPath = "";
@@ -2032,7 +2069,7 @@ namespace DirectXEmu
                 state = SystemState.SystemPause;
                 if (recordDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
                 {
-                    wavRecorder = new WAVOutput(recordDialog.FileName, Convert.ToInt32(config["sampleRate"]));
+                    wavRecorder = new WAVOutput(recordDialog.FileName, cpu.APU.sampleRate);
                     stopWAVToolStripMenuItem.Enabled = true;
                 }
                 state = old;

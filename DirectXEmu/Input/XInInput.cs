@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if !NO_DX
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -274,3 +275,5 @@ namespace DirectXEmu
         }
     }
 }
+
+#endif

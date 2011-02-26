@@ -318,12 +318,19 @@ namespace DirectXEmu
             else
                 return int.Parse(str);
         }
-        public uint GetScreenCRC(int[,] scanlines)
+        private uint GetScreenCRC(int[,] scanlines)
         {
             uint crc = 0xFFFFFFFF;
             for (int y = 0; y < 240; y++)
+            {
                 for (int x = 0; x < 256; x++)
-                    crc = CRC32.crc32_adjust(crc, (byte)(scanlines[x,y] & 0x3F));
+                {
+                    crc = CRC32.crc32_adjust(crc, (byte)(scanlines[y, x] & 0xFF));
+                    crc = CRC32.crc32_adjust(crc, (byte)((scanlines[y, x] >> 8) & 0xFF));
+                    crc = CRC32.crc32_adjust(crc, (byte)((scanlines[y, x] >> 16) & 0xFF));
+                    crc = CRC32.crc32_adjust(crc, (byte)((scanlines[y, x] >> 24) & 0xFF));
+                }
+            }
             crc ^= 0xFFFFFFFF;
             return crc;
         }

@@ -173,6 +173,8 @@ namespace EmuoTron
                     dmcRates = new int[] { 398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118, 98, 78, 66, 50 };
                     break;
             }
+            if (this.sampleRate == -1)
+                this.sampleRate = CPUClock;
             SetFPS(FPS);
             output = new short[sampleRate]; //the buffers really don't need to be this large, but it should prevent overflows when the FPS is set exceptionally low.
             dmcBuffer = new byte[sampleRate];
@@ -213,6 +215,30 @@ namespace EmuoTron
             Write(00, 0x4015);
             Write(00, 0x4017);
             timeToClock = modeZeroDelay - 12;
+            if (nes.nsfPlayer)
+            {
+                Write(00, 0x4000); //Start-up values
+                Write(00, 0x4001);
+                Write(00, 0x4002);
+                Write(00, 0x4003);
+                Write(00, 0x4004);
+                Write(00, 0x4005);
+                Write(00, 0x4006);
+                Write(00, 0x4007);
+                Write(00, 0x4008);
+                Write(00, 0x4009);
+                Write(00, 0x400A);
+                Write(00, 0x400B);
+                Write(00, 0x400C);
+                Write(00, 0x400D);
+                Write(00, 0x400E);
+                Write(00, 0x400F);
+                Write(0x10, 0x4010);
+                Write(00, 0x4011);
+                Write(00, 0x4012);
+                Write(00, 0x4013);
+                Write(0x0F, 0x4015);
+            }
         }
         public void Reset()
         {
@@ -774,7 +800,7 @@ namespace EmuoTron
                 dmcDivider = dmcRate;
             }
             dmcSampleRateDivider++;
-            if (dmcSampleRateDivider > sampleDivider && !dmcDelay)
+            if (dmcSampleRateDivider > sampleDivider && !dmcDelay)// && dmcPtr < dmcBuffer.Length)//This last condition really should never fire except when caused by my bugs elsewhere.
             {
                 dmcBuffer[dmcPtr] = dmcDeltaCounter;
                 dmcPtr++;
@@ -945,7 +971,7 @@ namespace EmuoTron
                     noiseDivider = noiseTimer;
                 }
                 sampleRateDivider++;
-                if (sampleRateDivider > sampleDivider)
+                if (sampleRateDivider > sampleDivider) //&& outputPtr < output.Length)
                 {
                     triangleVolume = (byte)(triangleVolume * volume.triangle);
                     pulse1Volume = (byte)(pulse1Volume * volume.pulse1);

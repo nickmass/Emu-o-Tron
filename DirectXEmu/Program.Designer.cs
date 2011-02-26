@@ -629,8 +629,8 @@
             // openFile
             // 
             this.openFile.DefaultExt = "nes";
-            this.openFile.Filter = "Supported File Types|*.nes;*.fds;*.rar;*.zip;*.7z;*.ips;*.ups|NES Roms|*.nes;*.fd" +
-                "s|Archives|*.rar;*.zip;*.7z|Patches|*.ips;*.ups|All Files|*.*";
+            this.openFile.Filter = "Supported File Types|*.nes;*.fds;*.nsf;*.rar;*.zip;*.7z;*.ips;*.ups|NES Roms|*.nes;*.fd" +
+                "s|NES Music|*.nsf|Archives|*.rar;*.zip;*.7z|Patches|*.ips;*.ups|All Files|*.*";
             this.openFile.Title = "Load Rom";
             // 
             // openPaletteDialog

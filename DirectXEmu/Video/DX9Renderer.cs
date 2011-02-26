@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if !NO_DX
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -250,7 +251,7 @@ namespace DirectXEmu
             charSheetSprites['&'] = 43;
             charSheetSprites['$'] = 44;
             charSheetSprites['.'] = 45;
-            charSheetSprites[':'] = 45;
+            charSheetSprites[':'] = 46;
         }
         private struct Vertex
         {
@@ -259,3 +260,5 @@ namespace DirectXEmu
         }
     }
 }
+
+#endif
