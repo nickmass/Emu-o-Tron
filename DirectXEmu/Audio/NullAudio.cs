@@ -8,14 +8,14 @@ namespace DirectXEmu
 {
     class NullAudio : IAudio
     {
-        private int samplesPerMS;
+        private double samplesPerMS;
         private int lastSamples;
-        private int lastFrame;
         private int thisFrame;
-        double remainder = 0;
+        private double remainder = 0;
+
         public NullAudio(int sampleRate)
         {
-            samplesPerMS = sampleRate / 1000;
+            samplesPerMS = sampleRate / 1000.0;
         }
         public void Create()
         {
@@ -34,19 +34,20 @@ namespace DirectXEmu
         {
         }
 
-        public bool SyncToAudio()//This has some timing issues but I can't see it right now, tends to run ~10 FPS too fast in both PAL and NTSC
+        public bool SyncToAudio()
         {
-            double preciseSleep = ((lastSamples * 1.0) / (samplesPerMS * 1.0));
+            bool tooSlow = false;
+            double preciseSleep = lastSamples / samplesPerMS;
             remainder += preciseSleep - Math.Floor(preciseSleep);
-            lastFrame = thisFrame;
-            thisFrame = Environment.TickCount;
-            int sleepTime = (lastSamples / samplesPerMS) - (thisFrame - lastFrame) + (int)Math.Floor(remainder);
+            int lastFrame = Environment.TickCount - thisFrame;
+            int sleepTime = (int)Math.Floor(preciseSleep) - lastFrame + (int)Math.Floor(remainder);
             remainder -= Math.Floor(remainder);
             if (sleepTime > 0 && sleepTime < 1000) //Second case is just to prevent my bad code from locking up the CPU somehow
                 Thread.Sleep(sleepTime);
             else if (sleepTime < 0)
-                return true;
-            return false;
+                tooSlow = true;
+            thisFrame = Environment.TickCount;
+            return tooSlow;
         }
 
         public void Destroy()

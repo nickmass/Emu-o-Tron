@@ -12,7 +12,7 @@ namespace DirectXEmu
     class NSFScreen
     {
         NESCore nes;
-        private int[,] charSheet;
+        private uint[,] charSheet;
         private Dictionary<char, int> charSheetSprites = new Dictionary<char, int>();
         private int charSize;
         public NSFScreen(NESCore nes)
@@ -24,7 +24,7 @@ namespace DirectXEmu
         {
             for (int x = 0; x < 256; x++)
                 for (int y = 0; y < 240; y++)
-                    nes.PPU.screen[y, x] = -16777216;
+                    nes.PPU.screen[y, x] = 0xFF000000;
             DrawMessage("Title: " + ((EmuoTron.Mappers.mNSF)(nes.mapper)).songName, 1, 3);
             DrawMessage("Artist: " + ((EmuoTron.Mappers.mNSF)(nes.mapper)).artist, 1, 5);
             DrawMessage("Copyright: " + ((EmuoTron.Mappers.mNSF)(nes.mapper)).copyright, 1, 7);
@@ -73,18 +73,18 @@ namespace DirectXEmu
             Stream file = thisExe.GetManifestResourceStream("DirectXEmu.images.charSheet.png");
             Bitmap charBitmap = (Bitmap)Bitmap.FromStream(file);
             file.Close();
-            charSheet = new int[charBitmap.Height / 2, charBitmap.Width / 2];
+            charSheet = new uint[charBitmap.Height / 2, charBitmap.Width / 2];
             unsafe
             {
                 BitmapData bmd = charBitmap.LockBits(new Rectangle(0, 0, charBitmap.Width, charBitmap.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-                int* pixels = (int*)(bmd.Scan0);
+                uint* pixels = (uint*)(bmd.Scan0);
                 for (int x = 0; x < (charBitmap.Width >> 1); x++)
                 {
                     for (int y = 0; y < (charBitmap.Height >> 1); y++)
                     {
-                        int color = pixels[((y << 1) * charBitmap.Width) + (x << 1)];
+                        uint color = pixels[((y << 1) * charBitmap.Width) + (x << 1)];
                         if((color & 0xFF000000) != 0xFF000000)
-                            color = -16777216;
+                            color = 0xFF000000;
                         charSheet[y, x] = color;
                     }
                 }

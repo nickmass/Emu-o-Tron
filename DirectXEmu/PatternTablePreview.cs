@@ -20,9 +20,9 @@ namespace DirectXEmu
         Panel highlightRight;
         Panel highlightBottom;
         public byte[][] palette;
-        int[] colorChart;
+        uint[] colorChart;
         private int selectedPal;
-        public PatternTablePreview(int[] colorChart, int generateLine)
+        public PatternTablePreview(uint[] colorChart, int generateLine)
         {
             this.selectedPal = 0;
             this.generateLine = generateLine;
@@ -114,7 +114,7 @@ namespace DirectXEmu
                 {
                     for (int index = 0; index < 4; index++)
                     {
-                        palPanels[(pal * 4) + index].BackColor = Color.FromArgb(this.colorChart[this.palette[pal][index]]);
+                        palPanels[(pal * 4) + index].BackColor = Color.FromArgb((int)this.colorChart[this.palette[pal][index]]);
                         if (pal == selectedPal && index == 0 && !testPal.Checked)
                         {
                             highlightTop.Visible = highlightLeft.Visible = highlightRight.Visible = highlightBottom.Visible = true;
@@ -129,10 +129,10 @@ namespace DirectXEmu
                         }
                     }
                 }
-                int col0;
-                int col1;
-                int col2;
-                int col3;
+                uint col0;
+                uint col1;
+                uint col2;
+                uint col3;
                 if (testPal.Checked)
                 {
 
@@ -157,7 +157,7 @@ namespace DirectXEmu
                         tx = 256;
                     for (int y = 0; y < 256; y++)
                     {
-                        int* row = (int*)bmd.Scan0 + (y * (bmd.Stride/4));
+                        uint* row = (uint*)bmd.Scan0 + (y * (bmd.Stride/4));
                         for (int x = 0; x < 256; x++)
                         {
                             switch (patternTables[t][x / 2, y / 2])

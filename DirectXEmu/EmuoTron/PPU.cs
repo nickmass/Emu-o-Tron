@@ -12,7 +12,7 @@ namespace EmuoTron
         public ushort[] PPUMirrorMap = new ushort[0x8000];
         public byte[] SPRMemory = new byte[0x100];
         public byte[] PalMemory = new byte[0x20];
-        public int[] colorChart = new int[0x200];
+        public uint[] colorChart = new uint[0x200];
 
         private NESCore nes;
         private int palCounter;
@@ -48,7 +48,7 @@ namespace EmuoTron
         private int loopyV;
         private byte readBuffer;
 
-        public int[,] screen = new int[240,256];
+        public uint[,] screen = new uint[240,256];
         private ushort[] pixelMasks = new ushort[256];
         private ushort[] nextPixelMasks = new ushort[256];
         private byte[] pixelGray = new byte[256];
@@ -93,7 +93,7 @@ namespace EmuoTron
             PPUMemory.SetReadOnly(0x3C00, 1, false); //Palette area + some mirrored ram
             for (ushort i = 0; i < 0x8000; i++)
                 PPUMirrorMap[i] = i;
-            for (int i = 0; i < 0x200; i++)
+            for (uint i = 0; i < 0x200; i++)
                 colorChart[i] = i;
             PPUMirror(0x3F00, 0x3F10, 1, 1);
             PPUMirror(0x3F04, 0x3F14, 1, 1);

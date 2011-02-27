@@ -52,7 +52,7 @@ namespace EmuoTron
             0x54de5729, 0x23d967bf, 0xb3667a2e, 0xc4614ab8, 0x5d681b02, 0x2a6f2b94,
             0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
         };
-        public static UInt32 crc32_adjust(UInt32 crc32, byte input)
+        public static uint crc32_adjust(uint crc32, byte input)
         {
              return ((crc32 >> 8) & 0x00ffffff) ^ crc32_table[(crc32 ^ input) & 0xff];
         }

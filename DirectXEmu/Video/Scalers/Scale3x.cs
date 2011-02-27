@@ -7,38 +7,39 @@ using System.Drawing.Imaging;
 
 namespace DirectXEmu
 {
-    class Scale3x : Scaler
+    class Scale3x : IScaler
     {
-        public override bool resizeable
-        {
-            get { return this.resize; }
-        }
-        public override int xSize
-        {
-            get { return this.x; }
-        }
-        public override int ySize
-        {
-            get { return this.y; }
-        }
-        public override bool maintainAspectRatio
-        {
-            get { return this.maintainAR; }
-        }
+        private int _resizedX;
+        private int _resizedY;
+        private bool _isResizable;
+        private bool _maintainAspectRatio;
+        private double _ratioX;
+        private double _ratioY;
+
+        public int ResizedX { get { return _resizedX; } }
+        public int ResizedY { get { return _resizedY; } }
+        public double RatioX { get { return _ratioX; } }
+        public double RatioY { get { return _ratioY; } }
+        public bool IsResizable { get { return _isResizable; } }
+        public bool MaintainAspectRatio { get { return _maintainAspectRatio; } }
+
         public Scale3x()
         {
-            this.x = 768;
-            this.y = 720;
-            this.resize = false;
-            this.maintainAR = true;
+            _resizedX = 768;
+            _resizedY = 720;
+             _ratioX = 16;
+            _ratioY = 15;
+            _isResizable = false;
+            _maintainAspectRatio = true;
         }
-        public override unsafe void PerformScale(int* origPixels, int* resizePixels)
+
+        public unsafe void PerformScale(uint* origPixels, uint* resizePixels)
         {
-            int a, b, c, d, e, f, g, h, i;
+            uint a, b, c, d, e, f, g, h, i;
             // a b c
             // d e f
             // g h i
-            int e0, e1, e2, e3, e4, e5, e6, e7, e8;
+            uint e0, e1, e2, e3, e4, e5, e6, e7, e8;
             // e becomes
             // e0 e1 e2
             // e3 e4 e5

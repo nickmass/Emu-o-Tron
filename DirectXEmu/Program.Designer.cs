@@ -49,6 +49,7 @@
             this.optionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.enableSoundToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.loadPaletteToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.smoothOutputToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.videoModeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.sizeableToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.fillToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -99,7 +100,7 @@
             this.recordDialog = new System.Windows.Forms.SaveFileDialog();
             this.surfaceControl = new System.Windows.Forms.Panel();
             this.saveMovie = new System.Windows.Forms.SaveFileDialog();
-            this.smoothOutputToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.hQ2xToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -279,6 +280,14 @@
             this.loadPaletteToolStripMenuItem.Text = "Load Palette...";
             this.loadPaletteToolStripMenuItem.Click += new System.EventHandler(this.loadPaletteToolStripMenuItem_Click);
             // 
+            // smoothOutputToolStripMenuItem
+            // 
+            this.smoothOutputToolStripMenuItem.CheckOnClick = true;
+            this.smoothOutputToolStripMenuItem.Name = "smoothOutputToolStripMenuItem";
+            this.smoothOutputToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
+            this.smoothOutputToolStripMenuItem.Text = "Smooth Output";
+            this.smoothOutputToolStripMenuItem.Click += new System.EventHandler(this.smoothOutputToolStripMenuItem_Click);
+            // 
             // videoModeToolStripMenuItem
             // 
             this.videoModeToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -288,7 +297,8 @@
             this.xToolStripMenuItem1,
             this.scale2xToolStripMenuItem,
             this.scale3xToolStripMenuItem,
-            this.tVAspectToolStripMenuItem});
+            this.tVAspectToolStripMenuItem,
+            this.hQ2xToolStripMenuItem});
             this.videoModeToolStripMenuItem.Name = "videoModeToolStripMenuItem";
             this.videoModeToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
             this.videoModeToolStripMenuItem.Text = "Video Mode";
@@ -629,8 +639,9 @@
             // openFile
             // 
             this.openFile.DefaultExt = "nes";
-            this.openFile.Filter = "Supported File Types|*.nes;*.fds;*.nsf;*.rar;*.zip;*.7z;*.ips;*.ups|NES Roms|*.nes;*.fd" +
-                "s|NES Music|*.nsf|Archives|*.rar;*.zip;*.7z|Patches|*.ips;*.ups|All Files|*.*";
+            this.openFile.Filter = "Supported File Types|*.nes;*.fds;*.nsf;*.rar;*.zip;*.7z;*.ips;*.ups|NES Roms|*.ne" +
+                "s;*.fds|NES Music|*.nsf|Archives|*.rar;*.zip;*.7z|Patches|*.ips;*.ups|All Files|" +
+                "*.*";
             this.openFile.Title = "Load Rom";
             // 
             // openPaletteDialog
@@ -666,13 +677,12 @@
             this.saveMovie.Filter = "FM2 files|*.fm2";
             this.saveMovie.Title = "Save Movie";
             // 
-            // smoothOutputToolStripMenuItem
+            // hQ2xToolStripMenuItem
             // 
-            this.smoothOutputToolStripMenuItem.CheckOnClick = true;
-            this.smoothOutputToolStripMenuItem.Name = "smoothOutputToolStripMenuItem";
-            this.smoothOutputToolStripMenuItem.Size = new System.Drawing.Size(186, 22);
-            this.smoothOutputToolStripMenuItem.Text = "Smooth Output";
-            this.smoothOutputToolStripMenuItem.Click += new System.EventHandler(this.smoothOutputToolStripMenuItem_Click);
+            this.hQ2xToolStripMenuItem.Name = "hQ2xToolStripMenuItem";
+            this.hQ2xToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.hQ2xToolStripMenuItem.Text = "HQ2x";
+            this.hQ2xToolStripMenuItem.Click += new System.EventHandler(this.hQ2xToolStripMenuItem_Click);
             // 
             // Program
             // 
@@ -771,5 +781,6 @@
         private System.Windows.Forms.ToolStripMenuItem saveMovieToolStripMenuItem;
         private System.Windows.Forms.SaveFileDialog saveMovie;
         private System.Windows.Forms.ToolStripMenuItem smoothOutputToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem hQ2xToolStripMenuItem;
     }
 }

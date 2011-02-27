@@ -15,9 +15,9 @@ namespace DirectXEmu
 {
     class DX9Renderer : IRenderer
     {
-        private int[,] screen;
+        private uint[,] screen;
         private Control renderTarget;
-        private Scaler imageScaler;
+        private IScaler imageScaler;
         private Device device;
         private Direct3D d3d;
         private Texture texture;
@@ -31,7 +31,7 @@ namespace DirectXEmu
 
         public event EventHandler DrawMessageEvent;
 
-        public DX9Renderer(Control renderTarget, Scaler imageScaler, int[,] screen, bool smooth)
+        public DX9Renderer(Control renderTarget, IScaler imageScaler, uint[,] screen, bool smooth)
         {
             this.renderTarget = renderTarget;
             this.imageScaler = imageScaler;
@@ -49,7 +49,7 @@ namespace DirectXEmu
             pps.PresentationInterval = PresentInterval.Immediate;
             Reset();
         }
-        public void ChangeScaler(Scaler imageScaler)
+        public void ChangeScaler(IScaler imageScaler)
         {
             this.imageScaler = imageScaler;
         }
@@ -64,7 +64,7 @@ namespace DirectXEmu
             if (vertexBuffer != null)
                 vertexBuffer.Dispose();
             device = new SlimDX.Direct3D9.Device(d3d, 0, SlimDX.Direct3D9.DeviceType.Hardware, renderTarget.Handle, CreateFlags.HardwareVertexProcessing, pps);
-            texture = new Texture(device, imageScaler.xSize, imageScaler.ySize, 0, Usage.Dynamic, Format.A8R8G8B8, Pool.Default);
+            texture = new Texture(device, imageScaler.ResizedX, imageScaler.ResizedY, 0, Usage.Dynamic, Format.X8R8G8B8, Pool.Default);
             LoadCharSheet();
             vertexBuffer = new VertexBuffer(device, 6 * Marshal.SizeOf(typeof(Vertex)), Usage.WriteOnly, VertexFormat.PositionRhw | VertexFormat.Texture1, Pool.Managed);
 
@@ -112,9 +112,11 @@ namespace DirectXEmu
                 {
                     unsafe
                     {
-                        DataRectangle drt = texture.LockRectangle(0, LockFlags.None);
-                        fixed (int* screenPTR = screen)
-                            imageScaler.PerformScale(screenPTR, (int*)drt.Data.DataPointer);
+                        DataRectangle drt = texture.LockRectangle(0, LockFlags.Discard);
+                        fixed (uint* screenPTR = screen)
+                        {
+                            imageScaler.PerformScale(screenPTR, (uint*)drt.Data.DataPointer);
+                        }
                         texture.UnlockRectangle(0);
                     }
                     device.Clear(ClearFlags.Target, Color.Black, 1.0f, 0);

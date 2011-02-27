@@ -27,7 +27,7 @@ namespace DirectXEmu
         {
         }
 
-        public void ChangeScaler(Scaler imageScaler)
+        public void ChangeScaler(IScaler imageScaler)
         {
         }
 

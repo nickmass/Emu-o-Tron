@@ -11,9 +11,9 @@ namespace DirectXEmu
 {
     class GDIRenderer : IRenderer
     {
-        private int[,] screen;
+        private uint[,] screen;
         private Control renderTarget;
-        private Scaler imageScaler;
+        private IScaler imageScaler;
         private Bitmap texture;
         private Bitmap screenBuffer;
         private Graphics buffer;
@@ -24,7 +24,7 @@ namespace DirectXEmu
         private int charSize;
         private bool smoothOutput;
 
-        public GDIRenderer(Control renderTarget, Scaler imageScaler, int[,] screen, bool smooth)
+        public GDIRenderer(Control renderTarget, IScaler imageScaler, uint[,] screen, bool smooth)
         {
             this.renderTarget = renderTarget;
             this.imageScaler = imageScaler;
@@ -54,16 +54,16 @@ namespace DirectXEmu
             renderSize[0] = new Point(0, 0);
             renderSize[1] = new Point(renderTarget.Width, 0);
             renderSize[2] = new Point(0, renderTarget.Height);
-            texture = new Bitmap(imageScaler.xSize, imageScaler.ySize);
+            texture = new Bitmap(imageScaler.ResizedX, imageScaler.ResizedY);
         }
 
         public void MainLoop()
         {
             unsafe
             {
-                BitmapData bmd = texture.LockBits(new Rectangle(0, 0, texture.Width, texture.Height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
-                fixed (int* screenPTR = screen)
-                    imageScaler.PerformScale(screenPTR, (int*)bmd.Scan0);
+                BitmapData bmd = texture.LockBits(new Rectangle(Point.Empty, texture.Size), ImageLockMode.WriteOnly, PixelFormat.Format32bppRgb);
+                fixed (uint* screenPTR = screen)
+                    imageScaler.PerformScale(screenPTR, (uint*)bmd.Scan0);
                 texture.UnlockBits(bmd);
                 buffer.DrawImage(texture, renderSize);
                 DrawMessageEvent(this, null);
@@ -75,7 +75,7 @@ namespace DirectXEmu
         {
         }
 
-        public void ChangeScaler(Scaler imageScaler)
+        public void ChangeScaler(IScaler imageScaler)
         {
             this.imageScaler = imageScaler;
         }

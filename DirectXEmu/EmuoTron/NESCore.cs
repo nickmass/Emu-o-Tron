@@ -12,7 +12,6 @@ namespace EmuoTron
         public SystemType nesRegion;
 
         public bool nsfPlayer;
-        public int currentSong;
 
         public Rom rom;
         public Mappers.Mapper mapper;
@@ -793,7 +792,7 @@ namespace EmuoTron
 #endif
             }
             if (debug.debugInterrupt && (PPU.scanlineCycle < 256 && PPU.scanline > -1 && PPU.scanline < 240))
-                PPU.screen[PPU.scanline, PPU.scanlineCycle] ^= -1;
+                PPU.screen[PPU.scanline, PPU.scanlineCycle] ^= 0xFFFFFFFF;
             emulationRunning = false;
             PPU.frameComplete = false;
             PPU.generateNameTables = false;
@@ -1561,8 +1560,7 @@ namespace EmuoTron
                     song = 1;
                 else if (song < 1)
                     song = ((Mappers.mNSF)mapper).totalSongs;
-                currentSong = song;
-                ((Mappers.mNSF)mapper).currentSong = currentSong;
+                ((Mappers.mNSF)mapper).currentSong = song;
                 RegPC = ((Mappers.mNSF)mapper).initAddress;
                 PushWordStack(((Mappers.mNSF)mapper).playAddress - 1);
                 RegA = (song - 1) & 0xFF;
@@ -1579,11 +1577,19 @@ namespace EmuoTron
         }
         public void NSFNextSong()
         {
-            NSFPlay(currentSong + 1);
+            if (nsfPlayer)
+            {
+                ((Mappers.mNSF)mapper).currentSong++;
+                Power();
+            }
         }
         public void NSFPreviousSong()
         {
-            NSFPlay(currentSong - 1);
+            if (nsfPlayer)
+            {
+                ((Mappers.mNSF)mapper).currentSong--;
+                Power();
+            }
         }
         public void SetControllers(ControllerType portOne, ControllerType portTwo, bool fourScore)
         {
