@@ -672,7 +672,7 @@ namespace DirectXEmu
                 default:
                 case "Win":
                     config["input"] = "Win";
-                    input = new WinInput(this);
+                    input = new WinInput(this, surfaceControl);
                     break;
 #if !NO_DX
                 case "DX":

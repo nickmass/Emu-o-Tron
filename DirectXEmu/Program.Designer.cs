@@ -58,6 +58,7 @@
             this.scale2xToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.scale3xToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.tVAspectToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.hQ2xToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.regionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.nTSCToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.pALToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -100,7 +101,6 @@
             this.recordDialog = new System.Windows.Forms.SaveFileDialog();
             this.surfaceControl = new System.Windows.Forms.Panel();
             this.saveMovie = new System.Windows.Forms.SaveFileDialog();
-            this.hQ2xToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -306,51 +306,58 @@
             // sizeableToolStripMenuItem
             // 
             this.sizeableToolStripMenuItem.Name = "sizeableToolStripMenuItem";
-            this.sizeableToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.sizeableToolStripMenuItem.Size = new System.Drawing.Size(127, 22);
             this.sizeableToolStripMenuItem.Text = "Resizable";
             this.sizeableToolStripMenuItem.Click += new System.EventHandler(this.sizeableToolStripMenuItem_Click);
             // 
             // fillToolStripMenuItem
             // 
             this.fillToolStripMenuItem.Name = "fillToolStripMenuItem";
-            this.fillToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.fillToolStripMenuItem.Size = new System.Drawing.Size(127, 22);
             this.fillToolStripMenuItem.Text = "Fill";
             this.fillToolStripMenuItem.Click += new System.EventHandler(this.fillToolStripMenuItem_Click);
             // 
             // xToolStripMenuItem
             // 
             this.xToolStripMenuItem.Name = "xToolStripMenuItem";
-            this.xToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.xToolStripMenuItem.Size = new System.Drawing.Size(127, 22);
             this.xToolStripMenuItem.Text = "1x";
             this.xToolStripMenuItem.Click += new System.EventHandler(this.xToolStripMenuItem_Click);
             // 
             // xToolStripMenuItem1
             // 
             this.xToolStripMenuItem1.Name = "xToolStripMenuItem1";
-            this.xToolStripMenuItem1.Size = new System.Drawing.Size(152, 22);
+            this.xToolStripMenuItem1.Size = new System.Drawing.Size(127, 22);
             this.xToolStripMenuItem1.Text = "2x";
             this.xToolStripMenuItem1.Click += new System.EventHandler(this.xToolStripMenuItem1_Click);
             // 
             // scale2xToolStripMenuItem
             // 
             this.scale2xToolStripMenuItem.Name = "scale2xToolStripMenuItem";
-            this.scale2xToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.scale2xToolStripMenuItem.Size = new System.Drawing.Size(127, 22);
             this.scale2xToolStripMenuItem.Text = "Scale2x";
             this.scale2xToolStripMenuItem.Click += new System.EventHandler(this.scale2xToolStripMenuItem_Click);
             // 
             // scale3xToolStripMenuItem
             // 
             this.scale3xToolStripMenuItem.Name = "scale3xToolStripMenuItem";
-            this.scale3xToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.scale3xToolStripMenuItem.Size = new System.Drawing.Size(127, 22);
             this.scale3xToolStripMenuItem.Text = "Scale3x";
             this.scale3xToolStripMenuItem.Click += new System.EventHandler(this.scale3xToolStripMenuItem_Click);
             // 
             // tVAspectToolStripMenuItem
             // 
             this.tVAspectToolStripMenuItem.Name = "tVAspectToolStripMenuItem";
-            this.tVAspectToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.tVAspectToolStripMenuItem.Size = new System.Drawing.Size(127, 22);
             this.tVAspectToolStripMenuItem.Text = "TV Aspect";
             this.tVAspectToolStripMenuItem.Click += new System.EventHandler(this.tVAspectToolStripMenuItem_Click);
+            // 
+            // hQ2xToolStripMenuItem
+            // 
+            this.hQ2xToolStripMenuItem.Name = "hQ2xToolStripMenuItem";
+            this.hQ2xToolStripMenuItem.Size = new System.Drawing.Size(127, 22);
+            this.hQ2xToolStripMenuItem.Text = "HQ2x";
+            this.hQ2xToolStripMenuItem.Click += new System.EventHandler(this.hQ2xToolStripMenuItem_Click);
             // 
             // regionToolStripMenuItem
             // 
@@ -676,13 +683,6 @@
             this.saveMovie.DefaultExt = "fm2";
             this.saveMovie.Filter = "FM2 files|*.fm2";
             this.saveMovie.Title = "Save Movie";
-            // 
-            // hQ2xToolStripMenuItem
-            // 
-            this.hQ2xToolStripMenuItem.Name = "hQ2xToolStripMenuItem";
-            this.hQ2xToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
-            this.hQ2xToolStripMenuItem.Text = "HQ2x";
-            this.hQ2xToolStripMenuItem.Click += new System.EventHandler(this.hQ2xToolStripMenuItem_Click);
             // 
             // Program
             // 

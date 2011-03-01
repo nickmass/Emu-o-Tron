@@ -8,7 +8,8 @@ namespace DirectXEmu
 {
     class WinInput : IInput
     {
-        Form inputSource;
+        Control keyboardSource;
+        Control mouseSource;
         MouseArgs currentMouse;
         MouseArgs newMouse;
 
@@ -22,9 +23,10 @@ namespace DirectXEmu
         public event MouseHandler MouseDownEvent;
         public event MouseHandler MouseUpEvent;
 
-        public WinInput(Form inputSource)
+        public WinInput(Control keyboardSource, Control mouseSource)
         {
-            this.inputSource = inputSource;
+            this.keyboardSource = keyboardSource;
+            this.mouseSource = mouseSource;
         }
         public void Create()
         {
@@ -55,10 +57,10 @@ namespace DirectXEmu
 
         public void Reset()
         {
-            inputSource.KeyDown += new KeyEventHandler(inputSource_KeyDown);
-            inputSource.KeyUp += new KeyEventHandler(inputSource_KeyUp);
-            inputSource.MouseDown += new MouseEventHandler(inputSource_MouseDown);
-            inputSource.MouseUp += new MouseEventHandler(inputSource_MouseUp);
+            keyboardSource.KeyDown += new KeyEventHandler(inputSource_KeyDown);
+            keyboardSource.KeyUp += new KeyEventHandler(inputSource_KeyUp);
+            mouseSource.MouseDown += new MouseEventHandler(inputSource_MouseDown);
+            mouseSource.MouseUp += new MouseEventHandler(inputSource_MouseUp);
         }
 
         public void MainLoop()
