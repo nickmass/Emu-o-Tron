@@ -59,6 +59,7 @@ namespace DirectXEmu
         bool storeState;
         int messageDuration = 0;
         bool loadState;
+        bool fm2Reset;
         StreamReader fm2File;
         bool playMovie;
         Keybinds keyBindings;
@@ -190,7 +191,7 @@ namespace DirectXEmu
                     {
                         if (cpu.nsfPlayer)
                             nsfScreen.ReDraw();
-                        renderer.MainLoop();
+                        renderer.MainLoop(true);
                     }
                     cpu.APU.ResetBuffer();
                 }
@@ -198,6 +199,8 @@ namespace DirectXEmu
                 {
                     if (input != null)
                         input.MainLoop();
+                    if (renderer != null)
+                        renderer.MainLoop(false);
                     if (cpu != null && cpu.debug.debugInterrupt && (!debugger.updated || !debugger.smartUpdate))
                     {
                         debugger.smartUpdate = true;
@@ -347,6 +350,8 @@ namespace DirectXEmu
                 cpu.PPU.generateLine = this.nameTablePreview.UpdateNameTables(cpu.PPU.nameTables);
                 cpu.PPU.generateNameTables = true;
             }
+            if (fm2Reset)
+                cpu.Reset();
         }
 
         public void Initialize()
@@ -1071,8 +1076,8 @@ namespace DirectXEmu
             player2.select = line[17] != '.';
             player2.b = line[18] != '.';
             player2.a = line[19] != '.';
+            fm2Reset = line[1] == '1';
             return fm2File.EndOfStream;
-
         }
 
         private void openMovieToolStripMenuItem_Click(object sender, EventArgs e)
@@ -2065,9 +2070,12 @@ namespace DirectXEmu
 
         private void Program_Resize(object sender, EventArgs e)
         {
-            PrepareScaler();
-            this.config["width"] = this.Width.ToString();
-            this.config["height"] = this.Height.ToString();
+            if (imageScaler != null)
+            {
+                PrepareScaler();
+                this.config["width"] = this.Width.ToString();
+                this.config["height"] = this.Height.ToString();
+            }
         }
 
         #region scalers

@@ -63,7 +63,6 @@ namespace EmuoTron
         public int FlagSign = 0; //Bit 7 of P
         private int counter = 0;
         private bool interruptReset = false;
-        private bool interruptBRK = false;
 
         private OpInfo OpCodes = new OpInfo();
         private int[] opList;
@@ -286,7 +285,11 @@ namespace EmuoTron
                         }
                         break;
                     case OpInfo.InstrBRK:
-                        interruptBRK = true;
+                        PushWordStack((RegPC + 1) & 0xFFFF);
+                        RegP = (RegP & 0xCF) | 0x30;
+                        PushByteStack(RegP);
+                        FlagIRQ = 1;
+                        RegPC = ReadWord(0xFFFE);
                         break;
                     case OpInfo.InstrBVC:
                         if (FlagOverflow == 0)
@@ -421,17 +424,15 @@ namespace EmuoTron
                         PushByteStack(RegA);
                         break;
                     case OpInfo.InstrPHP:
-                        value = RegP;
-                        value |= 0x30;
-                        PushByteStack(value);
+                        RegP = (RegP & 0xCF) | 0x30;
+                        PushByteStack(RegP);
                         break;
                     case OpInfo.InstrPLA:
                         RegA = FlagSign = FlagZero = PopByteStack();
                         break;
                     case OpInfo.InstrPLP:
-                        RegP = PopByteStack();
-                        FlagBreak = 1;
-                        FlagNotUsed = 1;
+                        RegP &= 0x30;
+                        RegP |= (PopByteStack() & 0xCF);
                         break;
                     case OpInfo.InstrROL:
                         if (addressing == OpInfo.AddrAccumulator)
@@ -495,9 +496,8 @@ namespace EmuoTron
                         }
                         break;
                     case OpInfo.InstrRTI:
-                        RegP = PopByteStack();
-                        FlagBreak = 1;
-                        FlagNotUsed = 1;
+                        RegP &= 0x30;
+                        RegP |= (PopByteStack() & 0xCF);
                         RegPC = PopWordStack();
                         break;
                     case OpInfo.InstrRTS:
@@ -758,6 +758,7 @@ namespace EmuoTron
                 {
                     PushWordStack(RegPC);
                     FlagBreak = 0;
+                    FlagNotUsed = 1;
                     PushByteStack(RegP);
                     FlagIRQ = 1;
                     RegPC = ReadWord(0xFFFA);
@@ -767,17 +768,10 @@ namespace EmuoTron
                 {
                     PushWordStack(RegPC);
                     FlagBreak = 0;
+                    FlagNotUsed = 1;
                     PushByteStack(RegP);
                     FlagIRQ = 1;
                     RegPC = ReadWord(0xFFFE);
-                }
-                else if (interruptBRK)
-                {
-                    PushWordStack((RegPC + 1) & 0xFFFF);
-                    PushByteStack(RegP | 0x30);
-                    FlagIRQ = 1;
-                    RegPC = ReadWord(0xFFFE);
-                    interruptBRK = false;
                 }
                 else if (interruptReset)
                 {
@@ -1698,7 +1692,6 @@ namespace EmuoTron
                 Memory[i] = 0;
             }
             interruptReset = false;
-            interruptBRK = false;
             mapper.Power();
             PPU.Power();
             APU.Power();

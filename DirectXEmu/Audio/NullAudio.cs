@@ -42,7 +42,7 @@ namespace DirectXEmu
             int lastFrame = Environment.TickCount - thisFrame;
             int sleepTime = (int)Math.Floor(preciseSleep) - lastFrame + (int)Math.Floor(remainder);
             remainder -= Math.Floor(remainder);
-            if (sleepTime > 0 && sleepTime < 1000) //Second case is just to prevent my bad code from locking up the CPU somehow
+            if (sleepTime > 0 && sleepTime < 50) //Second case is just to prevent my bad code from locking things up
                 Thread.Sleep(sleepTime);
             else if (sleepTime < 0)
                 tooSlow = true;

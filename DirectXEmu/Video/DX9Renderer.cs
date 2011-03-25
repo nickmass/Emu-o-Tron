@@ -52,6 +52,7 @@ namespace DirectXEmu
         public void ChangeScaler(IScaler imageScaler)
         {
             this.imageScaler = imageScaler;
+            Reset();
         }
         public void Reset()
         {
@@ -104,20 +105,23 @@ namespace DirectXEmu
             device.SetTexture(0, texture);
         }
 
-        public void MainLoop()
+        public void MainLoop(bool newScreen)
         {
             if (device != null)
             {
                 try
                 {
-                    unsafe
+                    if (newScreen)
                     {
-                        DataRectangle drt = texture.LockRectangle(0, LockFlags.Discard);
-                        fixed (uint* screenPTR = screen)
+                        unsafe
                         {
-                            imageScaler.PerformScale(screenPTR, (uint*)drt.Data.DataPointer);
+                            DataRectangle drt = texture.LockRectangle(0, LockFlags.Discard);
+                            fixed (uint* screenPTR = screen)
+                            {
+                                imageScaler.PerformScale(screenPTR, (uint*)drt.Data.DataPointer);
+                            }
+                            texture.UnlockRectangle(0);
                         }
-                        texture.UnlockRectangle(0);
                     }
                     device.Clear(ClearFlags.Target, Color.Black, 1.0f, 0);
                     device.BeginScene();

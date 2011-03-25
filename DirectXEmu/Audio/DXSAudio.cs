@@ -24,7 +24,6 @@ namespace DirectXEmu
         int lastSamples;
         int lastWritePos;
         int lastLastWritePos;
-        int lastLastSamples;
 
         public DXSAudio(int sampleRate, short[] buffer, float volume, IntPtr handle)
         {

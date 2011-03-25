@@ -19,7 +19,7 @@ namespace DirectXEmu
         {
         }
 
-        public void MainLoop()
+        public void MainLoop(bool newScreen)
         {
         }
 

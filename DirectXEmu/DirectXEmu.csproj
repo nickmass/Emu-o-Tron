@@ -42,7 +42,7 @@
     <DefineConstants>TRACE;DEBUG;DEBUGGER</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSet>BasicCorrectnessRules.ruleset</CodeAnalysisRuleSet>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GenerateSerializationAssemblies>Auto</GenerateSerializationAssemblies>
   </PropertyGroup>
@@ -198,6 +198,9 @@
     <Compile Include="Audio\DXSAudio.cs" />
     <Compile Include="Audio\IAudio.cs" />
     <Compile Include="Audio\NullAudio.cs" />
+    <Compile Include="ByteViewer.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="CheatFinder.cs">
       <SubType>Form</SubType>
     </Compile>

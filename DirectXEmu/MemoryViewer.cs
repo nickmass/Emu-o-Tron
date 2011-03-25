@@ -18,7 +18,6 @@ namespace DirectXEmu
         int linesPerPage = 32;
         bool updated = false;
         int max = 0;
-        StringBuilder pageMaker;
         public MemoryViewer()
         {
             InitializeComponent();
@@ -33,7 +32,8 @@ namespace DirectXEmu
             toolTip.InitialDelay = 0;
             toolTip.UseAnimation = false;
             toolTip.UseFading = false;
-            pageMaker = new StringBuilder();
+            this.MouseWheel += new MouseEventHandler(memPane_MouseWheel);
+
         }
         public void SetMax(int max)
         {
@@ -42,61 +42,64 @@ namespace DirectXEmu
         }
         void memPane_MouseWheel(object sender, MouseEventArgs e)
         {
-            int change = (e.Delta / 120) * -3;
-            int newValue = scrollBar.Value + change;
-            int oldValue = scrollBar.Value;
-            if (change > 0 && newValue > (scrollBar.Maximum - ((linesPerPage / 2) - 1)))
+            if (e.Delta != 0)
             {
-                scrollBar.Value = (scrollBar.Maximum - ((linesPerPage / 2) - 1));
-                change = scrollBar.Value - oldValue;
-            }
-            else if (change < 0 && newValue < 0)
-            {
-                scrollBar.Value = 0;
-                change = scrollBar.Value - oldValue;
-            }
-            else
-            {
-                scrollBar.Value = newValue;
-            }
-            int scrollChange = (memPane.SelectionStart - (change * 58));
-            if (scrollChange >= 0)
-            {
-                memPane.SelectionStart = scrollChange;
-            }
-            else
-            {
-                memPane.SelectionLength = (memPane.SelectionLength + scrollChange >= 0) ? memPane.SelectionLength + scrollChange : 0;
-                memPane.SelectionStart = 0;
+                int change = (e.Delta / 120) * -3;
+                int newValue = scrollBar.Value + change;
+                int oldValue = scrollBar.Value;
+                if (change > 0 && newValue > (scrollBar.Maximum - ((linesPerPage / 2) - 1)))
+                {
+                    scrollBar.Value = (scrollBar.Maximum - ((linesPerPage / 2) - 1));
+                    change = scrollBar.Value - oldValue;
+                }
+                else if (change < 0 && newValue < 0)
+                {
+                    scrollBar.Value = 0;
+                    change = scrollBar.Value - oldValue;
+                }
+                else
+                {
+                    scrollBar.Value = newValue;
+                }
+                int begin = scrollBar.Value * bytesPerLine;
+                int end = begin + (bytesPerLine * linesPerPage);
+                if (end > max)
+                    end = max;
+                byte[] data = new byte[end - begin];
+                for (int i = begin; i < end; i++)
+                {
+                    data[i - begin] = memory[mirrormap[i]];
+                }
+                memPane.Data = data;
+                memPane.StartAddress = begin;
+                memPane.BytesPerLine = bytesPerLine;
+                memPane.Invalidate();
             }
         }
 
         private void scrollBar_Scroll(object sender, ScrollEventArgs e)
         {
-            pageMaker.Remove(0, pageMaker.Length);
-            int begin = scrollBar.Value * bytesPerLine;
+
+            int begin = e.NewValue * bytesPerLine;
             int end = begin + (bytesPerLine * linesPerPage);
-            for (int i = begin; i < end && i < max; i++)
+            if (end > max)
+                end = max;
+            byte[] data = new byte[end - begin];
+            for (int i = begin; i < end; i++)
             {
-                if (i % bytesPerLine == 0)
-                {
-                    if (i != begin)
-                        pageMaker.Append("\r\n");
-                    else
-                    {
-                        toolTip.SetToolTip(this.scrollBar, "Line: 0x" + i.ToString("X4"));
-                        toolTip.ReshowDelay = 0;
-                        toolTip.AutomaticDelay = 0;
-                        toolTip.AutoPopDelay = 1000;
-                        toolTip.InitialDelay = 0;
-                        toolTip.UseAnimation = false;
-                        toolTip.UseFading = false;
-                    }
-                    pageMaker.Append("0x" + i.ToString("X4") + ": ");
-                }
-                pageMaker.Append(memory[mirrormap[i]].ToString("X2") + " ");
+                data[i - begin] = memory[mirrormap[i]];
             }
-            memPane.Text = pageMaker.ToString();
+            memPane.Data = data;
+            memPane.StartAddress = begin;
+            memPane.BytesPerLine = bytesPerLine;
+            memPane.Invalidate();
+            toolTip.SetToolTip(this.scrollBar, "Line: 0x" + begin.ToString("X4"));
+            toolTip.ReshowDelay = 0;
+            toolTip.AutomaticDelay = 0;
+            toolTip.AutoPopDelay = 1000;
+            toolTip.InitialDelay = 0;
+            toolTip.UseAnimation = false;
+            toolTip.UseFading = false;
         }
         public void updateMemory(MemoryStore memory, ushort[] mirrorMap)
         {
@@ -109,28 +112,19 @@ namespace DirectXEmu
         {
             if (updated)
             {
-                pageMaker.Remove(0, pageMaker.Length);
                 int begin = scrollBar.Value * bytesPerLine;
                 int end = begin + (bytesPerLine * linesPerPage);
-                for (int i = begin; i < end && i < max; i++)
+                if (end > max)
+                    end = max;
+                byte[] data = new byte[end - begin];
+                for (int i = begin; i < end; i++)
                 {
-                    if (i % bytesPerLine == 0)
-                    {
-                        if (i != begin)
-                            pageMaker.Append("\r\n");
-                        else
-                        {
-                            toolTip.SetToolTip(this.scrollBar, "Line: 0x" + i.ToString("X4"));
-                        }
-                        pageMaker.Append("0x" + i.ToString("X4") + ": ");
-                    }
-                    pageMaker.Append(memory[mirrormap[i]].ToString("X2") + " ");
+                    data[i - begin] = memory[mirrormap[i]];
                 }
-                int selStart = memPane.SelectionStart;
-                int selLength = memPane.SelectionLength;
-                memPane.Text = pageMaker.ToString();
-                memPane.SelectionStart = selStart;
-                memPane.SelectionLength = selLength;
+                memPane.Data = data;
+                memPane.StartAddress = begin;
+                memPane.BytesPerLine = bytesPerLine;
+                memPane.UpdateBytes();
             }
         }
 

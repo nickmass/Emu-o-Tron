@@ -57,14 +57,17 @@ namespace DirectXEmu
             texture = new Bitmap(imageScaler.ResizedX, imageScaler.ResizedY);
         }
 
-        public void MainLoop()
+        public void MainLoop(bool newScreen)
         {
             unsafe
             {
-                BitmapData bmd = texture.LockBits(new Rectangle(Point.Empty, texture.Size), ImageLockMode.WriteOnly, PixelFormat.Format32bppRgb);
-                fixed (uint* screenPTR = screen)
-                    imageScaler.PerformScale(screenPTR, (uint*)bmd.Scan0);
-                texture.UnlockBits(bmd);
+                if (newScreen)
+                {
+                    BitmapData bmd = texture.LockBits(new Rectangle(Point.Empty, texture.Size), ImageLockMode.WriteOnly, PixelFormat.Format32bppRgb);
+                    fixed (uint* screenPTR = screen)
+                        imageScaler.PerformScale(screenPTR, (uint*)bmd.Scan0);
+                    texture.UnlockBits(bmd);
+                }
                 buffer.DrawImage(texture, renderSize);
                 DrawMessageEvent(this, null);
                 renderGfx.DrawImageUnscaled(screenBuffer, 0, 0);
@@ -78,6 +81,7 @@ namespace DirectXEmu
         public void ChangeScaler(IScaler imageScaler)
         {
             this.imageScaler = imageScaler;
+            Reset();
         }
 
         public void DrawMessage(string message, Anchor anchor, int xOffset, int yOffset)

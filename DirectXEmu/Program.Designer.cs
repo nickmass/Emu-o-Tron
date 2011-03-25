@@ -699,10 +699,10 @@
             this.Name = "Program";
             this.Text = "Emu-o-Tron";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Program_FormClosing);
-            this.ResizeEnd += new System.EventHandler(this.Program_Resize);
             this.DragDrop += new System.Windows.Forms.DragEventHandler(this.Program_DragDrop);
             this.DragEnter += new System.Windows.Forms.DragEventHandler(this.Program_DragEnter);
             this.KeyUp += new System.Windows.Forms.KeyEventHandler(this.EmuWindow_KeyUp);
+            this.Resize += new System.EventHandler(this.Program_Resize);
             this.menuStrip.ResumeLayout(false);
             this.menuStrip.PerformLayout();
             this.ResumeLayout(false);

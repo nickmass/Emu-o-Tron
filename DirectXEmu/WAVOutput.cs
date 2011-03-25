@@ -6,13 +6,15 @@ using System.IO;
 
 namespace DirectXEmu
 {
-    class WAVOutput
+    class WAVOutput : IDisposable
     {
         private string outputPath;
         private int samples;
         private int sampleRate;
         private FileStream outputFile;
         private BinaryWriter outputWriter;
+        private bool recording;
+
         public WAVOutput(string outputPath, int sampleRate)
         {
             this.outputPath = outputPath;
@@ -22,12 +24,16 @@ namespace DirectXEmu
             outputWriter = new BinaryWriter(outputFile);
             for (int i = 0; i < 44; i++)
                 outputWriter.Write((byte)0);
+            recording = true;
         }
         public void AddSamples(short[] buffer, int samples)
         {
-            this.samples += samples;
-            for (int i = 0; i < samples; i++)
-                outputWriter.Write(buffer[i]);
+            if (recording)
+            {
+                this.samples += samples;
+                for (int i = 0; i < samples; i++)
+                    outputWriter.Write(buffer[i]);
+            }
         }
         public void CompleteRecording()
         {
@@ -59,11 +65,26 @@ namespace DirectXEmu
             outputWriter.Write((byte)'a');
             outputWriter.Write(subchunk2Size);
             outputWriter.Close();
+            outputWriter = null;
+            recording = false;
         }
         ~WAVOutput()
         {
-            if(outputWriter != null)
-                outputWriter.Close();
+            Dispose();
         }
+
+        #region IDisposable Members
+
+        public void Dispose()
+        {
+            if (outputWriter != null)
+            {
+                outputWriter.Close();
+                outputWriter = null;
+                recording = false;
+            }
+        }
+
+        #endregion
     }
 }

@@ -9,7 +9,7 @@ namespace DirectXEmu
     {
         void Create();
         void Reset();
-        void MainLoop();
+        void MainLoop(bool newScreen);
         void Destroy();
         void SmoothOutput(bool smooth);
         void ChangeScaler(IScaler imageScaler);
