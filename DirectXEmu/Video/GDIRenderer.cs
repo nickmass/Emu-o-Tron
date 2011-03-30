@@ -15,9 +15,8 @@ namespace DirectXEmu
         private Control renderTarget;
         private IScaler imageScaler;
         private Bitmap texture;
-        private Bitmap screenBuffer;
-        private Graphics buffer;
-        private Graphics renderGfx;
+        private BufferedGraphics renderGfx;
+        private BufferedGraphicsContext bufferContex;
         private Point[] renderSize;
         private Bitmap charSheet;
         private Dictionary<char, int> charSheetSprites = new Dictionary<char, int>();
@@ -43,18 +42,18 @@ namespace DirectXEmu
         }
         public void Reset()
         {
-            screenBuffer = new Bitmap(renderTarget.Width, renderTarget.Height);
-            buffer = Graphics.FromImage(screenBuffer);
+            bufferContex = BufferedGraphicsManager.Current;
+            bufferContex.MaximumBuffer = renderTarget.Size;
+            renderGfx = bufferContex.Allocate(renderTarget.CreateGraphics(), new Rectangle(0, 0, renderTarget.Width, renderTarget.Height));
             if (smoothOutput)
-                buffer.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;
+                renderGfx.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;
             else
-                buffer.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-            renderGfx = renderTarget.CreateGraphics();
+                renderGfx.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
             renderSize = new Point[3];
             renderSize[0] = new Point(0, 0);
             renderSize[1] = new Point(renderTarget.Width, 0);
             renderSize[2] = new Point(0, renderTarget.Height);
-            texture = new Bitmap(imageScaler.ResizedX, imageScaler.ResizedY);
+            texture = new Bitmap(imageScaler.ResizedX, imageScaler.ResizedY, PixelFormat.Format32bppArgb);
         }
 
         public void MainLoop(bool newScreen)
@@ -63,14 +62,14 @@ namespace DirectXEmu
             {
                 if (newScreen)
                 {
-                    BitmapData bmd = texture.LockBits(new Rectangle(Point.Empty, texture.Size), ImageLockMode.WriteOnly, PixelFormat.Format32bppRgb);
+                    BitmapData bmd = texture.LockBits(new Rectangle(Point.Empty, texture.Size), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
                     fixed (uint* screenPTR = screen)
                         imageScaler.PerformScale(screenPTR, (uint*)bmd.Scan0);
                     texture.UnlockBits(bmd);
                 }
-                buffer.DrawImage(texture, renderSize);
+                renderGfx.Graphics.DrawImage(texture, renderSize);
                 DrawMessageEvent(this, null);
-                renderGfx.DrawImageUnscaled(screenBuffer, 0, 0);
+                renderGfx.Render();
             }
         }
 
@@ -117,7 +116,7 @@ namespace DirectXEmu
                     int charNum = charSheetSprites[message[i]];
                     int charX = (charNum % charSize) * charSize;
                     int charY = (charNum / charSize) * charSize;
-                    buffer.DrawImage(charSheet, new Rectangle(realXOffset + (i * charSize), realYOffset, charSize, charSize), new Rectangle(charX, charY, charSize, charSize), GraphicsUnit.Pixel);
+                    renderGfx.Graphics.DrawImage(charSheet, new Rectangle(realXOffset + (i * charSize), realYOffset, charSize, charSize), new Rectangle(charX, charY, charSize, charSize), GraphicsUnit.Pixel);
                 }
             }
         }

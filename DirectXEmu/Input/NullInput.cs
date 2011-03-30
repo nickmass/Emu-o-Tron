@@ -11,22 +11,18 @@ namespace DirectXEmu
 
         public void Create()
         {
-            throw new NotImplementedException();
         }
 
         public void Reset()
         {
-            throw new NotImplementedException();
         }
 
         public void MainLoop()
         {
-            throw new NotImplementedException();
         }
 
         public void Destroy()
         {
-            throw new NotImplementedException();
         }
 
         public event KeyHandler KeyDownEvent;

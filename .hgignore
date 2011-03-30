@@ -1,4 +1,6 @@
 glob:DirectXEmu/bin/
-glob:DirectXEmu/obj
+glob:DirectXEmu/obj/
 glob:*.suo
 glob:*~
+glob:DirectXEmu/DirectXEmu.csproj.user
+glob:DirectXEmu/Test/

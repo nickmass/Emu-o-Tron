@@ -67,28 +67,22 @@ namespace DirectXEmu
             device = new SlimDX.Direct3D9.Device(d3d, 0, SlimDX.Direct3D9.DeviceType.Hardware, renderTarget.Handle, CreateFlags.HardwareVertexProcessing, pps);
             texture = new Texture(device, imageScaler.ResizedX, imageScaler.ResizedY, 0, Usage.Dynamic, Format.X8R8G8B8, Pool.Default);
             LoadCharSheet();
-            vertexBuffer = new VertexBuffer(device, 6 * Marshal.SizeOf(typeof(Vertex)), Usage.WriteOnly, VertexFormat.PositionRhw | VertexFormat.Texture1, Pool.Managed);
+            vertexBuffer = new VertexBuffer(device, 4 * Marshal.SizeOf(typeof(Vertex)), Usage.WriteOnly, VertexFormat.PositionRhw | VertexFormat.Texture1, Pool.Managed);
 
             DataStream stream = vertexBuffer.Lock(0, 0, LockFlags.None);
-            Vertex[] vertexData = new Vertex[6];
+            Vertex[] vertexData = new Vertex[4];
 
-            vertexData[0].PositionRhw = new Vector4((float)renderTarget.Width + 0f, (float)renderTarget.Height, 0f, 1f);
+            vertexData[0].PositionRhw = new Vector4(renderTarget.Width, renderTarget.Height, 0f, 1f);
             vertexData[0].Texture1 = new Vector2(1f, 1f);
 
-            vertexData[1].PositionRhw = new Vector4(0f, (float)renderTarget.Height, 0f, 1f);
+            vertexData[1].PositionRhw = new Vector4(0f, renderTarget.Height, 0f, 1f);
             vertexData[1].Texture1 = new Vector2(0f, 1f);
 
-            vertexData[2].PositionRhw = new Vector4(0f, 0f, 0f, 1f);
-            vertexData[2].Texture1 = new Vector2(0f, 0f);
+            vertexData[2].PositionRhw = new Vector4(renderTarget.Width, 0f, 0f, 1f);
+            vertexData[2].Texture1 = new Vector2(1f, 0f);
 
             vertexData[3].PositionRhw = new Vector4(0f, 0f, 0f, 1f);
             vertexData[3].Texture1 = new Vector2(0f, 0f);
-
-            vertexData[4].PositionRhw = new Vector4((float)renderTarget.Width + 0f, 0f, 0f, 1f);
-            vertexData[4].Texture1 = new Vector2(1f, 0f);
-
-            vertexData[5].PositionRhw = new Vector4((float)renderTarget.Width + 0f, (float)renderTarget.Height, 0f, 1f);
-            vertexData[5].Texture1 = new Vector2(1f, 1f);
 
             stream.WriteRange(vertexData);
             vertexBuffer.Unlock();
@@ -125,7 +119,7 @@ namespace DirectXEmu
                     }
                     device.Clear(ClearFlags.Target, Color.Black, 1.0f, 0);
                     device.BeginScene();
-                    device.DrawPrimitives(PrimitiveType.TriangleList, 0, 2);
+                    device.DrawPrimitives(PrimitiveType.TriangleStrip, 0, 2);
                     DrawMessageEvent(this, null);
                     device.EndScene();
                     device.Present();

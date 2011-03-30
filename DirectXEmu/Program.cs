@@ -106,7 +106,6 @@ namespace DirectXEmu
         private bool fullScreen = false;
         private Point smallLocation;
         private Size smallSize;
-        int memoryViewerMem = 0;
 
         byte[] movie = new byte[60 * 60 * 60 * 12];//twelve hours should be enough
         int moviePtr = 0;
@@ -335,10 +334,6 @@ namespace DirectXEmu
             {
                 cpu.Start(player1, player2, (this.frame % this.frameSkipper != 0));
             }
-            if (memoryViewerMem == 1)
-                memoryViewer.updateMemory(cpu.Memory, cpu.MirrorMap);
-            else if (memoryViewerMem == 2)
-                memoryViewer.updateMemory(cpu.PPU.PPUMemory, cpu.PPU.PPUMirrorMap);
             if (this.generatePatternTables && this.frame % this.patternTableUpdate == 0)
             {
                 this.patternTablePreview.UpdatePatternTables(cpu.PPU.patternTables, cpu.PPU.patternTablesPalette);
@@ -638,6 +633,10 @@ namespace DirectXEmu
                 case "DX9":
                     config["renderer"] = "DX9";
                     renderer = new DX9Renderer(surfaceControl, imageScaler, cpu.PPU.screen, smoothOutputToolStripMenuItem.Checked);
+                    break;
+                case "DX10":
+                    config["renderer"] = "DX10";
+                    renderer = new DX10Renderer(surfaceControl, imageScaler, cpu.PPU.screen, smoothOutputToolStripMenuItem.Checked);
                     break;
 #endif
                 case "Null":
@@ -1734,44 +1733,21 @@ namespace DirectXEmu
 
         private void memoryViewerToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (memoryViewerMem == 0)
-            {
-                this.memoryViewer = new MemoryViewer();
-                this.memoryViewer.FormClosed += new FormClosedEventHandler(memoryViewer_FormClosed);
-                this.memoryViewer.SetMax(0x10000);
-                this.memoryViewerMem = 1;
-                this.memoryViewer.Show();
-            }
-            else
-            {
-                this.memoryViewer.SetMax(0x10000);
-                this.memoryViewerMem = 1;
-                this.memoryViewer.Activate();
-            }
+            this.memoryViewer = new MemoryViewer();
+            this.memoryViewer.Show();
+            if(cpu != null)
+                memoryViewer.updateMemory(cpu.Memory, cpu.MirrorMap, 0x10000);
+            this.memoryViewer.Text = "Memory Viewer";
 
         }
         private void pPUMemoryViewerToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (memoryViewerMem == 0)
-            {
-                this.memoryViewer = new MemoryViewer();
-                this.memoryViewer.FormClosed += new FormClosedEventHandler(memoryViewer_FormClosed);
-                this.memoryViewer.SetMax(0x4000);
-                this.memoryViewerMem = 2;
-                this.memoryViewer.Show();
-            }
-            else
-            {
-                this.memoryViewer.SetMax(0x4000);
-                this.memoryViewerMem = 2;
-                this.memoryViewer.Activate();
-            }
+            this.memoryViewer = new MemoryViewer();
+            this.memoryViewer.Show();
+            if (cpu != null)
+                memoryViewer.updateMemory(cpu.PPU.PPUMemory, cpu.PPU.PPUMirrorMap, 0x4000);
+            this.memoryViewer.Text = "PPU Memory Viewer";
 
-        }
-
-        private void memoryViewer_FormClosed(object sender, FormClosedEventArgs e)
-        {
-            this.memoryViewerMem = 0;
         }
 
         private void debuggerToolStripMenuItem_Click(object sender, EventArgs e)

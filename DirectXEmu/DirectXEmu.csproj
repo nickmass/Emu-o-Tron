@@ -168,9 +168,9 @@
     <NoWin32Manifest>true</NoWin32Manifest>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="SlimDX, Version=2.0.8.42, Culture=neutral, PublicKeyToken=b1b0c32fd1ffe4f9" Condition="'$(Configuration)' != 'Mono'">
+    <Reference Include="SlimDX, Version=2.0.11.43, Culture=neutral, PublicKeyToken=b1b0c32fd1ffe4f9" Condition="'$(Configuration)' != 'Mono'">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\SlimDX SDK (June 2010)\Bin\net20\x64\SlimDX.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\..\Program Files (x86)\SlimDX SDK (March 2011)\Bin\net20\x64\SlimDX.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core">
@@ -219,6 +219,7 @@
     <Compile Include="Input\NullInput.cs" />
     <Compile Include="NSFScreen.cs" />
     <Compile Include="RomPatching.cs" />
+    <Compile Include="Video\DX10Renderer.cs" />
     <Compile Include="Video\DX9Renderer.cs" />
     <Compile Include="EmuoTron\APU.cs" />
     <Compile Include="7Zip\ArchiveCallback.cs" />
@@ -615,6 +616,7 @@
     </Compile>
     <Compile Include="Video\Scalers\Scale2x.cs" />
     <Compile Include="Video\Scalers\IScaler.cs" />
+    <EmbeddedResource Include="Video\Shaders\SimpleRender.fx" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="7z.dll" Condition="'$(Configuration)' != 'Mono'">

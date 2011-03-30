@@ -1348,76 +1348,81 @@ namespace EmuoTron
             byte nextByte = Memory[address];
 
 
-            if (!nsfPlayer)
+            if ((address & 0xF000) == 0x4000)
             {
-                nextByte = PortOne.Read(nextByte, address);
-                nextByte = PortTwo.Read(nextByte, address);
+                if (!nsfPlayer)
+                {
+                    nextByte = PortOne.Read(nextByte, address);
+                    nextByte = PortTwo.Read(nextByte, address);
+                }
+                if (rom.vsUnisystem)
+                {
+                    if (address == 0x4016)
+                    {
+                        //nextbyte should be coming from controller reg with data in bit 1
+                        /*
+                            * Port 4016h/Read:
+                            Bit2    Credit Service Button       (0=Released, 1=Service Credit)
+                            Bit3-4  DIP Switch 1-2              (0=Off, 1=On)
+                            Bit5-6  Credit Left/Right Coin Slot (0=None, 1=Coin) (Acknowledge via 4020h)
+                            */
+                        if (creditService)
+                            nextByte |= 0x04;
+                        else
+                            nextByte &= 0xFB;
+                        if (dip1)
+                            nextByte |= 0x08;
+                        else
+                            nextByte &= 0xF7;
+                        if (dip2)
+                            nextByte |= 0x10;
+                        else
+                            nextByte &= 0xEF;
+                        if (players[0].coin)
+                            nextByte |= 0x20;
+                        else
+                            nextByte &= 0xDF;
+                        if (players[1].coin)
+                            nextByte |= 0x40;
+                        else
+                            nextByte &= 0xBF;
+                    }
+                    else if (address == 0x4017)
+                    {
+                        if (dip3)
+                            nextByte |= 0x04;
+                        else
+                            nextByte &= 0xFB;
+                        if (dip4)
+                            nextByte |= 0x08;
+                        else
+                            nextByte &= 0xF7;
+                        if (dip5)
+                            nextByte |= 0x10;
+                        else
+                            nextByte &= 0xEF;
+                        if (dip6)
+                            nextByte |= 0x20;
+                        else
+                            nextByte &= 0xDF;
+                        if (dip7)
+                            nextByte |= 0x40;
+                        else
+                            nextByte &= 0xBF;
+                        if (dip8)
+                            nextByte |= 0x80;
+                        else
+                            nextByte &= 0x7F;
+                    }
+                }
+                nextByte = APU.Read(nextByte, address);
             }
-            if (rom.vsUnisystem)
+            else if ((address & 0xF000) == 0x2000)
             {
-                if (address == 0x4016)
-                {
-                    //nextbyte should be coming from controller reg with data in bit 1
-                    /*
-                        * Port 4016h/Read:
-                        Bit2    Credit Service Button       (0=Released, 1=Service Credit)
-                        Bit3-4  DIP Switch 1-2              (0=Off, 1=On)
-                        Bit5-6  Credit Left/Right Coin Slot (0=None, 1=Coin) (Acknowledge via 4020h)
-                        */
-                    if (creditService)
-                        nextByte |= 0x04;
-                    else
-                        nextByte &= 0xFB;
-                    if (dip1)
-                        nextByte |= 0x08;
-                    else
-                        nextByte &= 0xF7;
-                    if (dip2)
-                        nextByte |= 0x10;
-                    else
-                        nextByte &= 0xEF;
-                    if (players[0].coin)
-                        nextByte |= 0x20;
-                    else
-                        nextByte &= 0xDF;
-                    if (players[1].coin)
-                        nextByte |= 0x40;
-                    else
-                        nextByte &= 0xBF;
-                }
-                else if (address == 0x4017)
-                {
-                    if (dip3)
-                        nextByte |= 0x04;
-                    else
-                        nextByte &= 0xFB;
-                    if (dip4)
-                        nextByte |= 0x08;
-                    else
-                        nextByte &= 0xF7;
-                    if (dip5)
-                        nextByte |= 0x10;
-                    else
-                        nextByte &= 0xEF;
-                    if (dip6)
-                        nextByte |= 0x20;
-                    else
-                        nextByte &= 0xDF;
-                    if (dip7)
-                        nextByte |= 0x40;
-                    else
-                        nextByte &= 0xBF;
-                    if (dip8)
-                        nextByte |= 0x80;
-                    else
-                        nextByte &= 0x7F;
-                }
+                if (!nsfPlayer)
+                    nextByte = PPU.Read(nextByte, address);
             }
             nextByte = mapper.Read(nextByte, address);
-            nextByte = APU.Read(nextByte, address);
-
-            if (!nsfPlayer)
-                nextByte = PPU.Read(nextByte, address);
 #if DEBUGGER
             nextByte = debug.Read(nextByte, address);
 #endif
@@ -1428,39 +1433,41 @@ namespace EmuoTron
         private int ReadWord(int address)
         {
             int highAddress = (address + 1) & 0xFFFF;
-            return (Read(address) + (Read(highAddress) << 8)) & 0xFFFF;
+            return (Read(address) | (Read(highAddress) << 8)) & 0xFFFF;
         }
         private int ReadWordWrap(int address)
         {
             int highAddress = (address & 0xFF00) | ((address + 1) & 0xFF);
-            return (Read(address) + (Read(highAddress) << 8)) & 0xFFFF;
+            return (Read(address) | (Read(highAddress) << 8)) & 0xFFFF;
         }
         private void Write(int addr, int val)
         {
             ushort address = MirrorMap[addr & 0xFFFF];
             byte value = (byte)(val & 0xFF);
 
-
-            if (!nsfPlayer)
+            if ((address & 0xF000) == 0x4000 || (address & 0xF000) == 0x2000)
             {
-                PortOne.Write(value, address);
-                PortTwo.Write(value, address);
-            }
-            if (rom.vsUnisystem)
-            {
-                if (address == 0x4020)
+                if (!nsfPlayer)
                 {
-                    if ((value & 1) != 0)
+                    PortOne.Write(value, address);
+                    PortTwo.Write(value, address);
+                }
+                if (rom.vsUnisystem)
+                {
+                    if (address == 0x4020)
                     {
-                        players[0].coin = false;
-                        players[1].coin = false;
+                        if ((value & 1) != 0)
+                        {
+                            players[0].coin = false;
+                            players[1].coin = false;
+                        }
                     }
                 }
+                APU.Write(value, address);
+                if (!nsfPlayer)
+                    PPU.Write(value, address);//Need this in here for sprite DMA
             }
             mapper.Write(value, address);
-            APU.Write(value, address);
-            if (!nsfPlayer)
-                PPU.Write(value, address);
 #if DEBUGGER
             debug.Write(value, address);
 #endif
