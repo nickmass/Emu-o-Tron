@@ -11,7 +11,6 @@ using System.Diagnostics;
 using System.Threading;
 using EmuoTron;
 using NetPlay;
-//using SlimDX;
 
 namespace DirectXEmu
 {
@@ -635,10 +634,12 @@ namespace DirectXEmu
                     renderer = new DX9Renderer(surfaceControl, imageScaler, cpu.PPU.screen, smoothOutputToolStripMenuItem.Checked);
                     break;
                 case "DX10":
-                    config["renderer"] = "DX10";
                     renderer = new DX10Renderer(surfaceControl, imageScaler, cpu.PPU.screen, smoothOutputToolStripMenuItem.Checked);
                     break;
 #endif
+                case "OGL":
+                    renderer = new OpenGLRenderer(surfaceControl, imageScaler, cpu.PPU.screen, smoothOutputToolStripMenuItem.Checked);
+                    break;
                 case "Null":
                     renderer = new NullRenderer();
                     break;
@@ -648,6 +649,9 @@ namespace DirectXEmu
 
             switch (config["audio"])
             {
+                case "OAL":
+                    audio = new OpenALAudio(cpu.APU.sampleRate, cpu.APU.output, Convert.ToInt32(config["volume"]) / 100f);
+                    break;
 
 #if NO_DX
                 default:

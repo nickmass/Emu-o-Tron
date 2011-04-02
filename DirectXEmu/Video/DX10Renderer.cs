@@ -259,7 +259,7 @@ namespace DirectXEmu
                     break;
 
             }
-            float scale = 64f / (float)renderTarget.Width;
+            float scale = 64f / (float)renderTarget.Width; //A lot of stuff here assume a charSize for 16, and the size of the character sheet being 256x256, but it's currently too delicate of a balance for me to try to cleanup.
             float xf = (((((float)realXOffset / (float)renderTarget.Width) * 2f) - 1) * 2) + (0.5f * scale);
             float yf = -((((((float)realYOffset / (float)renderTarget.Height) * 2f) - 1) * 2) + (0.5f * scale));
 

@@ -14,7 +14,7 @@ namespace DirectXEmu
 
         WaveFormat audioFormat;
 
-        int volume;
+        float volume;
         IntPtr handle;
         short[] buffer;
         DirectSound device;
@@ -26,18 +26,27 @@ namespace DirectXEmu
         int lastWritePos;
         int lastLastWritePos;
 
+        int bufferSize;
+
+        private double samplesPerMS;
+        private int thisFrame;
+        private double remainder = 0;
+
         public DXSAudio(int sampleRate, short[] buffer, float volume, IntPtr handle)
         {
             this.buffer = buffer;
-            this.volume = (int)Math.Floor(volume * 100);
+            this.volume = volume;
             this.handle = handle;
             audioFormat = new WaveFormat();
             audioFormat.BitsPerSample = 16;
             audioFormat.Channels = 1;
             audioFormat.SamplesPerSecond = sampleRate;
             audioFormat.BlockAlignment = (short)(audioFormat.BitsPerSample * audioFormat.Channels / 8);
-            audioFormat.AverageBytesPerSecond = (audioFormat.BitsPerSample / 8) * audioFormat.SamplesPerSecond;
+            audioFormat.AverageBytesPerSecond = audioFormat.BlockAlignment * audioFormat.SamplesPerSecond;
             audioFormat.FormatTag = WaveFormatTag.Pcm;
+
+
+            samplesPerMS = sampleRate / 1000.0;
         }
         #region IAudio Members
 
@@ -53,48 +62,75 @@ namespace DirectXEmu
 
         public void Reset()
         {
-            sBufferDescription.Flags = BufferFlags.GlobalFocus | BufferFlags.ControlVolume;
+            bufferSize = audioFormat.AverageBytesPerSecond / 10;
+            sBufferDescription.Flags = BufferFlags.GlobalFocus | BufferFlags.ControlVolume | BufferFlags.GetCurrentPosition2;
             sBufferDescription.Format = audioFormat;
-            sBufferDescription.SizeInBytes = audioFormat.AverageBytesPerSecond * 3;
+            sBufferDescription.SizeInBytes = bufferSize * 2;
             sBuffer = new SecondarySoundBuffer(device, sBufferDescription);
-            //sBuffer.Volume = volume;
-            sBuffer.Play(0, PlayFlags.Looping);
+            sBuffer.Volume = FloatToDB(volume);
         }
-
-        public void MainLoop(int samples, bool reverse)
+        int bufferOffset = 0;
+        bool flip;
+        public void MainLoop(int samples, bool reverse)//Write cursor is basically useless, need to keep track of own write position and hope it lines up with playback. With proper Sync algo it should be acceptable.
         {
-            sBuffer.Write(buffer, 0, samples, lastWritePos, LockFlags.FromWriteCursor);
+            short[] smallBuf = new short[samples];
+            for (int i = 0; i < samples; i++)
+            {
+                smallBuf[i] = buffer[i];
+            }
+            if (bufferOffset + samples + 1 > bufferSize)
+            {
+                int spaceLeft = bufferSize - (bufferOffset + 1);
+                sBuffer.Write(smallBuf, 0, spaceLeft, bufferOffset * 2, LockFlags.None);
+                sBuffer.Write(smallBuf, spaceLeft, samples - spaceLeft, 0, LockFlags.None);
+                bufferOffset = spaceLeft;
+                flip = true;
+            }
+            else
+            {
+                sBuffer.Write(smallBuf, 0, samples, bufferOffset * 2, LockFlags.None);
+                bufferOffset += samples;
+                flip = false;
+            }
+            if(sBuffer.Status != (BufferStatus.Looping | BufferStatus.Playing))
+                sBuffer.Play(0, PlayFlags.Looping);
             lastLastWritePos = lastWritePos;
             lastWritePos = sBuffer.CurrentWritePosition;
             lastSamples = samples;
         }
 
-        public void SetVolume(float volume) //Volume is measured in DB, don't bother handling it now.
+        public void SetVolume(float volume)
         {
-            //sBuffer.Volume = (int)Math.Floor(volume * 100);
+            sBuffer.Volume = FloatToDB(volume);
         }
-
-        public bool SyncToAudio() //Not syncing correctly :(
+        private int FloatToDB(float volume)
         {
-            bool tooSlow = true;
-            if (lastLastWritePos > lastWritePos && (sBuffer.CurrentPlayPosition > lastWritePos))//I think the buffer loops around to the other side, this should catch that
+            if (volume <= 0.25)
             {
-                while ((lastLastWritePos + (lastSamples * 2)) - sBuffer.CurrentPlayPosition > (lastSamples * 2))
-                {
-                    Thread.Sleep(1);
-                    tooSlow = false;
-                }
-
+                return (int)((volume * 2.8 * 10000) - 10000);
             }
             else
             {
-                while (lastWritePos - sBuffer.CurrentPlayPosition > (lastSamples * 2)) //Im assuming those positions are in bytes?
-                {
-                    Thread.Sleep(1);
-                    tooSlow = false;
-                }
+                double range = -1 * ((10000 * 0.7) - 10000);
+                double offset = ((volume - 0.25) * (4 / 3)) * range;
+                return (int)(offset - range);
             }
+        }
+        public bool SyncToAudio() //Not syncing correctly :( stealing null audio sync
+        {
+            bool tooSlow = false;
+            double preciseSleep = lastSamples / samplesPerMS;
+            remainder += preciseSleep - Math.Floor(preciseSleep);
+            int lastFrame = Environment.TickCount - thisFrame;
+            int sleepTime = (int)Math.Floor(preciseSleep) - lastFrame + (int)Math.Floor(remainder);
+            remainder -= Math.Floor(remainder);
+            if (sleepTime > 0 && sleepTime < 50) //Second case is just to prevent my bad code from locking things up
+                Thread.Sleep(sleepTime);
+            else if (sleepTime < 0)
+                tooSlow = true;
+            thisFrame = Environment.TickCount;
             return tooSlow;
+
         }
 
         public void Destroy()

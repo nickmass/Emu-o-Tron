@@ -168,6 +168,8 @@
     <NoWin32Manifest>true</NoWin32Manifest>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="OpenTK, Version=1.0.0.0, Culture=neutral, PublicKeyToken=bad199fe84eb3df4, processorArchitecture=MSIL" />
+    <Reference Include="OpenTK.GLControl, Version=1.0.0.0, Culture=neutral, PublicKeyToken=bad199fe84eb3df4, processorArchitecture=MSIL" />
     <Reference Include="SlimDX, Version=2.0.11.43, Culture=neutral, PublicKeyToken=b1b0c32fd1ffe4f9" Condition="'$(Configuration)' != 'Mono'">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\..\..\..\..\Program Files (x86)\SlimDX SDK (March 2011)\Bin\net20\x64\SlimDX.dll</HintPath>
@@ -198,6 +200,7 @@
     <Compile Include="Audio\DXSAudio.cs" />
     <Compile Include="Audio\IAudio.cs" />
     <Compile Include="Audio\NullAudio.cs" />
+    <Compile Include="Audio\OpenALAudio.cs" />
     <Compile Include="ByteViewer.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -341,6 +344,7 @@
     <Compile Include="Video\Scalers\HQ2x.cs" />
     <Compile Include="Video\Scalers\TVAspect.cs" />
     <Compile Include="Audio\XA2Audio.cs" />
+    <Compile Include="Video\OpenGLRenderer.cs" />
     <Compile Include="WAVOutput.cs" />
     <Compile Include="Input\WinInput.cs" />
     <Compile Include="Input\XInInput.cs" />
