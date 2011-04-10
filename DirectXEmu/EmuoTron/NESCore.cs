@@ -805,7 +805,7 @@ namespace EmuoTron
                 if (inputStream.ReadByte() != 'N' || inputStream.ReadByte() != 'E' || inputStream.ReadByte() != 'S' || inputStream.ReadByte() != 'M' || inputStream.ReadByte() != 0x1A)
                 {
                     inputStream.Close();
-                    throw (new Exception("Invalid File"));
+                    throw (new BadHeaderException("Invalid File"));
                 }
             }
             inputStream.Position = 0x5;
@@ -949,7 +949,7 @@ namespace EmuoTron
             opList = OpInfo.GetOps();
             if (!File.Exists(input))
             {
-                throw new Exception("FDS BIOS not found.");
+                throw new FDSBiosException("FDS BIOS not found.");
             }
             Stream biosStream = File.OpenRead(input);
             Stream diskStream = File.OpenRead(fdsImage);
@@ -1003,7 +1003,7 @@ namespace EmuoTron
                 if (inputStream.ReadByte() != 'N' || inputStream.ReadByte() != 'E' || inputStream.ReadByte() != 'S' || inputStream.ReadByte() != 0x1A)
                 {
                     inputStream.Close();
-                    throw (new Exception("Invalid File"));
+                    throw (new BadHeaderException("Invalid File"));
                 }
             }
             inputStream.Position = 0x4;
@@ -1809,5 +1809,28 @@ namespace EmuoTron
         public MemoryStream stateStream;
         public bool isStored;
         public int frame;
+    }
+
+    [Serializable]
+    public class BadHeaderException : Exception
+    {
+        public BadHeaderException() { }
+        public BadHeaderException(string message) : base(message) { }
+        public BadHeaderException(string message, Exception inner) : base(message, inner) { }
+        protected BadHeaderException(
+          System.Runtime.Serialization.SerializationInfo info,
+          System.Runtime.Serialization.StreamingContext context)
+            : base(info, context) { }
+    }
+    [Serializable]
+    public class FDSBiosException : Exception
+    {
+        public FDSBiosException() { }
+        public FDSBiosException(string message) : base(message) { }
+        public FDSBiosException(string message, Exception inner) : base(message, inner) { }
+        protected FDSBiosException(
+          System.Runtime.Serialization.SerializationInfo info,
+          System.Runtime.Serialization.StreamingContext context)
+            : base(info, context) { }
     }
 }

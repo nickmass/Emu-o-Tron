@@ -557,27 +557,22 @@ namespace DirectXEmu
                 else
                     this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath, Convert.ToInt32(this.config["sampleRate"]), 1);
             }
-            catch (Exception e)
+            catch (BadHeaderException e)
             {
-                if (e.Message == "Invalid File")
-                {
-                    if (MessageBox.Show("File appears to be invalid. Attempt load anyway?", "Error", MessageBoxButtons.YesNo) == DialogResult.Yes)
-                        if (Path.GetExtension(romPath).ToLower() == ".fds")
-                            this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), config["fdsBios"], this.romPath, this.appPath, Convert.ToInt32(this.config["sampleRate"]), 1, true);
-                        else if (Path.GetExtension(romPath).ToLower() == ".nsf")
-                            this.cpu = new NESCore(this.romPath, Convert.ToInt32(this.config["sampleRate"]), 1, true);
-                        else
-                            this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath, Convert.ToInt32(this.config["sampleRate"]), 1, true);
+                if (MessageBox.Show("File appears to be invalid. Attempt load anyway?", "Error", MessageBoxButtons.YesNo) == DialogResult.Yes)
+                    if (Path.GetExtension(romPath).ToLower() == ".fds")
+                        this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), config["fdsBios"], this.romPath, this.appPath, Convert.ToInt32(this.config["sampleRate"]), 1, true);
+                    else if (Path.GetExtension(romPath).ToLower() == ".nsf")
+                        this.cpu = new NESCore(this.romPath, Convert.ToInt32(this.config["sampleRate"]), 1, true);
                     else
-                        throw (e);
-                }
-                else if (e.Message == "FDS BIOS not found.")
-                {
-                    MessageBox.Show("FDS BIOS image not found.");
-                    throw (e);
-                }
+                        this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath, Convert.ToInt32(this.config["sampleRate"]), 1, true);
                 else
                     throw (e);
+            }
+            catch (FDSBiosException e)
+            {
+                MessageBox.Show("FDS BIOS image not found.");
+                return;
             }
             this.frame = 0;
             moviePtr = 0;
@@ -756,21 +751,16 @@ namespace DirectXEmu
                         this.AddRecentFile(fileName);
                 }
             }
-            catch (Exception e)
+            catch (BadHeaderException e)
             {
-                if (e.Message == "Invalid File")
+                SystemState old = state;
+                state = SystemState.SystemPause;
+                if (this.openFile.ShowDialog() == DialogResult.OK)
                 {
-                    SystemState old = state;
-                    state = SystemState.SystemPause;
-                    if (this.openFile.ShowDialog() == DialogResult.OK)
-                    {
-                        state = old;
-                        this.OpenFile(this.openFile.FileName);
+                    state = old;
+                    this.OpenFile(this.openFile.FileName);
 
-                    }
                 }
-                else
-                    throw (e);
             }
         }
 

@@ -232,7 +232,6 @@
     <Compile Include="Console.Designer.cs">
       <DependentUpon>Console.cs</DependentUpon>
     </Compile>
-    <Compile Include="EmuoTron\CPPU.cs" />
     <Compile Include="EmuoTron\CRC32.cs" />
     <Compile Include="DipDialog.cs">
       <SubType>Form</SubType>

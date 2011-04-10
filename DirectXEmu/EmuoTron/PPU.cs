@@ -116,6 +116,27 @@ namespace EmuoTron
                     break;
 
             }
+            horzFlipTable = new byte[256];
+            for (int i = 0; i < 256; i++)
+            {
+                horzFlipTable[i] = 0;
+                if ((i & 0x80) != 0)
+                    horzFlipTable[i] |= 0x01;
+                if ((i & 0x40) != 0)
+                    horzFlipTable[i] |= 0x02;
+                if ((i & 0x20) != 0)
+                    horzFlipTable[i] |= 0x04;
+                if ((i & 0x10) != 0)
+                    horzFlipTable[i] |= 0x08;
+                if ((i & 0x08) != 0)
+                    horzFlipTable[i] |= 0x10;
+                if ((i & 0x04) != 0)
+                    horzFlipTable[i] |= 0x20;
+                if ((i & 0x02) != 0)
+                    horzFlipTable[i] |= 0x40;
+                if ((i & 0x01) != 0)
+                    horzFlipTable[i] |= 0x80;
+            }
         }
         public void Power()
         {
@@ -154,7 +175,7 @@ namespace EmuoTron
             if (address == 0x2002) //PPU Status register
             {
                 nextByte = 0;
-                SpriteZeroHit();
+                //SpriteZeroHit();
                 if (spriteOverflow)
                     nextByte |= 0x20;
                 if (spriteZeroHit)
@@ -313,6 +334,330 @@ namespace EmuoTron
         {
             loopyV = (loopyV & 0x7BE0) | (loopyT & 0x041F);
         }
+        int lastUpdate = 0, currentTime = 0;
+        byte tile1Latch = 0;
+        byte tile2Latch = 0;
+        int paletteLatch = 0;
+        int paletteLatcher = 0;
+        int paletteShift = 0;
+        ushort tile1Shift = 0, tile2Shift = 0;
+        byte tileNumber = 0;
+        int tileAddress = 0;
+        int shiftCount = 0;
+        bool oddFrame;
+        int testCounter = 0;
+        int spriteN = 0;
+        int spriteM = 0;
+        int secondaryOAMPtr = 0;
+        int spritesFound = 0;
+        int spriteCount = 0;
+        int currentSprite = 0;
+        bool spriteInRange;
+        bool zeroBackgroundPixel;
+        private byte[] spriteTileShift1 = new byte[8];
+        private byte[] spriteTileShift2 = new byte[8];
+        private int[] spriteCounter = new int[8];
+        private int[] spritePalette = new int[8];
+        private bool[] spriteAbove = new bool[8];
+        private byte[] horzFlipTable;
+        private byte[] secondaryOAM = new byte[32];
+        bool spriteZeroLine;
+        public void AddCycles(int cycles)
+        {
+            if (nes.nesRegion == SystemType.PAL)
+            {
+                int palCycles = 0;
+                for (int i = 0; i < cycles; i++)
+                {
+                    if (palCounter++ % 5 != 0)
+                        palCycles += 3;
+                    else
+                        palCycles += 4;
+                }
+                currentTime += palCycles;
+            }
+            else
+            {
+                currentTime += cycles * 3;
+            }
+            if (pendingNMI == 2) //Blargg's 04-nmi_control.nes tests this, if NMI is enabled during vblank it fires after the NEXT instruction, this is a messy solution to a messy problem
+            {
+                pendingNMI = 0;
+                interruptNMI = true;
+            }
+            else if (pendingNMI == 1)
+            {
+                pendingNMI++;
+            }
+            Update();
+        }
+        private void Update()
+        {
+            while (lastUpdate < currentTime)
+            {
+                if (scanline < 240 && (backgroundRendering || spriteRendering))
+                {
+                    if (scanline == -1 && scanlineCycle == 304)
+                    {
+                        VerticalReset();
+                    }
+                    else if (scanlineCycle == 251)
+                    {
+                        VerticalIncrement();
+                        if (nes.rom.mapper == 4 || nes.rom.mapper == 48)
+                            nes.mapper.IRQ(scanline);
+                    }
+                    else if (scanlineCycle == 257)
+                    {
+                        HorizontalReset();
+                    }
+                    else if (scanlineCycle == 32) //All sprite loading functions have been optimized to run within a single cycle in the middle of their period they are meant to run, can do it right once I get speed up to par again.
+                    {
+                        for (int i = 0; i < 32; i++)
+                            secondaryOAM[i] = 0xFF;
+                    }
+                    else if (scanlineCycle == 160)
+                    {
+                        secondaryOAMPtr = 0;
+                        spriteN = 0;
+                        spriteInRange = false;
+                        spritesFound = 0;
+                        spriteZeroLine = false;
+                        while (spriteN < 64 && spritesFound < 9)
+                        {
+                            if (spriteInRange)
+                            {
+                                if (spriteN == 0)
+                                    spriteZeroLine = true;
+                                secondaryOAM[secondaryOAMPtr] = SPRMemory[(spriteN << 2) + spriteM];
+                                secondaryOAMPtr++;
+                                spriteM++;
+                                if (spriteM == 4)
+                                {
+                                    spriteM = 0;
+                                    spriteInRange = false;
+                                    spriteN++;
+                                }
+                            }
+                            else
+                            {
+                                if (SPRMemory[spriteN << 2] <= scanline && SPRMemory[spriteN << 2] > (scanline - (tallSprites ? 16 : 8)))
+                                {
+                                    spritesFound++;
+                                    if (spritesFound >= 9)
+                                    {
+                                        spriteOverflow = true;
+                                    }
+                                    else
+                                    {
+                                        spriteInRange = true;
+                                    }
+                                }
+                                else
+                                {
+                                    spriteN++;
+                                }
+                            }
+                        }
+                    }
+                    else if (scanlineCycle == 288)
+                    {
+                        currentSprite = 0;
+                        while (currentSprite < spritesFound && currentSprite < 8)
+                        {
+                            int spriteY = ((scanline) - secondaryOAM[currentSprite << 2]);
+                            int tileNumber = secondaryOAM[(currentSprite << 2) + 1];
+                            int attr = secondaryOAM[(currentSprite << 2) + 2];
+                            spriteCounter[currentSprite] = secondaryOAM[(currentSprite << 2) + 3];
+                            spritePalette[currentSprite] = ((attr & 3) << 2) | 0x10;
+                            spriteAbove[currentSprite] = (attr & 0x20) == 0;
+                            bool horzFlip = (attr & 0x40) != 0;
+                            bool vertFlip = (attr & 0x80) != 0;
+                            int chrAddress;
+                            if (tallSprites)
+                            {
+                                int spriteTable;
+                                if ((tileNumber & 1) != 0)
+                                    spriteTable = 0x1000;
+                                else
+                                    spriteTable = 0x0000;
+                                tileNumber &= 0xFE;
+                                int flipper = 0;
+                                if (spriteY > 7)
+                                {
+                                    tileNumber |= 1;
+                                    if (vertFlip)
+                                        flipper = Flip[spriteY & 7] - 16;
+                                }
+                                else if (vertFlip)
+                                    flipper = Flip[spriteY & 7] + 16;
+                                chrAddress = (spriteTable | (tileNumber << 4) | (spriteY & 7)) + flipper;
+                            }
+                            else
+                            {
+                                chrAddress = (this.spriteTable | (tileNumber << 4) | (spriteY & 7)) + (vertFlip ? Flip[spriteY & 7] : 0);
+                            }
+                            if (!horzFlip)
+                            {
+                                spriteTileShift1[currentSprite] = horzFlipTable[PPUMemory[chrAddress]];
+                                spriteTileShift2[currentSprite] = horzFlipTable[PPUMemory[chrAddress + 8]];
+                            }
+                            else
+                            {
+                                spriteTileShift1[currentSprite] = PPUMemory[chrAddress];
+                                spriteTileShift2[currentSprite] = PPUMemory[chrAddress + 8];
+                            }
+                            currentSprite++;
+                        }
+                        spriteCount = (spritesFound > 8) ? 8 : spritesFound;
+                    }
+                    if (scanlineCycle < 256 || (scanlineCycle >= 320 && scanlineCycle < 336))
+                    {
+                        if (shiftCount == 0)
+                        {
+                            tileAddress = PPUMirrorMap[0x2000 | (loopyV & 0x0FFF)];
+                            tileNumber = PPUMemory[tileAddress];
+                        }
+                        else if (shiftCount == 2)
+                        {
+                            int addrTableLookup = AttrTableLookup[tileAddress & 0x3FF];
+                            paletteLatcher = (PPUMemory[((tileAddress & 0x3C00) + 0x3C0) + (addrTableLookup & 0xFF)] >> (addrTableLookup >> 12)) & 0x3;
+                        }
+                        else if (shiftCount == 4)
+                        {
+                            tile1Latch = PPUMemory[backgroundTable + (tileNumber << 4) + ((loopyV >> 12) & 7)];
+                        }
+                        else if (shiftCount == 6)
+                        {
+                            tile2Latch = PPUMemory[backgroundTable + (tileNumber << 4) + ((loopyV >> 12) & 7) + 8];
+                            HorizontalIncrement();
+                        }
+                        if (scanlineCycle < 256 && scanline != -1)
+                        {
+                            zeroBackgroundPixel = true;
+                            if (backgroundRendering)
+                            {
+                                int fineX = (loopyX & 0x7);
+                                int color = (((tile1Shift << fineX) >> 15) & 1) | (((tile2Shift << fineX) >> 14) & 2);
+                                zeroBackground[scanlineCycle] = (color == 0 || (!leftmostBackground && scanlineCycle < 8) || !backgroundRendering);
+                                zeroBackgroundPixel = (color == 0 || (!leftmostBackground && scanlineCycle < 8));
+                                if (zeroBackgroundPixel || !displayBG)
+                                    screen[scanline, scanlineCycle] = colorChart[(PalMemory[0x00] & grayScale) | colorMask];
+                                else
+                                    screen[scanline, scanlineCycle] = colorChart[(PalMemory[((((paletteShift << (fineX << 1)) >> 14) & 3) << 2) | color] & grayScale) | colorMask];
+                            }
+                            else
+                            {
+                                if ((loopyV & 0x3F00) == 0x3F00)//Direct color control http://wiki.nesdev.com/w/index.php/Full_palette_demo
+                                    screen[scanline, scanlineCycle] = colorChart[(PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] & grayScale) | colorMask];
+                                else
+                                    screen[scanline, scanlineCycle] = colorChart[(PalMemory[0x00] & grayScale) | colorMask];
+                            }
+                            if (spriteRendering)
+                            {
+                                bool pixelDrawn = false;
+                                for (int sprite = 0; sprite < spriteCount; sprite++)
+                                {
+                                    spriteCounter[sprite]--;
+                                    if (spriteCounter[sprite] < 0 && spriteCounter[sprite] >= -8)
+                                    {
+                                        int color = (spriteTileShift1[sprite] & 1) | ((spriteTileShift2[sprite] & 1) << 1);
+                                        if (color != 0 && !pixelDrawn)
+                                        {
+                                            pixelDrawn = true;
+                                            if ((spriteAbove[sprite] || zeroBackgroundPixel) && displaySprites)
+                                                screen[scanline, scanlineCycle] = colorChart[(PalMemory[spritePalette[sprite] | color] & grayScale) | colorMask];
+                                            if (spriteZeroLine && sprite == 0 && !zeroBackgroundPixel && scanlineCycle != 255)
+                                            {
+                                                spriteZeroHit = true;
+                                            }
+                                        }
+                                        spriteTileShift1[sprite] >>= 1;
+                                        spriteTileShift2[sprite] >>= 1;
+                                    }
+                                }
+                            }
+                        }
+                        tile1Shift <<= 1;
+                        tile2Shift <<= 1;
+                        paletteShift <<= 2;
+                        paletteShift |= paletteLatch;
+                        shiftCount++;
+                        if (shiftCount >= 8)
+                        {
+                            tile1Shift = (ushort)((tile1Shift & 0xFF00) | (tile1Latch));
+                            tile2Shift = (ushort)((tile2Shift & 0xFF00) | (tile2Latch));
+                            paletteLatch = paletteLatcher;
+                            shiftCount = 0;
+                        }
+                    }
+                    lastUpdate++;
+                    scanlineCycle++;
+                    if (scanlineCycle == 341 || (scanline == -1 && scanlineCycle == 340 && oddFrame && backgroundRendering))
+                    {
+                        if (generateNameTables && scanline == generateLine)
+                            nameTables = GenerateNameTables();
+                        if (generatePatternTables && scanline == generatePatternLine)
+                        {
+                            patternTablesPalette = GeneratePatternTablePalette();
+                            patternTables = GeneratePatternTables();
+                        }
+                        scanline++;
+                        scanlineCycle = 0;
+                        PrepareForNextLine();
+                        shiftCount = 0;
+                    }
+                }
+                else
+                {
+                    if (scanline >= 0 && scanline < 240)
+                    {
+                        if (scanlineCycle < 256)
+                        {
+                            if ((loopyV & 0x3F00) == 0x3F00)//Direct color control http://wiki.nesdev.com/w/index.php/Full_palette_demo
+                                screen[scanline, scanlineCycle] = colorChart[(PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] & grayScale) | colorMask];
+                            else
+                                screen[scanline, scanlineCycle] = colorChart[(PalMemory[0x00] & grayScale) | colorMask];
+                        }
+                    }
+                    lastUpdate++;
+                    scanlineCycle++;
+                    shiftCount++;
+                    if (scanlineCycle == 341)
+                    {
+                        if (generateNameTables && scanline == generateLine)
+                            nameTables = GenerateNameTables();
+                        if (generatePatternTables && scanline == generatePatternLine)
+                        {
+                            patternTablesPalette = GeneratePatternTablePalette();
+                            patternTables = GeneratePatternTables();
+                        }
+                        scanline++;
+                        scanlineCycle = 0;
+                        shiftCount = 0;
+                        if (scanline == 241)
+                        {
+                            testCounter = 0;
+                            inVblank = true;
+                            if (nmiEnable)
+                                interruptNMI = true;
+                        }
+                        else if (scanline == vblankEnd)
+                        {
+                            scanline = -1;
+                            wasInVblank = inVblank;
+                            inVblank = false;
+                            frameComplete = true;
+                            spriteZeroHit = false;
+                            spriteOverflow = false;
+                            oddFrame = !oddFrame;
+                        }
+                    }
+                }
+                testCounter++;
+            }
+        }
+        /*
         private void SpriteZeroHit()
         {
             int yPosition = SPRMemory[0] + 1;
@@ -387,7 +732,8 @@ namespace EmuoTron
                     spriteHighChr <<= 1;
                 }
             }
-        }
+        }*/
+        /*
         public void AddCycles(int cycles)
         {
             if(cycles > 50) //this is dumb but makes some things easier if every scanline is hit atleast once
@@ -650,8 +996,10 @@ namespace EmuoTron
                 }
             }
         }
+         */
         private void PrepareForNextLine()
         {
+            /*
             for (int i = 0; i <= scanlineCycle && i < 256; i++)
             {
                 pixelMasks[i] = nextPixelMasks[i];
@@ -659,6 +1007,7 @@ namespace EmuoTron
             }
             Buffer.BlockCopy(zeroGray, 0, nextPixelGray, 0, 256);
             Buffer.BlockCopy(zeroUshort, 0, nextPixelMasks, 0, 512); //Blockcopy is significantly faster then looping over the array, which in turn is faster then allocating a new array.
+             */
             Buffer.BlockCopy(zeroUshort, 0, spriteBelowLine, 0, 256);
             Buffer.BlockCopy(zeroUshort, 0, spriteAboveLine, 0, 256);
             Buffer.BlockCopy(zeroUshort, 0, zeroBackground, 0, 256);

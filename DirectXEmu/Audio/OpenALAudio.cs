@@ -20,7 +20,7 @@ namespace DirectXEmu
 
         bool tooSlow = false;
         int frame = 0;
-        int frameDelay = 5; //Should also corrispond to the number of buffers created
+        int frameDelay = 6; //Should also corrispond to the number of buffers created
 
 
         public OpenALAudio(int sampleRate, short[] buffer, float volume)

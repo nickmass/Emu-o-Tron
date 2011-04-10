@@ -57,6 +57,7 @@ namespace DirectXEmu
             glControl.TabStop = false;
             glControl.Enabled = false;
             renderTarget.Controls.Add(glControl);
+            renderTarget.FindForm().Show(); //Need this in here when running a rom from double click, may cause problems elsewhere?
             glControl.VSync = false;
             glControl.BringToFront();
             GL.ClearColor(Color.Black);
@@ -182,6 +183,8 @@ namespace DirectXEmu
                     break;
 
             }
+            GL.BindTexture(TextureTarget.Texture2D, charTextureName);
+            GL.Begin(BeginMode.Quads);
             for (int i = 0; i < message.Length; i++)
             {
                 if (charSheetSprites.ContainsKey(message[i]))
@@ -193,8 +196,6 @@ namespace DirectXEmu
                     float texCharXEnd = ((charNum % charSize) + 1) * ((float)charSize / (float)sheetSize);
                     float texCharYEnd = ((charNum / charSize) + 1) * ((float)charSize / (float)sheetSize);
 
-                    GL.BindTexture(TextureTarget.Texture2D, charTextureName);
-                    GL.Begin(BeginMode.Quads);
                     GL.TexCoord2(texCharX, texCharY);
                     GL.Vertex3(realXOffset + (i * charSize), realYOffset, 0);
                     GL.TexCoord2(texCharXEnd, texCharY);
@@ -203,9 +204,9 @@ namespace DirectXEmu
                     GL.Vertex3(realXOffset + (i * charSize) + charSize, realYOffset + charSize, 0);
                     GL.TexCoord2(texCharX, texCharYEnd);
                     GL.Vertex3(realXOffset + (i * charSize), realYOffset + charSize, 0);
-                    GL.End();
                 }
             }
+            GL.End();
         }
         private void LoadCharSheet()
         {
@@ -276,6 +277,18 @@ namespace DirectXEmu
             charSheetSprites['$'] = 44;
             charSheetSprites['.'] = 45;
             charSheetSprites[':'] = 46;
+        }
+        private static int Pow2RoundUp(int x) //Save this lovely code for later.
+        {
+            if (x < 0)
+                return 0;
+            --x;
+            x |= x >> 1;
+            x |= x >> 2;
+            x |= x >> 4;
+            x |= x >> 8;
+            x |= x >> 16;
+            return x + 1;
         }
         public event EventHandler DrawMessageEvent;
 
