@@ -16,7 +16,11 @@ namespace EmuoTron
         public Rom rom;
         public Mappers.Mapper mapper;
         public APU APU;
+#if SCANLINE_PPU
+        public SPPU PPU;
+#else
         public PPU PPU;
+#endif
         public Debug debug;
 
         public MemoryStore Memory;
@@ -424,15 +428,17 @@ namespace EmuoTron
                         PushByteStack(RegA);
                         break;
                     case OpInfo.InstrPHP:
-                        RegP = (RegP & 0xCF) | 0x30;
-                        PushByteStack(RegP);
+                        value = RegP;
+                        value |= 0x30;
+                        PushByteStack(value);
                         break;
                     case OpInfo.InstrPLA:
                         RegA = FlagSign = FlagZero = PopByteStack();
                         break;
                     case OpInfo.InstrPLP:
-                        RegP &= 0x30;
-                        RegP |= (PopByteStack() & 0xCF);
+                        RegP = PopByteStack();
+                        FlagBreak = 1;
+                        FlagNotUsed = 1;
                         break;
                     case OpInfo.InstrROL:
                         if (addressing == OpInfo.AddrAccumulator)
@@ -496,8 +502,9 @@ namespace EmuoTron
                         }
                         break;
                     case OpInfo.InstrRTI:
-                        RegP &= 0x30;
-                        RegP |= (PopByteStack() & 0xCF);
+                        RegP = PopByteStack();
+                        FlagBreak = 1;
+                        FlagNotUsed = 1;
                         RegPC = PopWordStack();
                         break;
                     case OpInfo.InstrRTS:
@@ -758,7 +765,6 @@ namespace EmuoTron
                 {
                     PushWordStack(RegPC);
                     FlagBreak = 0;
-                    FlagNotUsed = 1;
                     PushByteStack(RegP);
                     FlagIRQ = 1;
                     RegPC = ReadWord(0xFFFA);
@@ -768,7 +774,6 @@ namespace EmuoTron
                 {
                     PushWordStack(RegPC);
                     FlagBreak = 0;
-                    FlagNotUsed = 1;
                     PushByteStack(RegP);
                     FlagIRQ = 1;
                     RegPC = ReadWord(0xFFFE);
@@ -862,7 +867,11 @@ namespace EmuoTron
             Memory.swapOffset = 0x20;
             Memory.SetReadOnly(0, 2, false);
             APU = new APU(this, sampleRate, frameBuffer);
+#if SCANLINE_PPU
+            PPU = new SPPU(this);
+#else
             PPU = new PPU(this);
+#endif
             debug = new Debug(this);
             debug.LogInfo("Mapper: NSF");
             switch (region & 3)
@@ -960,7 +969,11 @@ namespace EmuoTron
             Memory.swapOffset = 0x20;
             Memory.SetReadOnly(0, 2, false);
             APU = new APU(this, sampleRate, frameBuffer);
+#if SCANLINE_PPU
+            PPU = new SPPU(this);
+#else
             PPU = new PPU(this);
+#endif
             debug = new Debug(this);
             debug.LogInfo(rom.filePath);
             debug.LogInfo("Mapper: " + rom.mapper);
@@ -1032,7 +1045,11 @@ namespace EmuoTron
             Memory.swapOffset = 0x20;
             Memory.SetReadOnly(0, 2, false);
             APU = new APU(this, sampleRate, frameBuffer);
+#if SCANLINE_PPU
+            PPU = new SPPU(this);
+#else
             PPU = new PPU(this);
+#endif
             debug = new Debug(this);
             debug.LogInfo("Mapper: " + rom.mapper);
             debug.LogInfo("PRG-ROM: " + rom.prgROM.ToString() + "KB");

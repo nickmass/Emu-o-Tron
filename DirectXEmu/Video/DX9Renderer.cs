@@ -129,9 +129,9 @@ namespace DirectXEmu
                     if (e.ResultCode == SlimDX.Direct3D9.ResultCode.DeviceLost)
                         Create();
                 }
-                catch
+                catch (NullReferenceException e)
                 {
-                    throw;
+                    //thrown for some reason on every minimize, should look into in the future.
                 }
             }
         }

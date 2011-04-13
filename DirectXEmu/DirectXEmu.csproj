@@ -216,6 +216,7 @@
     <Compile Include="Debugger.Designer.cs">
       <DependentUpon>Debugger.cs</DependentUpon>
     </Compile>
+    <Compile Include="EmuoTron\SPPU.cs" />
     <Compile Include="EmuoTron\Mappers\mNSF.cs" />
     <Compile Include="Input\DXInput.cs" />
     <Compile Include="Input\IInput.cs" />
