@@ -21,6 +21,8 @@ namespace EmuoTron
         private bool runTo;
         private ushort runToAddress;
 
+        public bool breakOnSpriteZeroHit = false;
+        public bool breakOnSpriteOverflow = false;
         public byte[] breakPoints = new byte[0x10000];
 
         public byte BREAKPOINTREAD = 0x01;
@@ -175,6 +177,16 @@ namespace EmuoTron
         public void LogInfo(string line)
         {
             romInfo.AppendLine(line);
+        }
+        public void SpriteZeroHit()
+        {
+            if (breakOnSpriteZeroHit)
+                debugInterrupt = true;
+        }
+        public void SpriteOverflow()
+        {
+            if (breakOnSpriteOverflow)
+                debugInterrupt = true;
         }
         public void AddCycles(int cycles)
         {

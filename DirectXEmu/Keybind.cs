@@ -14,10 +14,11 @@ namespace DirectXEmu
     {
         public Keybinds keys;
         public bool fourScore;
+        public bool filterIllegalInput;
         public ControllerType portOne;
         public ControllerType portTwo;
 
-        public Keybind(Keybinds keys, ControllerType portOne, ControllerType portTwo, bool fourScore)
+        public Keybind(Keybinds keys, ControllerType portOne, ControllerType portTwo, bool fourScore, bool filterIllegalInput)
         {
             this.keys = keys;
             this.fourScore = fourScore;
@@ -25,6 +26,7 @@ namespace DirectXEmu
             this.portTwo = portTwo;
             InitializeComponent();
             chkFourScore.Checked = fourScore;
+            chkFilter.Checked = filterIllegalInput;
             switch (portOne)
             {
                 case ControllerType.Controller:
@@ -131,6 +133,11 @@ namespace DirectXEmu
         private void chkFourScore_CheckedChanged(object sender, EventArgs e)
         {
             fourScore = chkFourScore.Checked;
+        }
+
+        private void chkFilter_CheckedChanged(object sender, EventArgs e)
+        {
+            filterIllegalInput = chkFilter.Checked;
         }
     }
 }

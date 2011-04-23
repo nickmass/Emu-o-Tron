@@ -66,6 +66,8 @@
             this.label7 = new System.Windows.Forms.Label();
             this.txtCycle = new System.Windows.Forms.TextBox();
             this.txtScanline = new System.Windows.Forms.TextBox();
+            this.chkSpriteHit = new System.Windows.Forms.CheckBox();
+            this.chkSpriteOverflow = new System.Windows.Forms.CheckBox();
             this.SuspendLayout();
             // 
             // txtLog
@@ -395,7 +397,7 @@
             // label6
             // 
             this.label6.AutoSize = true;
-            this.label6.Location = new System.Drawing.Point(437, 345);
+            this.label6.Location = new System.Drawing.Point(409, 392);
             this.label6.Name = "label6";
             this.label6.Size = new System.Drawing.Size(33, 13);
             this.label6.TabIndex = 34;
@@ -404,7 +406,7 @@
             // label7
             // 
             this.label7.AutoSize = true;
-            this.label7.Location = new System.Drawing.Point(422, 319);
+            this.label7.Location = new System.Drawing.Point(394, 366);
             this.label7.Name = "label7";
             this.label7.Size = new System.Drawing.Size(48, 13);
             this.label7.TabIndex = 35;
@@ -412,7 +414,7 @@
             // 
             // txtCycle
             // 
-            this.txtCycle.Location = new System.Drawing.Point(476, 342);
+            this.txtCycle.Location = new System.Drawing.Point(448, 389);
             this.txtCycle.Name = "txtCycle";
             this.txtCycle.ReadOnly = true;
             this.txtCycle.Size = new System.Drawing.Size(47, 20);
@@ -420,17 +422,41 @@
             // 
             // txtScanline
             // 
-            this.txtScanline.Location = new System.Drawing.Point(476, 316);
+            this.txtScanline.Location = new System.Drawing.Point(448, 363);
             this.txtScanline.Name = "txtScanline";
             this.txtScanline.ReadOnly = true;
             this.txtScanline.Size = new System.Drawing.Size(47, 20);
             this.txtScanline.TabIndex = 37;
+            // 
+            // chkSpriteHit
+            // 
+            this.chkSpriteHit.AutoSize = true;
+            this.chkSpriteHit.Location = new System.Drawing.Point(355, 317);
+            this.chkSpriteHit.Name = "chkSpriteHit";
+            this.chkSpriteHit.Size = new System.Drawing.Size(140, 17);
+            this.chkSpriteHit.TabIndex = 38;
+            this.chkSpriteHit.Text = "Break on Sprite Zero Hit";
+            this.chkSpriteHit.UseVisualStyleBackColor = true;
+            this.chkSpriteHit.CheckedChanged += new System.EventHandler(this.chkSpriteHit_CheckedChanged);
+            // 
+            // chkSpriteOverflow
+            // 
+            this.chkSpriteOverflow.AutoSize = true;
+            this.chkSpriteOverflow.Location = new System.Drawing.Point(355, 340);
+            this.chkSpriteOverflow.Name = "chkSpriteOverflow";
+            this.chkSpriteOverflow.Size = new System.Drawing.Size(144, 17);
+            this.chkSpriteOverflow.TabIndex = 39;
+            this.chkSpriteOverflow.Text = "Break on Sprite Overflow";
+            this.chkSpriteOverflow.UseVisualStyleBackColor = true;
+            this.chkSpriteOverflow.CheckedChanged += new System.EventHandler(this.chkSpriteOverflow_CheckedChanged);
             // 
             // Debugger
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(627, 420);
+            this.Controls.Add(this.chkSpriteOverflow);
+            this.Controls.Add(this.chkSpriteHit);
             this.Controls.Add(this.txtScanline);
             this.Controls.Add(this.txtCycle);
             this.Controls.Add(this.label7);
@@ -520,5 +546,7 @@
         private System.Windows.Forms.Label label7;
         private System.Windows.Forms.TextBox txtCycle;
         private System.Windows.Forms.TextBox txtScanline;
+        private System.Windows.Forms.CheckBox chkSpriteHit;
+        private System.Windows.Forms.CheckBox chkSpriteOverflow;
     }
 }

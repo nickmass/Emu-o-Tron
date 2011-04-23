@@ -605,7 +605,7 @@ namespace DirectXEmu
             ejectDiskToolStripMenuItem.DropDownItems.Clear();
             ejectDiskToolStripMenuItem.Text = "Eject Disk";
             ejectDiskToolStripMenuItem.Visible = (cpu.GetSideCount() != 0);
-            cpu.SetControllers((ControllerType)Enum.Parse(typeof(ControllerType), config["portOne"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["portTwo"]), (config["fourScore"] == "1"));
+            cpu.SetControllers((ControllerType)Enum.Parse(typeof(ControllerType), config["portOne"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["portTwo"]), config["fourScore"] == "1", config["filterIllegalInput"] == "1");
 
             if (cpu.nsfPlayer)
                 nsfScreen = new NSFScreen(cpu);
@@ -1610,16 +1610,17 @@ namespace DirectXEmu
         {
             SystemState old = state;
             state = SystemState.SystemPause;
-            Keybind keyBindWindow = new Keybind(keyBindings, (ControllerType)Enum.Parse(typeof(ControllerType), config["portOne"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["portTwo"]), (config["fourScore"] == "1"));
+            Keybind keyBindWindow = new Keybind(keyBindings, (ControllerType)Enum.Parse(typeof(ControllerType), config["portOne"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["portTwo"]), (config["fourScore"] == "1"), config["filterIllegalInput"] == "1");
             if (keyBindWindow.ShowDialog() == DialogResult.OK)
             {
                 keyBindings = keyBindWindow.keys;
                 config["portOne"] = keyBindWindow.portOne.ToString();
                 config["portTwo"] = keyBindWindow.portTwo.ToString();
                 config["fourScore"] = keyBindWindow.fourScore ? "1" : "0";
+                config["filterIllegalInput"] = keyBindWindow.filterIllegalInput ? "1" : "0";
                 if (cpu != null)
                 {
-                    cpu.SetControllers(keyBindWindow.portOne, keyBindWindow.portTwo, keyBindWindow.fourScore);
+                    cpu.SetControllers(keyBindWindow.portOne, keyBindWindow.portTwo, keyBindWindow.fourScore, keyBindWindow.filterIllegalInput);
                 }
             }
             state = old;

@@ -22,8 +22,7 @@ namespace EmuoTron
         private bool spriteZeroHit;
         private bool addrLatch;
         private bool inVblank;
-        private bool wasInVblank;
-        private int pendingNMI = 0;
+        public int pendingNMI = 0;
         private int spriteAddr;
 
         private int spriteTable;
@@ -88,6 +87,7 @@ namespace EmuoTron
         private bool spriteZeroLine; //Gets changed on cycle 160 so need a 2nd var to keep track from 0 - 256
         private bool onSpriteZeroLine;
         private int maxSprites = 8;
+        private long vblFlagRead;
 
         public PPU(NESCore nes)
         {
@@ -156,6 +156,10 @@ namespace EmuoTron
                 PPUMemory[i] = 0;
             for (int i = 0; i < 0x20; i++)
                 PalMemory[i] = 0x0F; //Sets the background to black on startup to prevent grey flashes, not exactly accurate but it looks nicer
+            scanline = -1;
+            scanlineCycle = 0;
+            currentTime = 0;
+            lastUpdate = 0;
             Write(0, 0x2000);
             Write(0, 0x2001);
             Write(0, 0x2003);
@@ -189,12 +193,12 @@ namespace EmuoTron
                     nextByte |= 0x20;
                 if (spriteZeroHit)
                     nextByte |= 0x40;
-                if ((inVblank && !(scanline == 241 && scanlineCycle == 0)) || (wasInVblank && scanlineCycle == 0 && scanline == -1))
+                if (inVblank)
                     nextByte |= 0x80;
-                interruptNMI = false;
-                inVblank = wasInVblank = false;
+                inVblank = false;
                 addrLatch = false;
                 nextByte |= lastWrite;
+                vblFlagRead = currentTime - 2;
             }
             else if (address == 0x2004) //OAM Read
             {
@@ -239,8 +243,10 @@ namespace EmuoTron
                     backgroundTable = 0x0000;
                 tallSprites = (value & 0x20) != 0;
                 nmiEnable = (value & 0x80) != 0;
+                if (!nmiEnable && pendingNMI > 1)
+                    pendingNMI = 0;
                 if (inVblank && nmiEnable && !wasEnabled)
-                    pendingNMI = 1;
+                    pendingNMI = 2;
                 lastWrite = (byte)(value & 0x1F);
             }
             else if (address == 0x2001) //PPU Mask
@@ -362,15 +368,6 @@ namespace EmuoTron
             {
                 currentTime += cycles * 3;
             }
-            if (pendingNMI == 2) //Blargg's 04-nmi_control.nes tests this, if NMI is enabled during vblank it fires after the NEXT instruction, this is a messy solution to a messy problem
-            {
-                pendingNMI = 0;
-                interruptNMI = true;
-            }
-            else if (pendingNMI == 1)
-            {
-                pendingNMI++;
-            }
             Update();
         }
         private void Update()
@@ -426,7 +423,13 @@ namespace EmuoTron
                                 {
                                     spritesFound++;
                                     if (spritesFound >= 9)
+                                    {
+#if DEBUGGER
+                                        if(!spriteOverflow)
+                                            nes.debug.SpriteOverflow();
+#endif
                                         spriteOverflow = true;
+                                    }
                                     if (spritesFound <= maxSprites)
                                         spriteInRange = true;
                                 }
@@ -496,7 +499,7 @@ namespace EmuoTron
                     }
                     if (nes.rom.mapper == 4 || nes.rom.mapper == 48)
                     {
-                        if (scanlineCycle == 274 && (spriteTable == 0x1000 && backgroundTable == 0x0000)) //These cycle numbers are basically just trial and error from using blarggs test, I should eventually properly emulate the A12 clocking trigger.
+                        if (scanlineCycle == 274 && (spriteTable == 0x1000 && backgroundTable == 0x0000)) //These cycle numbers are basically just trial and error from using blarggs test, I should eventually properly emulate the A12 clocking trigger. Wiki claims it should be cycles 260 of cuurent line, and 324 of the previousline but this reintroduces shaking to Crystalis.
                         {
                             nes.mapper.IRQ(scanline);
                         }
@@ -564,6 +567,10 @@ namespace EmuoTron
                                                 screen[scanline, scanlineCycle] = colorChart[(PalMemory[spritePalette[sprite] | color] & grayScale) | colorMask];
                                             if (onSpriteZeroLine && sprite == 0 && !zeroBackgroundPixel && scanlineCycle != 255)
                                             {
+#if DEBUGGER
+                                                if (!spriteZeroHit)
+                                                    nes.debug.SpriteZeroHit();
+#endif
                                                 spriteZeroHit = true;
                                             }
                                         }
@@ -637,13 +644,14 @@ namespace EmuoTron
                             if (nes.rom.mapper == 5)
                                 nes.mapper.IRQ(1);
                             inVblank = true;
-                            if (nmiEnable)
-                                interruptNMI = true;
+                            if (nmiEnable && !(vblFlagRead - lastUpdate == 1 || vblFlagRead == lastUpdate || vblFlagRead - lastUpdate == -1)) //This second clause is WRONG, it is just a kinda close imitation of proper behavior, need a CPU with finer grain.
+                            {
+                                pendingNMI = 3; //The NMI does not occur immediatly, and what I have here isnt precise but its the best I can pull off without some big changes.
+                            }
                         }
                         else if (scanline == vblankEnd)
                         {
                             scanline = -1;
-                            wasInVblank = inVblank;
                             inVblank = false;
                             frameComplete = true;
                             spriteZeroHit = false;

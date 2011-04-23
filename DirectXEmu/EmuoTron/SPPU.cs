@@ -23,7 +23,7 @@ namespace EmuoTron
         private bool addrLatch;
         private bool inVblank;
         private bool wasInVblank;
-        private int pendingNMI = 0;
+        public int pendingNMI = 0;
         private int spriteAddr;
 
         private int spriteTable;
@@ -210,7 +210,7 @@ namespace EmuoTron
                 tallSprites = (value & 0x20) != 0;
                 nmiEnable = (value & 0x80) != 0;
                 if (inVblank && nmiEnable && !wasEnabled)
-                    pendingNMI = 1;
+                    pendingNMI = 2;
                 lastWrite = (byte)(value & 0x1F);
             }
             else if (address == 0x2001) //PPU Mask
@@ -380,7 +380,13 @@ namespace EmuoTron
                         if (color != 0 && !(!leftmostSprites && xPosition < 8))
                         {
                             if (!zeroBackground[xPosition] && xPosition != 255)
+                            {
+#if DEBUGGER
+                                if (!spriteZeroHit)
+                                    nes.debug.SpriteZeroHit();
+#endif
                                 spriteZeroHit = true;
+                            }
                         }
                     }
                     spriteLowChr <<= 1;
@@ -394,15 +400,6 @@ namespace EmuoTron
             {
                 AddCycles(cycles - 50);
                 cycles = 50;
-            }
-            else if (pendingNMI == 2) //Blargg's 04-nmi_control.nes tests this, if NMI is enabled during vblank it fires after the NEXT instruction, this is a messy solution to a messy problem
-            {
-                pendingNMI = 0;
-                interruptNMI = true;
-            }
-            else if (pendingNMI == 1)
-            {
-                pendingNMI++;
             }
             if (nes.nesRegion == SystemType.PAL)
             {
@@ -533,60 +530,75 @@ namespace EmuoTron
                             for (int sprite = 0; sprite < 256; sprite += 4)
                             {
                                 int yPosition = SPRMemory[sprite] + 1;
-                                if (yPosition <= scanline && yPosition + (tallSprites ? 16 : 8) > scanline && (spritesOnLine < 8 || !enforceSpriteLimit))
+                                if (yPosition <= scanline && yPosition + (tallSprites ? 16 : 8) > scanline)
                                 {
                                     spritesOnLine++;
-                                    int spriteTable;
-                                    int spriteY = (scanline - yPosition);
-                                    int attr = SPRMemory[sprite | 2];
-                                    bool horzFlip = (attr & 0x40) != 0;
-                                    bool vertFlip = (attr & 0x80) != 0;
-                                    int tileNumber = SPRMemory[sprite | 1];
-                                    if (tallSprites)
+                                    if (spritesOnLine <= 8 || !enforceSpriteLimit)
                                     {
-                                        if ((tileNumber & 1) != 0)
-                                            spriteTable = 0x1000;
-                                        else
-                                            spriteTable = 0x0000;
-                                        tileNumber &= 0xFE;
-                                        if (spriteY > 7)
-                                            tileNumber |= 1;
-                                    }
-                                    else
-                                        spriteTable = this.spriteTable;
-                                    int chrAddress = (spriteTable | (tileNumber << 4) | (spriteY & 7)) + (vertFlip ? tallSprites ? (spriteY > 7) ? Flip[spriteY & 7] - (1 << 4) : Flip[spriteY & 7] + (1 << 4) : Flip[spriteY & 7] : 0); //this is seriously mental :)
-                                    int xLocation = SPRMemory[sprite | 3];
-                                    int palette = ((attr & 0x03) << 0x2) | 0x10;
-                                    int lowChr = PPUMemory[chrAddress];
-                                    int highChr = PPUMemory[chrAddress | 8] << 1;
-                                    int color = 0;
-                                    int begin = horzFlip ? xLocation : xLocation + 7;
-                                    int end = horzFlip ? xLocation + 8 : xLocation - 1;
-                                    int direction = horzFlip ? 1 : -1;
-                                    bool above = (attr & 0x20) == 0;
-                                    for (int xPosition = begin; xPosition != end; xPosition += direction)//each pixel in tile
-                                    {
-                                        if (xPosition < 256 && !(spriteAboveLine[xPosition] || spriteBelowLine[xPosition]))
+                                        int spriteTable;
+                                        int spriteY = (scanline - yPosition);
+                                        int attr = SPRMemory[sprite | 2];
+                                        bool horzFlip = (attr & 0x40) != 0;
+                                        bool vertFlip = (attr & 0x80) != 0;
+                                        int tileNumber = SPRMemory[sprite | 1];
+                                        if (tallSprites)
                                         {
-                                            color = (lowChr & 0x1) | (highChr & 0x2);
-                                            if (color != 0 && !(!leftmostSprites && xPosition < 8))
-                                            {
-                                                spriteAboveLine[xPosition] = above;
-                                                spriteBelowLine[xPosition] = !above;
-                                                spriteLine[xPosition] = (PalMemory[palette | color] & pixelGray[xPosition]) | pixelMasks[xPosition];
-                                                if (sprite == 0 && !zeroBackground[xPosition] && xPosition != 255)
-                                                    spriteZeroHit = true;
-                                            }
+                                            if ((tileNumber & 1) != 0)
+                                                spriteTable = 0x1000;
+                                            else
+                                                spriteTable = 0x0000;
+                                            tileNumber &= 0xFE;
+                                            if (spriteY > 7)
+                                                tileNumber |= 1;
                                         }
-                                        lowChr >>= 1;
-                                        highChr >>= 1;
+                                        else
+                                            spriteTable = this.spriteTable;
+                                        int chrAddress = (spriteTable | (tileNumber << 4) | (spriteY & 7)) + (vertFlip ? tallSprites ? (spriteY > 7) ? Flip[spriteY & 7] - (1 << 4) : Flip[spriteY & 7] + (1 << 4) : Flip[spriteY & 7] : 0); //this is seriously mental :)
+                                        int xLocation = SPRMemory[sprite | 3];
+                                        int palette = ((attr & 0x03) << 0x2) | 0x10;
+                                        int lowChr = PPUMemory[chrAddress];
+                                        int highChr = PPUMemory[chrAddress | 8] << 1;
+                                        int color = 0;
+                                        int begin = horzFlip ? xLocation : xLocation + 7;
+                                        int end = horzFlip ? xLocation + 8 : xLocation - 1;
+                                        int direction = horzFlip ? 1 : -1;
+                                        bool above = (attr & 0x20) == 0;
+                                        for (int xPosition = begin; xPosition != end; xPosition += direction)//each pixel in tile
+                                        {
+                                            if (xPosition < 256 && !(spriteAboveLine[xPosition] || spriteBelowLine[xPosition]))
+                                            {
+                                                color = (lowChr & 0x1) | (highChr & 0x2);
+                                                if (color != 0 && !(!leftmostSprites && xPosition < 8))
+                                                {
+                                                    spriteAboveLine[xPosition] = above;
+                                                    spriteBelowLine[xPosition] = !above;
+                                                    spriteLine[xPosition] = (PalMemory[palette | color] & pixelGray[xPosition]) | pixelMasks[xPosition];
+                                                    if (sprite == 0 && !zeroBackground[xPosition] && xPosition != 255)
+                                                    {
+#if DEBUGGER
+                                                        if (!spriteZeroHit)
+                                                            nes.debug.SpriteZeroHit();
+#endif
+                                                        spriteZeroHit = true;
+                                                    }
+                                                }
+                                            }
+                                            lowChr >>= 1;
+                                            highChr >>= 1;
+                                        }
+                                        if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
+                                            nes.mapper.IRQ(chrAddress);
                                     }
-                                    if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
-                                        nes.mapper.IRQ(chrAddress);
                                 }
                             }
                             if (spritesOnLine > 8)
+                            {
+#if DEBUGGER
+                                if (!spriteOverflow)
+                                    nes.debug.SpriteOverflow();
+#endif
                                 spriteOverflow = true;
+                            }
 
                             if (spritesOnLine != 0 && displaySprites)
                             {
@@ -634,7 +646,7 @@ namespace EmuoTron
                     if (nes.rom.mapper == 0x05)
                         nes.mapper.IRQ(1);
                     if (nmiEnable)
-                        interruptNMI = true;
+                        pendingNMI = 3;
                     inVblank = true;
                     //I think I will just put this out of my mind and hope the CPPU rewrite solves everything
                     //scanlineCycle += 36;//Now this makes it pass vbl_clear_time and nmi_sync but fail ppu_vbl_nmi I don't know which is less wrong : /

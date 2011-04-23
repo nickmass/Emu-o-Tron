@@ -95,6 +95,7 @@ namespace DirectXEmu
             defaults["portOne"] = "Controller";
             defaults["portTwo"] = "Controller";
             defaults["fourScore"] = "0";
+            defaults["filterIllegalInput"] = "1";
             defaults["smoothOutput"] = "0";
             defaults["renderer"] = "DX9";
             defaults["audio"] = "XA2";

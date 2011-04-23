@@ -52,8 +52,12 @@ namespace EmuoTron.Mappers
             prgRAMBanks[2] = false;
             prgRAMBanks[3] = false;
             prgRAMBanks[4] = false;
-            prgMode = 1;
-            prgBanks[4] = (byte)((nes.rom.prgROM / 8)-1);
+            prgMode = 0x3;
+            prgBanks[0] = 0;
+            prgBanks[1] = 0;
+            prgBanks[2] = 0;
+            prgBanks[3] = 0;
+            prgBanks[4] = 0xFF;
             PRGSync();
             SpriteSync();
             nes.Memory.SetReadOnly(0x5C00, 1, false);

@@ -67,6 +67,11 @@ namespace EmuoTron
         public int FlagSign = 0; //Bit 7 of P
         private int counter = 0;
         private bool interruptReset = false;
+        private int pendingFlagIRQ1 = 0;
+        private int pendingFlagIRQ2 = 0;
+        private int pendingFlagIRQValue1 = 0;
+        private int pendingFlagIRQValue2 = 0;
+        private int delayedFlagIRQ = 0;
 
         private OpInfo OpCodes = new OpInfo();
         private int[] opList;
@@ -75,6 +80,7 @@ namespace EmuoTron
         private Inputs.Input PortOne = new Inputs.Empty();
         private Inputs.Input PortTwo = new Inputs.Empty();
         public bool fourScore;
+        public bool filterIllegalInput;
         public bool creditService;
         public bool dip1;
         public bool dip2;
@@ -316,6 +322,16 @@ namespace EmuoTron
                         FlagDecimal = 0;
                         break;
                     case OpInfo.InstrCLI:
+                        if (pendingFlagIRQ1 != 0)
+                        {
+                            pendingFlagIRQ2 = 2;
+                            pendingFlagIRQValue2 = 0;
+                        }
+                        else
+                        {
+                            pendingFlagIRQ1 = 2;
+                            pendingFlagIRQValue1 = 0;
+                        }
                         FlagIRQ = 0;
                         break;
                     case OpInfo.InstrCLV:
@@ -437,6 +453,16 @@ namespace EmuoTron
                         break;
                     case OpInfo.InstrPLP:
                         RegP = PopByteStack();
+                        if (pendingFlagIRQ1 != 0)
+                        {
+                            pendingFlagIRQ2 = 2;
+                            pendingFlagIRQValue2 = FlagIRQ;
+                        }
+                        else
+                        {
+                            pendingFlagIRQ1 = 2;
+                            pendingFlagIRQValue1 = FlagIRQ;
+                        }
                         FlagBreak = 1;
                         FlagNotUsed = 1;
                         break;
@@ -503,9 +529,12 @@ namespace EmuoTron
                         break;
                     case OpInfo.InstrRTI:
                         RegP = PopByteStack();
+                        delayedFlagIRQ = FlagIRQ;
                         FlagBreak = 1;
                         FlagNotUsed = 1;
                         RegPC = PopWordStack();
+                        pendingFlagIRQ1 = 0;
+                        pendingFlagIRQ2 = 0;
                         break;
                     case OpInfo.InstrRTS:
                         RegPC = (PopWordStack() + 1) & 0xFFFF;
@@ -525,6 +554,16 @@ namespace EmuoTron
                         FlagDecimal = 1;
                         break;
                     case OpInfo.InstrSEI:
+                        if (pendingFlagIRQ1 != 0)
+                        {
+                            pendingFlagIRQ2 = 2;
+                            pendingFlagIRQValue2 = 1;
+                        }
+                        else
+                        {
+                            pendingFlagIRQ1 = 2;
+                            pendingFlagIRQValue1 = 1;
+                        }
                         FlagIRQ = 1;
                         break;
                     case OpInfo.InstrSTA:
@@ -738,6 +777,12 @@ namespace EmuoTron
                     PPU.AddCycles(opCycles);
                     if (mapper.cycleIRQ)
                         mapper.IRQ(opCycles);
+                    if (PPU.pendingNMI != 0)
+                    {
+                        PPU.pendingNMI--;
+                        if (PPU.pendingNMI == 0)
+                            PPU.interruptNMI = true;
+                    }
                 }
                 else
                 {
@@ -757,6 +802,18 @@ namespace EmuoTron
                         ((Mappers.mNSF)mapper).overTime = false;
                     }
                 }
+                if (pendingFlagIRQ1 != 0)
+                {
+                    pendingFlagIRQ1--;
+                    if (pendingFlagIRQ1 == 0)
+                        delayedFlagIRQ = pendingFlagIRQValue1;
+                }
+                if (pendingFlagIRQ2 != 0)
+                {
+                    pendingFlagIRQ2--;
+                    if (pendingFlagIRQ2 == 0)
+                        delayedFlagIRQ = pendingFlagIRQValue2;
+                }
 #if DEBUGGER
                 debug.AddCycles(opCycles);
 #endif
@@ -767,23 +824,25 @@ namespace EmuoTron
                     FlagBreak = 0;
                     PushByteStack(RegP);
                     FlagIRQ = 1;
+                    delayedFlagIRQ = 1;
                     RegPC = ReadWord(0xFFFA);
                     PPU.interruptNMI = false;
                 }
-                else if ((mapper.interruptMapper || APU.frameIRQ || APU.dmcInterrupt) && FlagIRQ == 0)
+                else if ((mapper.interruptMapper || APU.frameIRQ || APU.dmcInterrupt) && (delayedFlagIRQ == 0))
                 {
                     PushWordStack(RegPC);
                     FlagBreak = 0;
                     PushByteStack(RegP);
                     FlagIRQ = 1;
+                    delayedFlagIRQ = 1;
                     RegPC = ReadWord(0xFFFE);
                 }
                 else if (interruptReset)
                 {
-                    PushWordStack(RegPC);
-                    PushByteStack(RegP);
                     FlagIRQ = 1;
+                    delayedFlagIRQ = 1;
                     RegPC = ReadWord(0xFFFC);
+                    RegS = (RegS - 3) & 0xFF;
                     interruptReset = false;
                     APU.Reset();
                     PPU.Reset();
@@ -1609,9 +1668,10 @@ namespace EmuoTron
                 Power();
             }
         }
-        public void SetControllers(ControllerType portOne, ControllerType portTwo, bool fourScore)
+        public void SetControllers(ControllerType portOne, ControllerType portTwo, bool fourScore, bool filterIllegalInput)
         {
             this.fourScore = fourScore;
+            this.filterIllegalInput = filterIllegalInput;
             switch (portOne)
             {
                 case ControllerType.Controller:
@@ -1828,26 +1888,16 @@ namespace EmuoTron
         public int frame;
     }
 
-    [Serializable]
     public class BadHeaderException : Exception
     {
         public BadHeaderException() { }
         public BadHeaderException(string message) : base(message) { }
         public BadHeaderException(string message, Exception inner) : base(message, inner) { }
-        protected BadHeaderException(
-          System.Runtime.Serialization.SerializationInfo info,
-          System.Runtime.Serialization.StreamingContext context)
-            : base(info, context) { }
     }
-    [Serializable]
     public class FDSBiosException : Exception
     {
         public FDSBiosException() { }
         public FDSBiosException(string message) : base(message) { }
         public FDSBiosException(string message, Exception inner) : base(message, inner) { }
-        protected FDSBiosException(
-          System.Runtime.Serialization.SerializationInfo info,
-          System.Runtime.Serialization.StreamingContext context)
-            : base(info, context) { }
     }
 }

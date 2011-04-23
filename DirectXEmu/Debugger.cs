@@ -258,5 +258,15 @@ namespace DirectXEmu
                 this.Hide();
             }
         }
+
+        private void chkSpriteHit_CheckedChanged(object sender, EventArgs e)
+        {
+            debug.breakOnSpriteZeroHit = ((CheckBox)sender).Checked;
+        }
+
+        private void chkSpriteOverflow_CheckedChanged(object sender, EventArgs e)
+        {
+            debug.breakOnSpriteOverflow = ((CheckBox)sender).Checked;
+        }
     }
 }

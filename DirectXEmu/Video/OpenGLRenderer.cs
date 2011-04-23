@@ -89,35 +89,42 @@ namespace DirectXEmu
 
         public void MainLoop(bool newScreen)
         {
-            unsafe
+            try
             {
-                GL.BindTexture(TextureTarget.Texture2D, textureName);
-                fixed( uint* scaledPTR = scaledScreen)
+                unsafe
                 {
-                    if (newScreen)
+                    GL.BindTexture(TextureTarget.Texture2D, textureName);
+                    fixed (uint* scaledPTR = scaledScreen)
                     {
-                        fixed (uint* screenPTR = screen)
+                        if (newScreen)
                         {
+                            fixed (uint* screenPTR = screen)
+                            {
                                 imageScaler.PerformScale(screenPTR, scaledPTR);
+                            }
                         }
+                        GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, imageScaler.ResizedX, imageScaler.ResizedY, 0, PixelFormat.Bgra, PixelType.UnsignedByte, (IntPtr)scaledPTR);
                     }
-                    GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, imageScaler.ResizedX, imageScaler.ResizedY, 0, PixelFormat.Bgra, PixelType.UnsignedByte, (IntPtr)scaledPTR);
+                    GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+                    GL.MatrixMode(MatrixMode.Modelview);
+                    GL.LoadIdentity();
+                    GL.Begin(BeginMode.Quads);
+                    GL.TexCoord2(0.0f, 0.0f);
+                    GL.Vertex3(0, 0, 1);
+                    GL.TexCoord2(1.0f, 0.0f);
+                    GL.Vertex3(renderTarget.Width, 0, 1);
+                    GL.TexCoord2(1.0f, 1.0f);
+                    GL.Vertex3(renderTarget.Width, renderTarget.Height, 1);
+                    GL.TexCoord2(0.0f, 1.0f);
+                    GL.Vertex3(0, renderTarget.Height, 1);
+                    GL.End();
+                    DrawMessageEvent(this, null);
+                    glControl.SwapBuffers();
                 }
-                GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-                GL.MatrixMode(MatrixMode.Modelview);
-                GL.LoadIdentity();
-                GL.Begin(BeginMode.Quads);
-                GL.TexCoord2(0.0f, 0.0f);
-                GL.Vertex3(0, 0, 1);
-                GL.TexCoord2(1.0f, 0.0f);
-                GL.Vertex3(renderTarget.Width, 0, 1);
-                GL.TexCoord2(1.0f, 1.0f);
-                GL.Vertex3(renderTarget.Width, renderTarget.Height, 1);
-                GL.TexCoord2(0.0f, 1.0f);
-                GL.Vertex3(0, renderTarget.Height, 1);
-                GL.End();
-                DrawMessageEvent(this, null);
-                glControl.SwapBuffers();
+            }
+            catch //Crazy crash on winkey + d, similar issues in directx 9 driver, need to figure out whats happening.
+            {
+                Reset();
             }
         }
 
@@ -127,8 +134,6 @@ namespace DirectXEmu
             GL.DeleteTexture(charTextureName);
             if (glControl != null)
             {
-                GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-                glControl.SwapBuffers();
                 glControl.Visible = false;
                 glControl.Dispose();
             }

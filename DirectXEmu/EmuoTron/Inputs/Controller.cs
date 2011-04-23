@@ -133,6 +133,10 @@ namespace EmuoTron.Inputs
                     controlReg <<= 1;
                     shiftCount++;
                     controlReg |= nes.players[playerNum].a ? 1 : 0;
+                    if (nes.filterIllegalInput)
+                    {
+                        controlReg = (controlReg & 0xFFFF00) | FilterJoypad(controlReg & 0xFF);
+                    }
                     controlReady = false;
                 }
                 else
@@ -140,6 +144,26 @@ namespace EmuoTron.Inputs
                     controlReady = true;
                 }
             }
+        }
+
+        int x_axis = 0xc0;
+        int y_axis = 0x30;
+        int mask = ~0x50;
+        int prev;
+
+        private int FilterJoypad(int joypad) //Code from Blargg, http://nesdev.parodius.com/bbs/viewtopic.php?t=711 , I think ideally I would handle this in te UI code of my various ports but this seems far more simple.
+        {
+            int changed = prev ^ joypad;
+            int hidden = joypad & ~mask;
+
+            if (((changed & x_axis) != 0) && ((hidden & x_axis) != 0))
+                mask ^= x_axis;
+
+            if (((changed & y_axis) != 0) && ((hidden & y_axis) != 0))
+                mask ^= y_axis;
+
+            prev = joypad;
+            return joypad & mask;
         }
         public override void StateSave(BinaryWriter writer)
         {

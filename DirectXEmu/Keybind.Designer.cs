@@ -36,6 +36,7 @@
             this.chkFourScore = new System.Windows.Forms.CheckBox();
             this.label1 = new System.Windows.Forms.Label();
             this.label2 = new System.Windows.Forms.Label();
+            this.chkFilter = new System.Windows.Forms.CheckBox();
             this.SuspendLayout();
             // 
             // bindViewer
@@ -128,11 +129,23 @@
             this.label2.TabIndex = 7;
             this.label2.Text = "Port Two";
             // 
+            // chkFilter
+            // 
+            this.chkFilter.AutoSize = true;
+            this.chkFilter.Location = new System.Drawing.Point(21, 98);
+            this.chkFilter.Name = "chkFilter";
+            this.chkFilter.Size = new System.Drawing.Size(171, 17);
+            this.chkFilter.TabIndex = 8;
+            this.chkFilter.Text = "Filter Up + Down / Left + Right";
+            this.chkFilter.UseVisualStyleBackColor = true;
+            this.chkFilter.CheckedChanged += new System.EventHandler(this.chkFilter_CheckedChanged);
+            // 
             // Keybind
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(538, 449);
+            this.Controls.Add(this.chkFilter);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.chkFourScore);
@@ -162,5 +175,6 @@
         private System.Windows.Forms.CheckBox chkFourScore;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.CheckBox chkFilter;
     }
 }
