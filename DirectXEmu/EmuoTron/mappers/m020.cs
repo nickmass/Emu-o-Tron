@@ -43,13 +43,25 @@ namespace EmuoTron.Mappers
             {
                 if (diskStream.ReadByte() != 'F' || diskStream.ReadByte() != 'D' || diskStream.ReadByte() != 'S' || diskStream.ReadByte() != 0x1A)
                 {
-                    diskStream.Close();
-                    throw (new Exception("Invalid File"));
+                    diskStream.Position = 0x0;
+                    if (diskStream.ReadByte() != 0x01 || diskStream.ReadByte() != '*' || diskStream.ReadByte() != 'N' || diskStream.ReadByte() != 'I')
+                    {
+                        diskStream.Close();
+                        throw (new BadHeaderException("Invalid File"));
+                    }
+                    else //NoIntro set uses many headerless roms which makes sense given how useless the header is.
+                    {
+                        diskStream.Position = 0x0;
+                        sideCount = (int)(diskStream.Length / 65500);
+                    }
+                }
+                else
+                {
+                    diskStream.Position = 0x4;
+                    sideCount = diskStream.ReadByte();
+                    diskStream.Position = 0x10;
                 }
             }
-            diskStream.Position = 0x4;
-            sideCount = diskStream.ReadByte();
-            diskStream.Position = 0x10;
             diskData = new byte[sideCount, 65500];
             crc = 0xFFFFFFFF;
             for (int side = 0; side < sideCount; side++)

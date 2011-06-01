@@ -198,7 +198,7 @@ namespace EmuoTron
                 inVblank = false;
                 addrLatch = false;
                 nextByte |= lastWrite;
-                vblFlagRead = currentTime - 2;
+                vblFlagRead = currentTime;
             }
             else if (address == 0x2004) //OAM Read
             {
@@ -496,18 +496,19 @@ namespace EmuoTron
                         spriteCount = (spritesFound > maxSprites) ? maxSprites : spritesFound;
                         if (nes.rom.mapper == 0x05)
                             ((Mappers.m005)nes.mapper).StartBackground(tallSprites);
-                    }
+                    }/*
+                    //This really just isnt working, it may help me pass blarggs tests, but adds minor issues to kirby and SMB3, which MAJOR glitches in Adventure Island 3
                     if (nes.rom.mapper == 4 || nes.rom.mapper == 48)
                     {
-                        if (scanlineCycle == 274 && (spriteTable == 0x1000 && backgroundTable == 0x0000)) //These cycle numbers are basically just trial and error from using blarggs test, I should eventually properly emulate the A12 clocking trigger. Wiki claims it should be cycles 260 of cuurent line, and 324 of the previousline but this reintroduces shaking to Crystalis.
+                        if (scanlineCycle == 260 && (spriteTable == 0x1000 && backgroundTable == 0x0000)) //These cycle numbers are basically just trial and error from using blarggs test, I should eventually properly emulate the A12 clocking trigger. Wiki claims it should be cycles 260 of cuurent line, and 324 of the previousline but this reintroduces shaking to Crystalis.
+                        {                                                                                 //Decided I prefer better kirby emulation over a still broken crytalsis and obscure test roms
+                            nes.mapper.IRQ(scanline);
+                        }
+                        else if (scanlineCycle == 324 && (spriteTable == 0x0000 && backgroundTable == 0x1000))
                         {
                             nes.mapper.IRQ(scanline);
                         }
-                        else if (scanlineCycle == 18 && (spriteTable == 0x0000 && backgroundTable == 0x1000))
-                        {
-                            nes.mapper.IRQ(scanline);
-                        }
-                    }
+                    }*/
                     if (scanlineCycle < 256 || (scanlineCycle >= 320 && scanlineCycle < 336))
                     {
                         if (shiftCount == 0)
@@ -597,6 +598,8 @@ namespace EmuoTron
                     scanlineCycle++;
                     if (scanlineCycle == 341 || (scanline == -1 && scanlineCycle == 340 && oddFrame && backgroundRendering))
                     {
+                        if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && scanline < 240)
+                            nes.mapper.IRQ(scanline);
                         if (generateNameTables && scanline == generateLine)
                             nameTables = GenerateNameTables();
                         if (generatePatternTables && scanline == generatePatternLine)
@@ -643,10 +646,13 @@ namespace EmuoTron
                         {
                             if (nes.rom.mapper == 5)
                                 nes.mapper.IRQ(1);
-                            inVblank = true;
-                            if (nmiEnable && !(vblFlagRead - lastUpdate == 1 || vblFlagRead == lastUpdate || vblFlagRead - lastUpdate == -1)) //This second clause is WRONG, it is just a kinda close imitation of proper behavior, need a CPU with finer grain.
+                            if (Math.Abs(vblFlagRead - lastUpdate) > 1)//This is WRONG, it is just a kinda close imitation of proper behavior, need a CPU with finer grain.
                             {
-                                pendingNMI = 3; //The NMI does not occur immediatly, and what I have here isnt precise but its the best I can pull off without some big changes.
+                                inVblank = true;
+                                if (nmiEnable) 
+                                {
+                                    pendingNMI = 3; //The NMI does not occur immediatly, and what I have here isnt precise but its the best I can pull off without some big changes.
+                                }
                             }
                         }
                         else if (scanline == vblankEnd)

@@ -189,13 +189,10 @@ namespace EmuoTron
                 tndTableShort[i] = (short)(tndTable[i] * short.MinValue);
             }
         }
-        public void Power()
+        public void Power() //4017_written.nes gives different results on initial load vs. power emulation, MUST fix.
         {
-            
             frameIRQ = false;
-            frameCounter = 0;
-            mode = false;
-            frameIRQInhibit = false;
+            dmcSampleBufferEmpty = true;
             Write(00, 0x4000); //Start-up values
             Write(00, 0x4001);
             Write(00, 0x4002);
@@ -212,9 +209,19 @@ namespace EmuoTron
             Write(00, 0x400D);
             Write(00, 0x400E);
             Write(00, 0x400F);
+            Write(00, 0x4010);
+            Write(00, 0x4011);
+            Write(00, 0x4012);
+            Write(00, 0x4013);
             Write(00, 0x4015);
             Write(00, 0x4017);
             timeToClock = modeZeroDelay - 12;
+            pulse1EnvelopeCounter = 0xF;
+            pulse1EnvelopeDivider = pulse1Envelope + 1;
+            pulse2EnvelopeCounter = 0xF;
+            pulse2EnvelopeDivider = pulse2Envelope + 1;
+            noiseEnvelopeCounter = 0xF;
+            noiseEnvelopeDivider = noiseEnvelope + 1;
             if (nes.nsfPlayer)
             {
                 Write(00, 0x4000); //Start-up values

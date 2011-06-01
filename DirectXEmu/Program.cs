@@ -116,6 +116,7 @@ namespace DirectXEmu
 
         NSFScreen nsfScreen;
         bool Closed;
+        bool ResetVideo;
 
         static bool isMono;
 
@@ -155,6 +156,11 @@ namespace DirectXEmu
         {
             while (!Closed) //Crazy ghetto message loop to try and switch away from forced SlimDX
             {
+                if (ResetVideo)
+                {
+                    renderer.Reset();
+                    ResetVideo = false;
+                }
                 if (state == SystemState.Playing && !cpu.debug.debugInterrupt)
                 {
                     input.MainLoop();
@@ -205,6 +211,7 @@ namespace DirectXEmu
                         message = "Breakpoint";
                         messageDuration = 1;
                         debugger.UpdateDebug();
+                        cpu.APU.SetFPS(cpu.APU.FPS);
                     }
                     Thread.Sleep(16);
                 }
@@ -443,6 +450,12 @@ namespace DirectXEmu
                     hQ2xToolStripMenuItem.Checked = true;
                     this.imageScaler = new HQ2x();
                     break;
+                case "phosphor2x":
+                    this.imageScaler = new Phosphor2x();
+                    break;
+                case "phosphor3x":
+                    this.imageScaler = new Phosphor3x();
+                    break;
             }
 
             PrepareScaler();
@@ -571,7 +584,7 @@ namespace DirectXEmu
             }
             catch (FDSBiosException e)
             {
-                MessageBox.Show("FDS BIOS image not found.");
+                MessageBox.Show("FDS BIOS image (" + config["fdsBios"] + ") not found.");
                 return;
             }
             this.frame = 0;
@@ -832,7 +845,7 @@ namespace DirectXEmu
                     }
                     if (count == 1)
                     {
-                        fileName = Path.Combine(this.config["tmpDir"], Path.GetFileNameWithoutExtension(archiveContent[0]) + ".tmp");
+                        fileName = Path.Combine(this.config["tmpDir"], Path.GetFileNameWithoutExtension(archiveContent[0]) + ".tmp" + Path.GetExtension(archiveContent[0]));
                         Archive.Extract(new uint[] { 0 }, 1, 0, new ArchiveCallback(0, fileName));
                     }
                     else
@@ -840,7 +853,7 @@ namespace DirectXEmu
                         ArchiveViewer viewer = new ArchiveViewer(archiveContent);
                         if (viewer.ShowDialog() == System.Windows.Forms.DialogResult.OK)
                         {
-                            fileName = Path.Combine(this.config["tmpDir"], Path.GetFileNameWithoutExtension(archiveContent[viewer.selectedFile]) + ".tmp");
+                            fileName = Path.Combine(this.config["tmpDir"], Path.GetFileNameWithoutExtension(archiveContent[viewer.selectedFile]) + ".tmp" + Path.GetExtension(archiveContent[0]));
                             Archive.Extract(new uint[] { (uint)viewer.selectedFile }, 1, 0, new ArchiveCallback((uint)viewer.selectedFile, fileName));
                         }
                         else
@@ -1840,7 +1853,7 @@ namespace DirectXEmu
                 string[] tmpFiles = Directory.GetFiles(this.config["tmpDir"]);
                 for (int i = 0; i < tmpFiles.Length; i++)
                 {
-                    if (Path.GetExtension(tmpFiles[i]) == ".tmp")
+                    if (Path.GetFileName(tmpFiles[i]).IndexOf(".tmp") != -1)
                         File.Delete(tmpFiles[i]);
                 }
             }
@@ -1990,7 +2003,7 @@ namespace DirectXEmu
             if (renderer != null)
             {
                 renderer.SmoothOutput(smoothOutputToolStripMenuItem.Checked);
-                renderer.Reset();
+                ResetVideo = true;
             }
         }
 
@@ -2024,17 +2037,17 @@ namespace DirectXEmu
         {
             if (fullScreen)
             {
+                this.fullScreen = false;
                 this.menuStrip.Show();
                 this.Size = this.smallSize;
                 this.Location = this.smallLocation;
-                this.fullScreen = false;
             }
             else
             {
-                this.menuStrip.Hide();
+                this.fullScreen = true;
                 this.smallLocation = this.Location;
                 this.smallSize = this.Size;
-                this.fullScreen = true;
+                this.menuStrip.Hide();
             }
             PrepareScaler();
         }
@@ -2233,7 +2246,7 @@ namespace DirectXEmu
             if (oldWidth != surfaceControl.Width || oldHeight != surfaceControl.Height)
             {
                 if (renderer != null)
-                    renderer.Reset();
+                    ResetVideo = true;
             }
         }
         #endregion

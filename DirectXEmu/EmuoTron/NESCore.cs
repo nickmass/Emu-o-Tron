@@ -1374,6 +1374,9 @@ namespace EmuoTron
                 case 99: //VS Unisystem
                     mapper = new Mappers.m099(this);
                     break;
+                case 105://NES-EVENT, Nintendo World Championships 1990
+                    mapper = new Mappers.m105(this);
+                    break;
                 case 113:
                     mapper = new Mappers.m113(this);
                     break;

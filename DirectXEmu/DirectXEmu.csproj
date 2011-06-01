@@ -216,6 +216,7 @@
     <Compile Include="Debugger.Designer.cs">
       <DependentUpon>Debugger.cs</DependentUpon>
     </Compile>
+    <Compile Include="EmuoTron\Mappers\m105.cs" />
     <Compile Include="EmuoTron\SPPU.cs" />
     <Compile Include="EmuoTron\Mappers\mNSF.cs" />
     <Compile Include="Input\DXInput.cs" />
@@ -274,6 +275,8 @@
     <Compile Include="EmuoTron\Mappers\m085.cs" />
     <Compile Include="EmuoTron\Mappers\mVRC4.cs" />
     <Compile Include="EmuoTron\Mappers\mVRC6.cs" />
+    <Compile Include="Video\Scalers\Phosphor3x.cs" />
+    <Compile Include="Video\Scalers\Phosphor2x.cs" />
     <Compile Include="Video\Scalers\Fill.cs" />
     <Compile Include="EmuoTron\Mappers\m099.cs" />
     <Compile Include="EmuoTron\Mappers\m000.cs" />
