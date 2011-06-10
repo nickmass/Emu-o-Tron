@@ -38,6 +38,8 @@ namespace EmuoTron
         private bool spriteRendering;
         private ushort colorMask;
         private byte lastWrite;
+        private int lastWriteDecay;
+        private int lastWriteDecayTime = 71400 * 60; //~800ms
 
         public int scanlineCycle;
         public int scanline = -1;
@@ -197,32 +199,46 @@ namespace EmuoTron
                     nextByte |= 0x80;
                 inVblank = false;
                 addrLatch = false;
-                nextByte |= lastWrite;
+                nextByte |= (byte)(lastWrite & 0x1F);
                 vblFlagRead = currentTime;
             }
             else if (address == 0x2004) //OAM Read
             {
                 if ((spriteAddr & 0x03) == 0x02)
+                {
                     nextByte = (byte)(SPRMemory[spriteAddr & 0xFF] & 0xE3);
+                    lastWrite = nextByte;
+                    lastWriteDecay = lastWriteDecayTime;
+                }
                 else
+                {
                     nextByte = SPRMemory[spriteAddr & 0xFF];
+                }
             }
             else if (address == 0x2007) //PPU Data
             {
                 if ((loopyV & 0x3F00) == 0x3F00)
                 {
-                    nextByte = (byte)(PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] & grayScale); //random wiki readings claim gray scale is applied here but have seen no roms that test it or evidence to support it.
+                    nextByte = (byte)((PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] & grayScale) | (lastWrite & 0xC0)); //random wiki readings claim gray scale is applied here but have seen no roms that test it or evidence to support it.
                     readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x2FFF]];
                 }
                 else
                 {
                     nextByte = readBuffer;
                     readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x3FFF]];
+                    if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
+                        nes.mapper.IRQ(PPUMirrorMap[loopyV & 0x3FFF]);
                 }
                 int oldA12 = (loopyV >> 12) & 1;
                 loopyV = (loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF;
                 if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
                     nes.mapper.IRQ(scanline);
+                lastWrite = nextByte;
+                lastWriteDecay = lastWriteDecayTime;
+            }
+            else if(address == 0x2000 || address == 0x2001 || address == 0x2003 || address == 0x2005 || address == 0x2006)
+            {
+                nextByte = lastWrite;
             }
             return nextByte;
         }
@@ -245,9 +261,10 @@ namespace EmuoTron
                 nmiEnable = (value & 0x80) != 0;
                 if (!nmiEnable && pendingNMI > 1)
                     pendingNMI = 0;
-                if (inVblank && nmiEnable && !wasEnabled)
+                else if (inVblank && nmiEnable && !wasEnabled)
                     pendingNMI = 2;
-                lastWrite = (byte)(value & 0x1F);
+                lastWrite = value;
+                lastWriteDecay = lastWriteDecayTime;
             }
             else if (address == 0x2001) //PPU Mask
             {
@@ -260,26 +277,31 @@ namespace EmuoTron
                 backgroundRendering = (value & 0x08) != 0;
                 spriteRendering = (value & 0x10) != 0;
                 colorMask = (ushort)((value << 1) & 0x1C0);
-                lastWrite = (byte)(value & 0x1F);
+                lastWrite = value;
+                lastWriteDecay = lastWriteDecayTime;
             }
             else if (address == 0x2003) //OAM Address
             {
                 spriteAddr = value;
-                lastWrite = (byte)(value & 0x1F);
+                lastWrite = value;
+                lastWriteDecay = lastWriteDecayTime;
             }
             else if (address == 0x2004) //OAM Write
             {
                 SPRMemory[spriteAddr & 0xFF] = value;
                 spriteAddr++;
-                lastWrite = (byte)(value & 0x1F);
+                lastWrite = value;
+                lastWriteDecay = lastWriteDecayTime;
             }
             else if (address == 0x4014) //Sprite DMA
             {
                 int startAddress = value << 8;
                 for (int i = 0; i < 0x100; i++)
                     SPRMemory[(spriteAddr + i) & 0xFF] = nes.Memory[nes.MirrorMap[(startAddress + i) & 0xFFFF]];
-                lastWrite = (byte)(value & 0x1F);
-                nes.AddCycles(513);
+                if ((nes.counter & 1) == 0) //Sprite DMA always ends on even cycles.
+                    nes.AddCycles(514);
+                else
+                    nes.AddCycles(513);
             }
             else if (address == 0x2005) //PPUScroll
             {
@@ -291,7 +313,8 @@ namespace EmuoTron
                 else //2nd Write
                     loopyT = ((loopyT & 0x0C1F) | ((value & 0x07) << 12) | ((value & 0xF8) << 2));
                 addrLatch = !addrLatch;
-                lastWrite = (byte)(value & 0x1F);
+                lastWrite = value;
+                lastWriteDecay = lastWriteDecayTime;
             }
             else if (address == 0x2006) //PPUAddr
             {
@@ -308,7 +331,8 @@ namespace EmuoTron
                         nes.mapper.IRQ(scanline);
                 }
                 addrLatch = !addrLatch;
-                lastWrite = (byte)(value & 0x1F);
+                lastWrite = value;
+                lastWriteDecay = lastWriteDecayTime;
             }
             else if (address == 0x2007) //PPU Write
             {
@@ -321,7 +345,13 @@ namespace EmuoTron
                 loopyV = ((loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF);
                 if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
                     nes.mapper.IRQ(scanline);
-                lastWrite = (byte)(value & 0x1F);
+                lastWrite = value;
+                lastWriteDecay = lastWriteDecayTime;
+            }
+            else if (address == 0x2002)
+            {
+                lastWrite = value;
+                lastWriteDecay = lastWriteDecayTime;
             }
         }
 
@@ -469,15 +499,15 @@ namespace EmuoTron
                                 {
                                     tileNumber |= 1;
                                     if (vertFlip)
-                                        flipper = Flip[spriteY & 7] - 16;
+                                        flipper = vertFlipTable[spriteY & 7] - 16;
                                 }
                                 else if (vertFlip)
-                                    flipper = Flip[spriteY & 7] + 16;
+                                    flipper = vertFlipTable[spriteY & 7] + 16;
                                 chrAddress = (spriteTable | (tileNumber << 4) | (spriteY & 7)) + flipper;
                             }
                             else
                             {
-                                chrAddress = (this.spriteTable | (tileNumber << 4) | (spriteY & 7)) + (vertFlip ? Flip[spriteY & 7] : 0);
+                                chrAddress = (this.spriteTable | (tileNumber << 4) | (spriteY & 7)) + (vertFlip ? vertFlipTable[spriteY & 7] : 0);
                             }
                             if (!horzFlip)
                             {
@@ -496,19 +526,7 @@ namespace EmuoTron
                         spriteCount = (spritesFound > maxSprites) ? maxSprites : spritesFound;
                         if (nes.rom.mapper == 0x05)
                             ((Mappers.m005)nes.mapper).StartBackground(tallSprites);
-                    }/*
-                    //This really just isnt working, it may help me pass blarggs tests, but adds minor issues to kirby and SMB3, which MAJOR glitches in Adventure Island 3
-                    if (nes.rom.mapper == 4 || nes.rom.mapper == 48)
-                    {
-                        if (scanlineCycle == 260 && (spriteTable == 0x1000 && backgroundTable == 0x0000)) //These cycle numbers are basically just trial and error from using blarggs test, I should eventually properly emulate the A12 clocking trigger. Wiki claims it should be cycles 260 of cuurent line, and 324 of the previousline but this reintroduces shaking to Crystalis.
-                        {                                                                                 //Decided I prefer better kirby emulation over a still broken crytalsis and obscure test roms
-                            nes.mapper.IRQ(scanline);
-                        }
-                        else if (scanlineCycle == 324 && (spriteTable == 0x0000 && backgroundTable == 0x1000))
-                        {
-                            nes.mapper.IRQ(scanline);
-                        }
-                    }*/
+                    }
                     if (scanlineCycle < 256 || (scanlineCycle >= 320 && scanlineCycle < 336))
                     {
                         if (shiftCount == 0)
@@ -594,12 +612,12 @@ namespace EmuoTron
                             shiftCount = 0;
                         }
                     }
+                    if (scanlineCycle == 300 && (nes.rom.mapper == 4 || nes.rom.mapper == 48))
+                            nes.mapper.IRQ(scanline);//I am having far too much trouble with this stupid scanline counter.
                     lastUpdate++;
                     scanlineCycle++;
                     if (scanlineCycle == 341 || (scanline == -1 && scanlineCycle == 340 && oddFrame && backgroundRendering))
                     {
-                        if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && scanline < 240)
-                            nes.mapper.IRQ(scanline);
                         if (generateNameTables && scanline == generateLine)
                             nameTables = GenerateNameTables();
                         if (generatePatternTables && scanline == generatePatternLine)
@@ -670,6 +688,10 @@ namespace EmuoTron
                         }
                     }
                 }
+                if (lastWriteDecay > 0)
+                    lastWriteDecay--;
+                else
+                    lastWrite = 0;
             }
         }
         private byte[][,] GenerateNameTables()
@@ -802,6 +824,11 @@ namespace EmuoTron
             writer.Write(palCounter);
             writer.Write(pendingNMI);
             writer.Write(lastWrite);
+            writer.Write(lastWriteDecay);
+            writer.Write(lastUpdate);
+            writer.Write(currentTime);
+            writer.Write(vblFlagRead);
+            writer.Write(oddFrame);
         }
         public void StateLoad(BinaryReader reader)
         {
@@ -837,8 +864,13 @@ namespace EmuoTron
             palCounter = reader.ReadInt32();
             pendingNMI = reader.ReadInt32();
             lastWrite = reader.ReadByte();
+            lastWriteDecay = reader.ReadInt32();
+            lastUpdate = reader.ReadInt64();
+            currentTime = reader.ReadInt64();
+            vblFlagRead = reader.ReadInt64();
+            oddFrame = reader.ReadBoolean();
         }
-        private int[] Flip = { 7, 5, 3, 1, -1, -3, -5, -7};
+        private int[] vertFlipTable = { 7, 5, 3, 1, -1, -3, -5, -7};
         private ushort[] AttrTableLookup = 
           { 0x0000, 0x0000, 0x2000, 0x2000, 0x0001, 0x0001, 0x2001, 0x2001, 0x0002, 0x0002, 0x2002, 0x2002, 0x0003, 0x0003, 0x2003, 0x2003, 
             0x0004, 0x0004, 0x2004, 0x2004, 0x0005, 0x0005, 0x2005, 0x2005, 0x0006, 0x0006, 0x2006, 0x2006, 0x0007, 0x0007, 0x2007, 0x2007, 

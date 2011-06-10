@@ -104,6 +104,7 @@ namespace EmuoTron
 
         public static int[] opListing;
         public static string[] opNames;
+        public static int[] dummyReads;
 
         // opcode + ( Addr << 8) + (Size << 16) + (Cycles << 24)
 
@@ -423,6 +424,7 @@ namespace EmuoTron
             SetOp(0xB2, IllInstrKIL, AddrNone, 1, 0);
             SetOp(0xD2, IllInstrKIL, AddrNone, 1, 0);
             SetOp(0xF2, IllInstrKIL, AddrNone, 1, 0);
+            LoadDummyReads();
         }
 
         public static void SetOp(int op, int instr, int addr, int size, int cycles)
@@ -431,88 +433,164 @@ namespace EmuoTron
                 throw new Exception("Overlap");
             opListing[op] = (instr & 0xFF) + ((addr & 0xFF) << 8) + ((size & 0xFF) << 16) + ((cycles & 0xFF) << 24);
         }
+        public const int DummyNever = 0;
+        public const int DummyOnCarry = 1;
+        public const int DummyAlways = 2;
+        public static void LoadDummyReads()
+        {
+            dummyReads = new int[256];
+            dummyReads[0x1D] = DummyOnCarry;
+            dummyReads[0x19] = DummyOnCarry;
+            dummyReads[0x11] = DummyOnCarry;
+            dummyReads[0x3D] = DummyOnCarry;
+            dummyReads[0x39] = DummyOnCarry;
+            dummyReads[0x31] = DummyOnCarry;
+            dummyReads[0x5D] = DummyOnCarry;
+            dummyReads[0x59] = DummyOnCarry;
+            dummyReads[0x51] = DummyOnCarry;
+            dummyReads[0x7D] = DummyOnCarry;
+            dummyReads[0x79] = DummyOnCarry;
+            dummyReads[0x71] = DummyOnCarry;
+            dummyReads[0x9D] = DummyAlways;
+            dummyReads[0x99] = DummyAlways;
+            dummyReads[0x91] = DummyAlways;
+            dummyReads[0xBD] = DummyOnCarry;
+            dummyReads[0xB9] = DummyOnCarry;
+            dummyReads[0xB1] = DummyOnCarry;
+            dummyReads[0xDD] = DummyOnCarry;
+            dummyReads[0xD9] = DummyOnCarry;
+            dummyReads[0xD1] = DummyOnCarry;
+            dummyReads[0xFD] = DummyOnCarry;
+            dummyReads[0xF9] = DummyOnCarry;
+            dummyReads[0xF1] = DummyOnCarry;
+            dummyReads[0x1E] = DummyAlways;
+            dummyReads[0x3E] = DummyAlways;
+            dummyReads[0x5E] = DummyAlways;
+            dummyReads[0x7E] = DummyAlways;
+            dummyReads[0xDE] = DummyAlways;
+            dummyReads[0xFE] = DummyAlways;
+            dummyReads[0xBC] = DummyOnCarry;
+            dummyReads[0xBE] = DummyOnCarry;
 
+
+            //Illegals
+            dummyReads[0x1C] = DummyOnCarry;
+            dummyReads[0x3C] = DummyOnCarry;
+            dummyReads[0x5C] = DummyOnCarry;
+            dummyReads[0x7C] = DummyOnCarry;
+            dummyReads[0xDC] = DummyOnCarry;
+            dummyReads[0xFC] = DummyOnCarry;
+
+            //Not positive about this block
+            dummyReads[0x1F] = DummyAlways;
+            dummyReads[0x1B] = DummyAlways;
+            dummyReads[0x13] = DummyAlways;
+            dummyReads[0x3F] = DummyAlways;
+            dummyReads[0x3B] = DummyAlways;
+            dummyReads[0x33] = DummyAlways;
+            dummyReads[0x5F] = DummyAlways;
+            dummyReads[0x5B] = DummyAlways;
+            dummyReads[0x53] = DummyAlways;
+            dummyReads[0x7F] = DummyAlways;
+            dummyReads[0x7B] = DummyAlways;
+            dummyReads[0x73] = DummyAlways;
+            dummyReads[0xDF] = DummyAlways;
+            dummyReads[0xDB] = DummyAlways;
+            dummyReads[0xD3] = DummyAlways;
+            dummyReads[0xFF] = DummyAlways;
+            dummyReads[0xFB] = DummyAlways;
+            dummyReads[0xF3] = DummyAlways;
+
+            dummyReads[0x9C] = DummyAlways;
+            dummyReads[0xBF] = DummyOnCarry;
+            dummyReads[0x9B] = DummyAlways;
+            dummyReads[0x9E] = DummyAlways;
+            dummyReads[0x9F] = DummyAlways;
+            dummyReads[0xBB] = DummyOnCarry;
+            dummyReads[0x93] = DummyAlways;
+            dummyReads[0xB3] = DummyOnCarry;
+        }
         public static void LoadOpNames()
         {
             opNames = new string[256];
-            opNames[0] = "ADC";
-            opNames[1] = "AND";
-            opNames[2] = "ASL";
-            opNames[3] = "BIT";
-            opNames[4] = "BCC";
-            opNames[5] = "BCS";
-            opNames[6] = "BEQ";
-            opNames[7] = "BMI";
-            opNames[8] = "BNE";
-            opNames[9] = "BPL";
-            opNames[10] = "BRK";
-            opNames[11] = "BVC";
-            opNames[12] = "BVS";
-            opNames[13] = "CLC";
-            opNames[14] = "CLD";
-            opNames[15] = "CLI";
-            opNames[16] = "CLV";
-            opNames[17] = "CMP";
-            opNames[18] = "CPX";
-            opNames[19] = "CPY";
-            opNames[20] = "DEC";
-            opNames[21] = "DEX";
-            opNames[22] = "DEY";
-            opNames[23] = "EOR";
-            opNames[24] = "INC";
-            opNames[25] = "INX";
-            opNames[26] = "INY";
-            opNames[27] = "JMP";
-            opNames[28] = "JSR";
-            opNames[29] = "LDA";
-            opNames[30] = "LDX";
-            opNames[31] = "LDY";
-            opNames[32] = "LSR";
-            opNames[33] = "NOP";
-            opNames[34] = "ORA";
-            opNames[35] = "PHA";
-            opNames[36] = "PHP";
-            opNames[37] = "PLA";
-            opNames[38] = "PLP";
-            opNames[39] = "ROL";
-            opNames[40] = "ROR";
-            opNames[41] = "RTI";
-            opNames[42] = "RTS";
-            opNames[43] = "SBC";
-            opNames[44] = "SEC";
-            opNames[45] = "SED";
-            opNames[46] = "SEI";
-            opNames[47] = "STA";
-            opNames[48] = "STX";
-            opNames[49] = "STY";
-            opNames[50] = "TAX";
-            opNames[51] = "TAY";
-            opNames[52] = "TSX";
-            opNames[53] = "TXA";
-            opNames[54] = "TXS";
-            opNames[55] = "TYA";
-            opNames[56] = "*AHX";
-            opNames[57] = "*ANC";
-            opNames[58] = "*ALR";
-            opNames[59] = "*ARR";
-            opNames[60] = "*AXS";
-            opNames[61] = "*DCP";
-            opNames[62] = "*ISC";
-            opNames[63] = "*KIL";
-            opNames[64] = "*LAS";
-            opNames[65] = "*LAX";
-            opNames[66] = "*NOP";
-            opNames[67] = "*RLA";
-            opNames[68] = "*RRA";
-            opNames[69] = "*SAX";
-            opNames[70] = "*SBC";
-            opNames[71] = "*SHX";
-            opNames[72] = "*SHY";
-            opNames[73] = "*SLO";
-            opNames[74] = "*SRE";
-            opNames[75] = "*TAS";
-            opNames[76] = "*XAA";
-            opNames[255] = "Dummy";
+            opNames[InstrADC] = "ADC";
+            opNames[InstrAND] = "AND";
+            opNames[InstrASL] = "ASL";
+            opNames[InstrBIT] = "BIT";
+            opNames[InstrBCC] = "BCC";
+            opNames[InstrBCS] = "BCS";
+            opNames[InstrBEQ] = "BEQ";
+            opNames[InstrBMI] = "BMI";
+            opNames[InstrBNE] = "BNE";
+            opNames[InstrBPL] = "BPL";
+            opNames[InstrBRK] = "BRK";
+            opNames[InstrBVC] = "BVC";
+            opNames[InstrBVS] = "BVS";
+            opNames[InstrCLC] = "CLC";
+            opNames[InstrCLD] = "CLD";
+            opNames[InstrCLI] = "CLI";
+            opNames[InstrCLV] = "CLV";
+            opNames[InstrCMP] = "CMP";
+            opNames[InstrCPX] = "CPX";
+            opNames[InstrCPY] = "CPY";
+            opNames[InstrDEC] = "DEC";
+            opNames[InstrDEX] = "DEX";
+            opNames[InstrDEY] = "DEY";
+            opNames[InstrEOR] = "EOR";
+            opNames[InstrINC] = "INC";
+            opNames[InstrINX] = "INX";
+            opNames[InstrINY] = "INY";
+            opNames[InstrJMP] = "JMP";
+            opNames[InstrJSR] = "JSR";
+            opNames[InstrLDA] = "LDA";
+            opNames[InstrLDX] = "LDX";
+            opNames[InstrLDY] = "LDY";
+            opNames[InstrLSR] = "LSR";
+            opNames[InstrNOP] = "NOP";
+            opNames[InstrORA] = "ORA";
+            opNames[InstrPHA] = "PHA";
+            opNames[InstrPHP] = "PHP";
+            opNames[InstrPLA] = "PLA";
+            opNames[InstrPLP] = "PLP";
+            opNames[InstrROL] = "ROL";
+            opNames[InstrROR] = "ROR";
+            opNames[InstrRTI] = "RTI";
+            opNames[InstrRTS] = "RTS";
+            opNames[InstrSBC] = "SBC";
+            opNames[InstrSEC] = "SEC";
+            opNames[InstrSED] = "SED";
+            opNames[InstrSEI] = "SEI";
+            opNames[InstrSTA] = "STA";
+            opNames[InstrSTX] = "STX";
+            opNames[InstrSTY] = "STY";
+            opNames[InstrTAX] = "TAX";
+            opNames[InstrTAY] = "TAY";
+            opNames[InstrTSX] = "TSX";
+            opNames[InstrTXA] = "TXA";
+            opNames[InstrTXS] = "TXS";
+            opNames[InstrTYA] = "TYA";
+            opNames[IllInstrAHX] = "*AHX";
+            opNames[IllInstrANC] = "*ANC";
+            opNames[IllInstrALR] = "*ALR";
+            opNames[IllInstrARR] = "*ARR";
+            opNames[IllInstrAXS] = "*AXS";
+            opNames[IllInstrDCP] = "*DCP";
+            opNames[IllInstrISC] = "*ISC";
+            opNames[IllInstrKIL] = "*KIL";
+            opNames[IllInstrLAS] = "*LAS";
+            opNames[IllInstrLAX] = "*LAX";
+            opNames[IllInstrNOP] = "*NOP";
+            opNames[IllInstrRLA] = "*RLA";
+            opNames[IllInstrRRA] = "*RRA";
+            opNames[IllInstrSAX] = "*SAX";
+            opNames[IllInstrSBC] = "*SBC";
+            opNames[IllInstrSHX] = "*SHX";
+            opNames[IllInstrSHY] = "*SHY";
+            opNames[IllInstrSLO] = "*SLO";
+            opNames[IllInstrSRE] = "*SRE";
+            opNames[IllInstrTAS] = "*TAS";
+            opNames[IllInstrXAA] = "*XAA";
+            opNames[InstrDummy] = "Dummy";
         }
     }
 }

@@ -8,8 +8,8 @@ namespace EmuoTron.Mappers
 {
     class m010 : Mapper
     {
-        int latch0;
-        int latch1;
+        bool latch0;
+        bool latch1;
         int fd0;
         int fe0;
         int fd1;
@@ -20,10 +20,15 @@ namespace EmuoTron.Mappers
         }
         public override void Power()
         {
+            latch0 = false;
+            latch1 = false;
+            fd0 = 0;
+            fe0 = 0;
+            fd1 = 0;
+            fe1 = 0;
             nes.Memory.Swap16kROM(0x8000, 0);
             nes.Memory.Swap16kROM(0xC000, (nes.rom.prgROM / 16) - 1);
-            nes.PPU.PPUMemory.Swap4kROM(0x0000, 0);
-            nes.PPU.PPUMemory.Swap4kROM(0x1000, 1);
+            nes.PPU.PPUMemory.Swap8kROM(0x0000, 0);
         }
         public override void Write(byte value, ushort address)
         {
@@ -40,29 +45,29 @@ namespace EmuoTron.Mappers
                 {
                     value = (byte)(value % (nes.rom.vROM / 4)); //0xFE
                     fe1 = value;
-                    if (latch1 == 0xFE)
-                        nes.PPU.PPUMemory.Swap4kROM(0x1000, value);
+                    if (latch1)
+                        nes.PPU.PPUMemory.Swap4kROM(0x1000, fe1);
                 }
                 else if (address >= 0xD000)
                 {
                     value = (byte)(value % (nes.rom.vROM / 4)); //0xFD
                     fd1 = value;
-                    if (latch1 == 0xFD)
-                        nes.PPU.PPUMemory.Swap4kROM(0x1000, value);
+                    if (!latch1)
+                        nes.PPU.PPUMemory.Swap4kROM(0x1000, fd1);
                 }
                 else if (address >= 0xC000)
                 {
                     value = (byte)(value % (nes.rom.vROM / 4)); //0xFE
                     fe0 = value;
-                    if (latch0 == 0xFE)
-                        nes.PPU.PPUMemory.Swap4kROM(0x0000, value);
+                    if (latch0)
+                        nes.PPU.PPUMemory.Swap4kROM(0x0000, fe0);
                 }
                 else if (address >= 0xB000)
                 {
                     value = (byte)(value % (nes.rom.vROM / 4)); //0xFD
                     fd0 = value;
-                    if (latch0 == 0xFD)
-                        nes.PPU.PPUMemory.Swap4kROM(0x0000, value);
+                    if (!latch0)
+                        nes.PPU.PPUMemory.Swap4kROM(0x0000, fd0);
                 }
                 else
                 {
@@ -73,31 +78,31 @@ namespace EmuoTron.Mappers
         }
         public override void IRQ(int chrAddress)
         {
-            if (chrAddress >= 0xFD0 && chrAddress <= 0xFDF)
+            if ((chrAddress & 0xFFF0) == 0xFD0)
             {
-                latch0 = 0xFD;
+                latch0 = false;
                 nes.PPU.PPUMemory.Swap4kROM(0x0000, fd0);
             }
-            else if (chrAddress >= 0xFE0 && chrAddress <= 0xFEF)
+            else if ((chrAddress & 0xFFF0) == 0xFE0)
             {
-                latch0 = 0xFE;
+                latch0 = true;
                 nes.PPU.PPUMemory.Swap4kROM(0x0000, fe0);
             }
-            else if (chrAddress >= 0x1FD0 && chrAddress <= 0x1FDF)
+            else if ((chrAddress & 0xFFF0) == 0x1FD0)
             {
-                latch1 = 0xFD;
+                latch1 = false;
                 nes.PPU.PPUMemory.Swap4kROM(0x1000, fd1);
             }
-            else if (chrAddress >= 0x1FE0 && chrAddress <= 0x1FEF)
+            else if ((chrAddress & 0xFFF0) == 0x1FE0)
             {
-                latch1 = 0xFE;
+                latch1 = true;
                 nes.PPU.PPUMemory.Swap4kROM(0x1000, fe1);
             }
         }
         public override void StateLoad(BinaryReader reader)
         {
-            latch0 = reader.ReadInt32();
-            latch1 = reader.ReadInt32();
+            latch0 = reader.ReadBoolean();
+            latch1 = reader.ReadBoolean();
             fd0 = reader.ReadInt32();
             fe0 = reader.ReadInt32();
             fd1 = reader.ReadInt32();

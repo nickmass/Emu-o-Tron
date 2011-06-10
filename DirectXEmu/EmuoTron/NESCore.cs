@@ -65,7 +65,7 @@ namespace EmuoTron
         public int FlagNotUsed = 1;
         public int FlagOverflow = 0;
         public int FlagSign = 0; //Bit 7 of P
-        private int counter = 0;
+        public int counter = 0;
         private bool interruptReset = false;
         private int pendingFlagIRQ1 = 0;
         private int pendingFlagIRQ2 = 0;
@@ -133,6 +133,7 @@ namespace EmuoTron
             int addr = 0;
             int temp;
             int value;
+            int dummy;
             while (!PPU.frameComplete && !debug.debugInterrupt && emulationRunning)
             {
 #if DEBUGGER
@@ -144,6 +145,7 @@ namespace EmuoTron
                 opCycleAdd = 0;
                 addressing = (opInfo >> 8) & 0xFF;
                 instruction = opInfo & 0xFF;
+                dummy = OpInfo.dummyReads[op];
                 opAddr = RegPC;
                 RegPC += (opInfo >> 16) & 0xFF;
                 RegPC &= 0xFFFF;
@@ -173,13 +175,28 @@ namespace EmuoTron
                     case OpInfo.AddrAbsoluteX:
                         addr = ReadWord(opAddr + 1);
                         if ((addr & 0xFF00) != ((addr + RegX) & 0xFF00))
+                        {
                             opCycleAdd++;
+                            if (dummy == OpInfo.DummyOnCarry)
+                                Read((addr & 0xFF00) | ((addr + RegX) & 0xFF));
+
+                        }
+                        if (dummy == OpInfo.DummyAlways)
+                            Read((addr & 0xFF00) | ((addr + RegX) & 0xFF));
+
                         addr += RegX;
                         break;
                     case OpInfo.AddrAbsoluteY:
                         addr = ReadWord(opAddr + 1);
                         if ((addr & 0xFF00) != ((addr + RegY) & 0xFF00))
+                        {
                             opCycleAdd++;
+                            if (dummy == OpInfo.DummyOnCarry)
+                                Read((addr & 0xFF00) | ((addr + RegY) & 0xFF));
+
+                        }
+                        if (dummy == OpInfo.DummyAlways)
+                            Read((addr & 0xFF00) | ((addr + RegY) & 0xFF));
                         addr += RegY;
                         break;
                     case OpInfo.AddrIndirectAbs:
@@ -190,13 +207,17 @@ namespace EmuoTron
                         if (addr < 0x80)
                         {
                             if ((RegPC & 0xFF00) != ((addr + RegPC) & 0xFF00))
+                            {
                                 opCycleAdd++;
+                            }
                             addr += RegPC;
                         }
                         else
                         {
                             if ((RegPC & 0xFF00) != ((addr + RegPC - 256) & 0xFF00))
-                               opCycleAdd++;
+                            {
+                                opCycleAdd++;
+                            }
                             addr += RegPC - 256;
                         }
 
@@ -210,7 +231,14 @@ namespace EmuoTron
                     case OpInfo.AddrIndirectY:
                         addr = ReadWordWrap(Read(opAddr + 1));
                         if ((addr & 0xFF00) != ((addr + RegY) & 0xFF00))
+                        {
                             opCycleAdd++;
+                            if (dummy == OpInfo.DummyOnCarry)
+                                Read((addr & 0xFF00) | ((addr + RegY) & 0xFF));
+
+                        }
+                        if (dummy == OpInfo.DummyAlways)
+                            Read((addr & 0xFF00) | ((addr + RegY) & 0xFF));
                         addr += RegY;
                         break;
                 }
@@ -296,8 +324,7 @@ namespace EmuoTron
                         break;
                     case OpInfo.InstrBRK:
                         PushWordStack((RegPC + 1) & 0xFFFF);
-                        RegP = (RegP & 0xCF) | 0x30;
-                        PushByteStack(RegP);
+                        PushByteStack(RegP | 0x30);
                         FlagIRQ = 1;
                         RegPC = ReadWord(0xFFFE);
                         break;
@@ -850,7 +877,7 @@ namespace EmuoTron
 #endif
             }
             if (debug.debugInterrupt && (PPU.scanlineCycle < 256 && PPU.scanline > -1 && PPU.scanline < 240))
-                PPU.screen[PPU.scanline, PPU.scanlineCycle] ^= 0xFFFFFFFF;
+                PPU.screen[PPU.scanline, PPU.scanlineCycle] ^= 0x00FFFFFF;
             emulationRunning = false;
             PPU.frameComplete = false;
             PPU.generateNameTables = false;
@@ -1002,12 +1029,7 @@ namespace EmuoTron
             {
                 MirrorMap[i] = (ushort)i;
             }
-            Memory.memMap[2] = Memory.memMap[0];
-            Memory.memMap[3] = Memory.memMap[1];
-            Memory.memMap[4] = Memory.memMap[0];
-            Memory.memMap[5] = Memory.memMap[1];
-            Memory.memMap[6] = Memory.memMap[0];
-            Memory.memMap[7] = Memory.memMap[1]; //0x0000 - 0x0800 mirrored 3 times.
+            CPUMirror(0x0000, 0x0800, 0x0800, 3);
             CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
             Power();
         }
@@ -1389,6 +1411,9 @@ namespace EmuoTron
                 case 184://Sunsoft
                     mapper = new Mappers.m184(this);
                     break;
+                case 185:
+                    mapper = new Mappers.m185(this);
+                    break;
                 case 207:
                     mapper = new Mappers.m207(this);
                     break;
@@ -1409,12 +1434,7 @@ namespace EmuoTron
             {
                 MirrorMap[i] = (ushort)i;
             }
-            Memory.memMap[2] = Memory.memMap[0];
-            Memory.memMap[3] = Memory.memMap[1];
-            Memory.memMap[4] = Memory.memMap[0];
-            Memory.memMap[5] = Memory.memMap[1];
-            Memory.memMap[6] = Memory.memMap[0];
-            Memory.memMap[7] = Memory.memMap[1]; //0x0000 - 0x0800 mirrored 3 times.
+            CPUMirror(0x0000, 0x0800, 0x0800, 3);
             CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
             Power();
 #if nestest
