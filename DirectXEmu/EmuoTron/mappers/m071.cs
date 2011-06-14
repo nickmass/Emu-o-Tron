@@ -26,7 +26,7 @@ namespace EmuoTron.Mappers
         }
         public override void Write(byte value, ushort address)
         {
-            if (address >= 0xC000 && address <= 0xFFFF)
+            if (address >= 0xC000)
                 nes.Memory.Swap16kROM(0x8000, value % (nes.rom.prgROM / 16));
             //if Fire Hawk
             if (nes.rom.crc == 0x1BC686A8)

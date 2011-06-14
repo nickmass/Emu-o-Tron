@@ -24,8 +24,9 @@ namespace EmuoTron.Inputs
                 playerNum = 1;
             }
         }
-        public override byte Read(byte value, ushort address)
+        public override byte Read(ushort address)
         {
+            byte value = 0;
             if (address == 0x4016)
             {
                 if (nes.players[playerNum].triggerPulled)

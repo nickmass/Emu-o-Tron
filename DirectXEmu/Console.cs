@@ -214,7 +214,7 @@ namespace DirectXEmu
             {
                 output.Append(@"\cf1" + test.name + ": ");
                 testCore = new NESCore(SystemType.NTSC, Path.Combine(testSuite.basepath, test.file), "", 44100, 1);
-                testCore.SetControllers(ControllerType.Controller, ControllerType.Controller, false, false);
+                testCore.SetControllers(ControllerType.Controller, ControllerType.Controller, ControllerType.Empty, false, false);
                 int frame = 0;
                 if (test.type == TestType.movie)
                 {

@@ -72,6 +72,7 @@ namespace EmuoTron
         private int pendingFlagIRQValue1 = 0;
         private int pendingFlagIRQValue2 = 0;
         private int delayedFlagIRQ = 0;
+        private byte lastRead = 0;
 
         private OpInfo OpCodes = new OpInfo();
         private int[] opList;
@@ -79,6 +80,7 @@ namespace EmuoTron
         public Controller[] players = new Controller[4];
         private Inputs.Input PortOne = new Inputs.Empty();
         private Inputs.Input PortTwo = new Inputs.Empty();
+        private Inputs.Input Expansion = new Inputs.Empty();
         public bool fourScore;
         public bool filterIllegalInput;
         public bool creditService;
@@ -1132,6 +1134,8 @@ namespace EmuoTron
             PPU = new PPU(this);
 #endif
             debug = new Debug(this);
+            if (rom.vsUnisystem)
+                Expansion = new Inputs.Unisystem(this);
             debug.LogInfo("Mapper: " + rom.mapper);
             debug.LogInfo("PRG-ROM: " + rom.prgROM.ToString() + "KB");
             debug.LogInfo("CHR-ROM: " + rom.vROM.ToString() + "KB");
@@ -1445,88 +1449,40 @@ namespace EmuoTron
         {
             ushort address = MirrorMap[addr & 0xFFFF];
             byte nextByte = Memory[address];
-
-
-            if ((address & 0xF000) == 0x4000)
+            if ((address & 0xF000) == 0x4000 && (address < 0x4018))
             {
-                if (!nsfPlayer)
+                switch (address)
                 {
-                    nextByte = PortOne.Read(nextByte, address);
-                    nextByte = PortTwo.Read(nextByte, address);
+                    case 0x4015:
+                        nextByte = APU.Read();
+                        break;
+                    case 0x4016:
+                        if(!nsfPlayer)
+                            nextByte = (byte)(PortOne.Read(address) | (lastRead & 0xC0) | Expansion.Read(address));
+                        else
+                            nextByte = lastRead;
+                        break;
+                    case 0x4017:
+                        if(!nsfPlayer)
+                            nextByte = (byte)(PortTwo.Read(address) | (lastRead & 0xC0) | Expansion.Read(address));
+                        else
+                            nextByte = lastRead;
+                        break;
+                    default:
+                        nextByte = lastRead;
+                        break;
                 }
-                if (rom.vsUnisystem)
-                {
-                    if (address == 0x4016)
-                    {
-                        //nextbyte should be coming from controller reg with data in bit 1
-                        /*
-                            * Port 4016h/Read:
-                            Bit2    Credit Service Button       (0=Released, 1=Service Credit)
-                            Bit3-4  DIP Switch 1-2              (0=Off, 1=On)
-                            Bit5-6  Credit Left/Right Coin Slot (0=None, 1=Coin) (Acknowledge via 4020h)
-                            */
-                        if (creditService)
-                            nextByte |= 0x04;
-                        else
-                            nextByte &= 0xFB;
-                        if (dip1)
-                            nextByte |= 0x08;
-                        else
-                            nextByte &= 0xF7;
-                        if (dip2)
-                            nextByte |= 0x10;
-                        else
-                            nextByte &= 0xEF;
-                        if (players[0].coin)
-                            nextByte |= 0x20;
-                        else
-                            nextByte &= 0xDF;
-                        if (players[1].coin)
-                            nextByte |= 0x40;
-                        else
-                            nextByte &= 0xBF;
-                    }
-                    else if (address == 0x4017)
-                    {
-                        if (dip3)
-                            nextByte |= 0x04;
-                        else
-                            nextByte &= 0xFB;
-                        if (dip4)
-                            nextByte |= 0x08;
-                        else
-                            nextByte &= 0xF7;
-                        if (dip5)
-                            nextByte |= 0x10;
-                        else
-                            nextByte &= 0xEF;
-                        if (dip6)
-                            nextByte |= 0x20;
-                        else
-                            nextByte &= 0xDF;
-                        if (dip7)
-                            nextByte |= 0x40;
-                        else
-                            nextByte &= 0xBF;
-                        if (dip8)
-                            nextByte |= 0x80;
-                        else
-                            nextByte &= 0x7F;
-                    }
-                }
-                nextByte = APU.Read(nextByte, address);
             }
-            else if ((address & 0xF000) == 0x2000)
+            else if ((address & 0xF000) == 0x2000 && !nsfPlayer)
             {
-                if (!nsfPlayer)
-                    nextByte = PPU.Read(nextByte, address);
+                nextByte = PPU.Read(nextByte, address);
             }
             nextByte = mapper.Read(nextByte, address);
 #if DEBUGGER
             nextByte = debug.Read(nextByte, address);
 #endif
-            if(gameGenieCodeNum != 0) //perhaps a tiny tiny performance increase
-                nextByte = GameGenie(nextByte, address);
+            nextByte = GameGenie(nextByte, address);
+            lastRead = nextByte;
             return nextByte;
         }
         private int ReadWord(int address)
@@ -1546,25 +1502,14 @@ namespace EmuoTron
 
             if ((address & 0xF000) == 0x4000 || (address & 0xF000) == 0x2000)
             {
+                APU.Write(value, address);
                 if (!nsfPlayer)
                 {
                     PortOne.Write(value, address);
                     PortTwo.Write(value, address);
-                }
-                if (rom.vsUnisystem)
-                {
-                    if (address == 0x4020)
-                    {
-                        if ((value & 1) != 0)
-                        {
-                            players[0].coin = false;
-                            players[1].coin = false;
-                        }
-                    }
-                }
-                APU.Write(value, address);
-                if (!nsfPlayer)
+                    Expansion.Write(value, address);
                     PPU.Write(value, address);//Need this in here for sprite DMA
+                }
             }
             mapper.Write(value, address);
 #if DEBUGGER
@@ -1691,7 +1636,7 @@ namespace EmuoTron
                 Power();
             }
         }
-        public void SetControllers(ControllerType portOne, ControllerType portTwo, bool fourScore, bool filterIllegalInput)
+        public void SetControllers(ControllerType portOne, ControllerType portTwo, ControllerType expansion, bool fourScore, bool filterIllegalInput)
         {
             this.fourScore = fourScore;
             this.filterIllegalInput = filterIllegalInput;
@@ -1705,9 +1650,6 @@ namespace EmuoTron
                     break;
                 case ControllerType.Paddle:
                     PortOne = new Inputs.Paddle(this, Inputs.Port.PortOne);
-                    break;
-                case ControllerType.FamiPaddle:
-                    PortOne = new Inputs.FamiPaddle(this, Inputs.Port.PortOne);
                     break;
                 default:
                 case ControllerType.Empty:
@@ -1725,12 +1667,19 @@ namespace EmuoTron
                 case ControllerType.Paddle:
                     PortTwo = new Inputs.Paddle(this, Inputs.Port.PortTwo);
                     break;
-                case ControllerType.FamiPaddle:
-                    PortTwo = new Inputs.FamiPaddle(this, Inputs.Port.PortTwo);
-                    break;
                 default:
                 case ControllerType.Empty:
                     PortTwo = new Inputs.Empty();
+                    break;
+            }
+            switch (expansion)
+            {
+                case ControllerType.FamiPaddle:
+                    Expansion = new Inputs.FamiPaddle(this, Inputs.Port.PortOne);
+                    break;
+                default:
+                case ControllerType.Empty:
+                    Expansion = new Inputs.Empty();
                     break;
             }
         }
@@ -1747,6 +1696,12 @@ namespace EmuoTron
             writer.Write(RegS);
             writer.Write(RegP);
             writer.Write(counter);
+            writer.Write(pendingFlagIRQ1);
+            writer.Write(pendingFlagIRQ2);
+            writer.Write(pendingFlagIRQValue1);
+            writer.Write(pendingFlagIRQValue2);
+            writer.Write(delayedFlagIRQ);
+            writer.Write(lastRead);
             writer.Write(interruptReset);
             writer.Write(mapper.interruptMapper);
             PortOne.StateSave(writer);
@@ -1769,6 +1724,12 @@ namespace EmuoTron
             RegS = reader.ReadInt32();
             RegP = reader.ReadInt32();
             counter = reader.ReadInt32();
+            pendingFlagIRQ1 =reader.ReadInt32();
+            pendingFlagIRQ2 = reader.ReadInt32();
+            pendingFlagIRQValue1 = reader.ReadInt32();
+            pendingFlagIRQValue2 = reader.ReadInt32();
+            delayedFlagIRQ =reader.ReadInt32();
+            lastRead = reader.ReadByte();
             interruptReset = reader.ReadBoolean();
             mapper.interruptMapper = reader.ReadBoolean();
             PortOne.StateLoad(reader);
@@ -1794,6 +1755,12 @@ namespace EmuoTron
             FlagOverflow = 0;
             FlagSign = 0; //Bit 7 of P
             counter = 0;
+            pendingFlagIRQ1 = 0;
+            pendingFlagIRQ2 = 0;
+            pendingFlagIRQValue1 = 0;
+            pendingFlagIRQValue2 = 0;
+            delayedFlagIRQ = 0;
+            lastRead = 0;
             for (int i = 0; i < 0x800; i++)
             {
                 Memory[i] = 0;

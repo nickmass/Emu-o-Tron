@@ -37,6 +37,8 @@
             this.label1 = new System.Windows.Forms.Label();
             this.label2 = new System.Windows.Forms.Label();
             this.chkFilter = new System.Windows.Forms.CheckBox();
+            this.label3 = new System.Windows.Forms.Label();
+            this.cboExpansion = new System.Windows.Forms.ComboBox();
             this.SuspendLayout();
             // 
             // bindViewer
@@ -76,7 +78,6 @@
             "Controller",
             "Zapper",
             "Paddle",
-            "FamiPaddle",
             "Empty"});
             this.cboPortOne.Location = new System.Drawing.Point(71, 21);
             this.cboPortOne.Name = "cboPortOne";
@@ -92,7 +93,6 @@
             "Controller",
             "Zapper",
             "Paddle",
-            "FamiPaddle",
             "Empty"});
             this.cboPortTwo.Location = new System.Drawing.Point(71, 48);
             this.cboPortTwo.Name = "cboPortTwo";
@@ -103,7 +103,7 @@
             // chkFourScore
             // 
             this.chkFourScore.AutoSize = true;
-            this.chkFourScore.Location = new System.Drawing.Point(114, 75);
+            this.chkFourScore.Location = new System.Drawing.Point(114, 102);
             this.chkFourScore.Name = "chkFourScore";
             this.chkFourScore.Size = new System.Drawing.Size(78, 17);
             this.chkFourScore.TabIndex = 5;
@@ -132,7 +132,7 @@
             // chkFilter
             // 
             this.chkFilter.AutoSize = true;
-            this.chkFilter.Location = new System.Drawing.Point(21, 98);
+            this.chkFilter.Location = new System.Drawing.Point(21, 125);
             this.chkFilter.Name = "chkFilter";
             this.chkFilter.Size = new System.Drawing.Size(171, 17);
             this.chkFilter.TabIndex = 8;
@@ -140,11 +140,35 @@
             this.chkFilter.UseVisualStyleBackColor = true;
             this.chkFilter.CheckedChanged += new System.EventHandler(this.chkFilter_CheckedChanged);
             // 
+            // label3
+            // 
+            this.label3.AutoSize = true;
+            this.label3.Location = new System.Drawing.Point(12, 78);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(56, 13);
+            this.label3.TabIndex = 10;
+            this.label3.Text = "Expansion";
+            // 
+            // cboExpansion
+            // 
+            this.cboExpansion.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cboExpansion.FormattingEnabled = true;
+            this.cboExpansion.Items.AddRange(new object[] {
+            "FamiPaddle",
+            "Empty"});
+            this.cboExpansion.Location = new System.Drawing.Point(71, 75);
+            this.cboExpansion.Name = "cboExpansion";
+            this.cboExpansion.Size = new System.Drawing.Size(121, 21);
+            this.cboExpansion.TabIndex = 9;
+            this.cboExpansion.SelectedIndexChanged += new System.EventHandler(this.cboExpansion_SelectedIndexChanged);
+            // 
             // Keybind
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(538, 449);
+            this.Controls.Add(this.label3);
+            this.Controls.Add(this.cboExpansion);
             this.Controls.Add(this.chkFilter);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.label1);
@@ -176,5 +200,7 @@
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.CheckBox chkFilter;
+        private System.Windows.Forms.Label label3;
+        private System.Windows.Forms.ComboBox cboExpansion;
     }
 }

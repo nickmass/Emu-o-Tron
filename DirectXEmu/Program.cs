@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
@@ -618,7 +619,7 @@ namespace DirectXEmu
             ejectDiskToolStripMenuItem.DropDownItems.Clear();
             ejectDiskToolStripMenuItem.Text = "Eject Disk";
             ejectDiskToolStripMenuItem.Visible = (cpu.GetSideCount() != 0);
-            cpu.SetControllers((ControllerType)Enum.Parse(typeof(ControllerType), config["portOne"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["portTwo"]), config["fourScore"] == "1", config["filterIllegalInput"] == "1");
+            cpu.SetControllers((ControllerType)Enum.Parse(typeof(ControllerType), config["portOne"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["portTwo"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["expansion"]), config["fourScore"] == "1", config["filterIllegalInput"] == "1");
 
             if (cpu.nsfPlayer)
                 nsfScreen = new NSFScreen(cpu);
@@ -1540,73 +1541,73 @@ namespace DirectXEmu
             }
             if (showInput)
             {
-                string inputString = "";
+                StringBuilder inputString = new StringBuilder(32);
                 if (this.player1.up)
-                    inputString += "^";
+                    inputString.Append("^");
                 else
-                    inputString += " ";
+                    inputString.Append(" ");
                 if (this.player1.down)
-                    inputString += "_";
+                    inputString.Append("_");
                 else
-                    inputString += " ";
+                    inputString.Append(" ");
                 if (this.player1.left)
-                    inputString += "<";
+                    inputString.Append("<");
                 else
-                    inputString += " ";
+                    inputString.Append(" ");
                 if (this.player1.right)
-                    inputString += ">";
+                    inputString.Append(">");
                 else
-                    inputString += " ";
+                    inputString.Append(" ");
                 if (this.player1.start)
-                    inputString += "*&";
+                    inputString.Append("*&");
                 else
-                    inputString += "  ";
+                    inputString.Append("  ");
                 if (this.player1.select)
-                    inputString += "*$";
+                    inputString.Append("*$");
                 else
-                    inputString += "  ";
+                    inputString.Append("  ");
                 if (this.player1.a)
-                    inputString += "A";
+                    inputString.Append("A");
                 else
-                    inputString += " ";
+                    inputString.Append(" ");
                 if (this.player1.b)
-                    inputString += "B";
+                    inputString.Append("B");
                 else
-                    inputString += " ";
-                inputString += " ";
+                    inputString.Append(" ");
+                inputString.Append(" ");
                 if (this.player2.up)
-                    inputString += "^";
+                    inputString.Append("^");
                 else
-                    inputString += " ";
+                    inputString.Append(" ");
                 if (this.player2.down)
-                    inputString += "_";
+                    inputString.Append("_");
                 else
-                    inputString += " ";
+                    inputString.Append(" ");
                 if (this.player2.left)
-                    inputString += "<";
+                    inputString.Append("<");
                 else
-                    inputString += " ";
+                    inputString.Append(" ");
                 if (this.player2.right)
-                    inputString += ">";
+                    inputString.Append(">");
                 else
-                    inputString += " ";
+                    inputString.Append(" ");
                 if (this.player2.start)
-                    inputString += "*&";
+                    inputString.Append("*&");
                 else
-                    inputString += "  ";
+                    inputString.Append("  ");
                 if (this.player2.select)
-                    inputString += "*$";
+                    inputString.Append("*$");
                 else
-                    inputString += "  ";
+                    inputString.Append("  ");
                 if (this.player2.a)
-                    inputString += "A";
+                    inputString.Append("A");
                 else
-                    inputString += " ";
+                    inputString.Append(" ");
                 if (this.player2.b)
-                    inputString += "B";
+                    inputString.Append("B");
                 else
-                    inputString += " ";
-                renderer.DrawMessage(inputString, DirectXEmu.Anchor.BottomLeft, 0, 0);
+                    inputString.Append(" ");
+                renderer.DrawMessage(inputString.ToString(), DirectXEmu.Anchor.BottomLeft, 0, 0);
             }
             if (netPlay)
             {
@@ -1623,17 +1624,18 @@ namespace DirectXEmu
         {
             SystemState old = state;
             state = SystemState.SystemPause;
-            Keybind keyBindWindow = new Keybind(keyBindings, (ControllerType)Enum.Parse(typeof(ControllerType), config["portOne"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["portTwo"]), (config["fourScore"] == "1"), config["filterIllegalInput"] == "1");
+            Keybind keyBindWindow = new Keybind(keyBindings, (ControllerType)Enum.Parse(typeof(ControllerType), config["portOne"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["portTwo"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["expansion"]), (config["fourScore"] == "1"), config["filterIllegalInput"] == "1");
             if (keyBindWindow.ShowDialog() == DialogResult.OK)
             {
                 keyBindings = keyBindWindow.keys;
                 config["portOne"] = keyBindWindow.portOne.ToString();
                 config["portTwo"] = keyBindWindow.portTwo.ToString();
+                config["expansion"] = keyBindWindow.expansion.ToString();
                 config["fourScore"] = keyBindWindow.fourScore ? "1" : "0";
                 config["filterIllegalInput"] = keyBindWindow.filterIllegalInput ? "1" : "0";
                 if (cpu != null)
                 {
-                    cpu.SetControllers(keyBindWindow.portOne, keyBindWindow.portTwo, keyBindWindow.fourScore, keyBindWindow.filterIllegalInput);
+                    cpu.SetControllers(keyBindWindow.portOne, keyBindWindow.portTwo, keyBindWindow.expansion, keyBindWindow.fourScore, keyBindWindow.filterIllegalInput);
                 }
             }
             state = old;

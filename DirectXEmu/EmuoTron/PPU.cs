@@ -39,7 +39,7 @@ namespace EmuoTron
         private ushort colorMask;
         private byte lastWrite;
         private int lastWriteDecay;
-        private int lastWriteDecayTime = 71400 * 60; //~800ms
+        private int lastWriteDecayTime = 4284000;
 
         public int scanlineCycle;
         public int scanline = -1;
@@ -126,7 +126,6 @@ namespace EmuoTron
                 case SystemType.PAL:
                     vblankEnd = 312;
                     break;
-
             }
             horzFlipTable = new byte[256];
             for (int i = 0; i < 256; i++)
@@ -230,7 +229,15 @@ namespace EmuoTron
                         nes.mapper.IRQ(PPUMirrorMap[loopyV & 0x3FFF]);
                 }
                 int oldA12 = (loopyV >> 12) & 1;
-                loopyV = (loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF;
+                if (scanline < 240 && (spriteRendering || backgroundRendering)) //Young Indiana Jones fix, http://nesdev.parodius.com/bbs/viewtopic.php?t=6401
+                {
+                    if (vramInc)
+                        VerticalIncrement();
+                    else
+                        loopyV++;//Some parts of the thread suggest that this should be a horz increment but that breaks Camerica games intro
+                }
+                else
+                    loopyV = (loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF;
                 if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
                     nes.mapper.IRQ(scanline);
                 lastWrite = nextByte;
@@ -613,7 +620,9 @@ namespace EmuoTron
                         }
                     }
                     if (scanlineCycle == 300 && (nes.rom.mapper == 4 || nes.rom.mapper == 48))
-                            nes.mapper.IRQ(scanline);//I am having far too much trouble with this stupid scanline counter.
+                    {
+                        nes.mapper.IRQ(scanline);//I am having far too much trouble with this stupid scanline counter.
+                    }
                     lastUpdate++;
                     scanlineCycle++;
                     if (scanlineCycle == 341 || (scanline == -1 && scanlineCycle == 340 && oddFrame && backgroundRendering))
@@ -829,6 +838,34 @@ namespace EmuoTron
             writer.Write(currentTime);
             writer.Write(vblFlagRead);
             writer.Write(oddFrame);
+
+            writer.Write(tile1Latch);
+            writer.Write(tile2Latch);
+            writer.Write(paletteLatch);
+            writer.Write(paletteLatcher);
+            writer.Write(paletteShift);
+            writer.Write(tile1Shift);
+            writer.Write(tile2Shift);
+            writer.Write(tileNumber);
+            writer.Write(tileAddress);
+            writer.Write(shiftCount);
+            writer.Write(spritesFound);
+            writer.Write(spriteCount);
+            writer.Write(spriteZeroLine);
+            writer.Write(onSpriteZeroLine);
+            writer.Write(maxSprites);
+            for (int i = 0; i < 64; i++)
+                writer.Write(spriteTileShift1[i]);
+            for (int i = 0; i < 64; i++)
+                writer.Write(spriteTileShift2[i]);
+            for (int i = 0; i < 64; i++)
+                writer.Write(spriteCounter[i]);
+            for (int i = 0; i < 64; i++)
+                writer.Write(spritePalette[i]);
+            for (int i = 0; i < 64; i++)
+                writer.Write(spriteAbove[i]);
+            for (int i = 0; i < 256; i++)
+                writer.Write(secondaryOAM[i]);
         }
         public void StateLoad(BinaryReader reader)
         {
@@ -869,6 +906,34 @@ namespace EmuoTron
             currentTime = reader.ReadInt64();
             vblFlagRead = reader.ReadInt64();
             oddFrame = reader.ReadBoolean();
+
+            tile1Latch = reader.ReadByte();
+            tile2Latch = reader.ReadByte();
+            paletteLatch = reader.ReadInt32();
+            paletteLatcher = reader.ReadInt32();
+            paletteShift = reader.ReadInt32();
+            tile1Shift = reader.ReadUInt16();
+            tile2Shift = reader.ReadUInt16();
+            tileNumber = reader.ReadByte();
+            tileAddress = reader.ReadInt32();
+            shiftCount = reader.ReadInt32();
+            spritesFound = reader.ReadInt32();
+            spriteCount = reader.ReadInt32();
+            spriteZeroLine = reader.ReadBoolean();
+            onSpriteZeroLine = reader.ReadBoolean();
+            maxSprites = reader.ReadInt32();
+            for (int i = 0; i < 64; i++)
+                spriteTileShift1[i] = reader.ReadByte();
+            for (int i = 0; i < 64; i++)
+                spriteTileShift2[i] = reader.ReadByte();
+            for (int i = 0; i < 64; i++)
+                spriteCounter[i] = reader.ReadInt32();
+            for (int i = 0; i < 64; i++)
+                spritePalette[i] = reader.ReadInt32();
+            for (int i = 0; i < 64; i++)
+                spriteAbove[i] = reader.ReadBoolean();
+            for (int i = 0; i < 256; i++)
+                secondaryOAM[i] = reader.ReadByte();
         }
         private int[] vertFlipTable = { 7, 5, 3, 1, -1, -3, -5, -7};
         private ushort[] AttrTableLookup = 

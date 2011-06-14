@@ -8,7 +8,6 @@ namespace EmuoTron.Inputs
 {
     class Paddle : Input
     {
-        int readAddress;
         bool controlReady;
         int paddleValue;
         int playerNum;
@@ -18,27 +17,23 @@ namespace EmuoTron.Inputs
             this.port = port;
             if (port == Port.PortOne)
             {
-                readAddress = 0x4016;
                 playerNum = 0;
             }
             else if (port == Port.PortTwo)
             {
-                readAddress = 0x4017;
                 playerNum = 1;
             }
         }
-        public override byte Read(byte value, ushort address)
+        public override byte Read(ushort address)
         {
-            if (address == readAddress)
+            byte value = 0;
+            if (nes.players[playerNum].triggerPulled)
+                value |= 0x8;
+            if (controlReady)
             {
-                if (nes.players[playerNum].triggerPulled)
-                    value |= 0x8;
-                if (controlReady)
-                {
-                    if ((paddleValue & 0x80) == 0)
-                        value |= 0x10;
-                    paddleValue = paddleValue << 1;
-                }
+                if ((paddleValue & 0x80) == 0)
+                    value |= 0x10;
+                paddleValue = paddleValue << 1;
             }
             return value;
         }

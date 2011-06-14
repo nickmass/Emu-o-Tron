@@ -17,13 +17,15 @@ namespace DirectXEmu
         public bool filterIllegalInput;
         public ControllerType portOne;
         public ControllerType portTwo;
+        public ControllerType expansion;
 
-        public Keybind(Keybinds keys, ControllerType portOne, ControllerType portTwo, bool fourScore, bool filterIllegalInput)
+        public Keybind(Keybinds keys, ControllerType portOne, ControllerType portTwo, ControllerType expansion, bool fourScore, bool filterIllegalInput)
         {
             this.keys = keys;
             this.fourScore = fourScore;
             this.portOne = portOne;
             this.portTwo = portTwo;
+            this.expansion = expansion;
             InitializeComponent();
             chkFourScore.Checked = fourScore;
             chkFilter.Checked = filterIllegalInput;
@@ -38,12 +40,9 @@ namespace DirectXEmu
                 case ControllerType.Paddle:
                     cboPortOne.SelectedIndex = 2;
                     break;
-                case ControllerType.FamiPaddle:
-                    cboPortOne.SelectedIndex = 3;
-                    break;
                 default:
                 case ControllerType.Empty:
-                    cboPortOne.SelectedIndex = 4;
+                    cboPortOne.SelectedIndex = 3;
                     break;
             }
             switch (portTwo)
@@ -57,12 +56,19 @@ namespace DirectXEmu
                 case ControllerType.Paddle:
                     cboPortTwo.SelectedIndex = 2;
                     break;
-                case ControllerType.FamiPaddle:
+                default:
+                case ControllerType.Empty:
                     cboPortTwo.SelectedIndex = 3;
+                    break;
+            }
+            switch (expansion)
+            {
+                case ControllerType.FamiPaddle:
+                    cboExpansion.SelectedIndex = 0;
                     break;
                 default:
                 case ControllerType.Empty:
-                    cboPortTwo.SelectedIndex = 4;
+                    cboExpansion.SelectedIndex = 1;
                     break;
             }
 
@@ -98,9 +104,6 @@ namespace DirectXEmu
                     portOne = ControllerType.Paddle;
                     break;
                 case 3:
-                    portOne = ControllerType.FamiPaddle;
-                    break;
-                case 4:
                     portOne = ControllerType.Empty;
                     break;
             }
@@ -121,9 +124,6 @@ namespace DirectXEmu
                     portTwo = ControllerType.Paddle;
                     break;
                 case 3:
-                    portTwo = ControllerType.FamiPaddle;
-                    break;
-                case 4:
                     portTwo = ControllerType.Empty;
                     break;
             }
@@ -138,6 +138,19 @@ namespace DirectXEmu
         private void chkFilter_CheckedChanged(object sender, EventArgs e)
         {
             filterIllegalInput = chkFilter.Checked;
+        }
+
+        private void cboExpansion_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            switch (cboExpansion.SelectedIndex)
+            {
+                case 0:
+                    expansion = ControllerType.FamiPaddle;
+                    break;
+                case 1:
+                    expansion = ControllerType.Empty;
+                    break;
+            }
         }
     }
 }

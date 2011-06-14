@@ -11,7 +11,7 @@ namespace EmuoTron.Inputs
         protected NESCore nes;
         protected Port port;
         public virtual void Power() { }
-        public virtual byte Read(byte value, ushort address) { return value; }
+        public virtual byte Read(ushort address) { return 0; }
         public virtual void Write(byte value, ushort address) { }
         public virtual void StateSave(BinaryWriter writer) { }
         public virtual void StateLoad(BinaryReader reader) { }

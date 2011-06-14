@@ -8,7 +8,6 @@ namespace EmuoTron.Inputs
 {
     class Controller : Input
     {
-        int readAddress;
         bool controlReady;
         int controlReg;
         int shiftCount;
@@ -19,31 +18,27 @@ namespace EmuoTron.Inputs
             this.port = port;
             if (port == Port.PortOne)
             {
-                readAddress = 0x4016;
                 playerNum = 0;
             }
             else if (port == Port.PortTwo)
             {
-                readAddress = 0x4017;
                 playerNum = 1;
             }
         }
-        public override byte Read(byte value, ushort address)
+        public override byte Read(ushort address)
         {
-            if (address == readAddress)
+            byte value = 0;
+            if (controlReady)
             {
-                if (controlReady)
+                if (shiftCount < 0)
                 {
-                    if (shiftCount < 0)
-                    {
-                        value |= 1; //Should be a stream of 1s when control data is used up with official controllers
-                    }
-                    else
-                    {
-                        value |= (byte)(controlReg & 1);
-                        controlReg >>= 1;
-                        shiftCount--;
-                    }
+                    value |= 1; //Should be a stream of 1s when control data is used up with official controllers
+                }
+                else
+                {
+                    value |= (byte)(controlReg & 1);
+                    controlReg >>= 1;
+                    shiftCount--;
                 }
             }
             return value;

@@ -94,6 +94,7 @@ namespace DirectXEmu
             defaults["sampleRate"] = "48000";
             defaults["portOne"] = "Controller";
             defaults["portTwo"] = "Controller";
+            defaults["expansion"] = "Empty";
             defaults["fourScore"] = "0";
             defaults["filterIllegalInput"] = "1";
             defaults["smoothOutput"] = "0";

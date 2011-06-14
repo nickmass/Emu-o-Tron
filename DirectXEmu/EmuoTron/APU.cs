@@ -269,28 +269,24 @@ namespace EmuoTron
             curFPS = FPS;
             sampleDivider = (CPUClock / ((double)this.FPS)) / ((sampleRate * 1.0) / ((double)FPS));
         }
-        public byte Read(byte value, ushort address)
+        public byte Read()
         {
-            byte nextByte = value;
-            if (address == 0x4015)//Length Counter enable and status
-            {
-                nextByte = 0;
-                if (pulse1LengthCounter != 0)
-                    nextByte |= 0x1;
-                if (pulse2LengthCounter != 0)
-                    nextByte |= 0x2;
-                if (triangleLengthCounter != 0)
-                    nextByte |= 0x4;
-                if (noiseLengthCounter != 0)
-                    nextByte |= 0x8;
-                if (dmcBytesRemaining != 0)
-                    nextByte |= 0x10;
-                if (frameIRQ)
-                    nextByte |= 0x40;
-                if (dmcInterrupt)
-                    nextByte |= 0x80;
-                frameIRQ = false;
-            }
+            byte nextByte = 0;
+            if (pulse1LengthCounter != 0)
+                nextByte |= 0x1;
+            if (pulse2LengthCounter != 0)
+                nextByte |= 0x2;
+            if (triangleLengthCounter != 0)
+                nextByte |= 0x4;
+            if (noiseLengthCounter != 0)
+                nextByte |= 0x8;
+            if (dmcBytesRemaining != 0)
+                nextByte |= 0x10;
+            if (frameIRQ)
+                nextByte |= 0x40;
+            if (dmcInterrupt)
+                nextByte |= 0x80;
+            frameIRQ = false;
             return nextByte;
         }
         public void Write(byte value, ushort address)
