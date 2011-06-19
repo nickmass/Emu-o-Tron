@@ -24,7 +24,7 @@ namespace EmuoTron.Mappers
             {
                 //if (Memory[address] == value) Should have bus conflicts on most carts, but this kills marble maddness and doesnt seem to fix anything else, will have to wait for when board types are in.
                 {
-                    nes.Memory.Swap32kROM(0x8000, (value & 0x07) % (nes.rom.prgROM / 32));
+                    nes.Memory.Swap32kROM(0x8000, (value) % (nes.rom.prgROM / 32));
                     if ((value & 0x10) == 0)
                         nes.PPU.PPUMemory.ScreenOneMirroring();
                     else

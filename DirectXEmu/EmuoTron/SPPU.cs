@@ -39,6 +39,8 @@ namespace EmuoTron
         private bool spriteRendering;
         private ushort colorMask;
         private byte lastWrite;
+        private int lastWriteDecay;
+        private int lastWriteDecayTime = 4284000;
 
         public int scanlineCycle;
         public int scanline = -1;
@@ -148,144 +150,173 @@ namespace EmuoTron
                 for (int i = 0; i < length; i++)
                     PPUMirrorMap[mirrorAddress + i + (j * length)] = (ushort)(PPUMirrorMap[address + i]);
         }
-        public byte Read(byte value, ushort address)
+        public byte Read(ushort address)
         {
-            byte nextByte = value;
-            if (address == 0x2002) //PPU Status register
+            byte nextByte = 0;
+            switch (address)
             {
-                nextByte = 0;
-                SpriteZeroHit();
-                if (spriteOverflow)
-                    nextByte |= 0x20;
-                if (spriteZeroHit)
-                    nextByte |= 0x40;
-                if ((inVblank && !(scanline == 241 && scanlineCycle == 0)) || (wasInVblank && scanlineCycle == 0 && scanline == -1))
-                    nextByte |= 0x80;
-                interruptNMI = false;
-                inVblank = wasInVblank = false;
-                addrLatch = false;
-                nextByte |= lastWrite;
-            }
-            else if (address == 0x2004) //OAM Read
-            {
-                if ((spriteAddr & 0x03) == 0x02)
-                    nextByte = (byte)(SPRMemory[spriteAddr & 0xFF] & 0xE3);
-                else
-                    nextByte = SPRMemory[spriteAddr & 0xFF];
-            }
-            else if (address == 0x2007) //PPU Data
-            {
-                if ((loopyV & 0x3F00) == 0x3F00)
-                {
-                    nextByte = (byte)(PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] & grayScale); //random wiki readings claim gray scale is applied here but have seen no roms that test it or evidence to support it.
-                    readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x2FFF]];
-                }
-                else
-                {
-                    nextByte = readBuffer;
-                    readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x3FFF]];
-                }
-                int oldA12 = (loopyV >> 12) & 1;
-                loopyV = (loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF;
-                if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                    nes.mapper.IRQ(scanline);
+                case 0x2002: //PPU Status register
+                    nextByte = 0;
+                    if (spriteOverflow)
+                        nextByte |= 0x20;
+                    if (spriteZeroHit)
+                        nextByte |= 0x40;
+                    if (inVblank)
+                        nextByte |= 0x80;
+                    inVblank = false;
+                    addrLatch = false;
+                    nextByte |= (byte)(lastWrite & 0x1F);
+                    break;
+                case 0x2004: //OAM Read
+                    if ((spriteAddr & 0x03) == 0x02)
+                    {
+                        nextByte = (byte)(SPRMemory[spriteAddr & 0xFF] & 0xE3);
+                        lastWrite = nextByte;
+                        lastWriteDecay = lastWriteDecayTime;
+                    }
+                    else
+                    {
+                        nextByte = SPRMemory[spriteAddr & 0xFF];
+                    }
+                    break;
+                case 0x2007: //PPU Data
+                    if ((loopyV & 0x3F00) == 0x3F00)
+                    {
+                        nextByte = (byte)((PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] & grayScale) | (lastWrite & 0xC0)); //random wiki readings claim gray scale is applied here but have seen no roms that test it or evidence to support it.
+                        readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x2FFF]];
+                    }
+                    else
+                    {
+                        nextByte = readBuffer;
+                        readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x3FFF]];
+                        if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
+                            nes.mapper.IRQ(PPUMirrorMap[loopyV & 0x3FFF]);
+                    }
+                    int oldA12 = (loopyV >> 12) & 1;
+                    if (scanline < 240 && (spriteRendering || backgroundRendering)) //Young Indiana Jones fix, http://nesdev.parodius.com/bbs/viewtopic.php?t=6401
+                    {
+                        if (vramInc)
+                            VerticalIncrement();
+                        else
+                            loopyV++;//Some parts of the thread suggest that this should be a horz increment but that breaks Camerica games intro
+                    }
+                    else
+                        loopyV = (loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF;
+                    if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
+                        nes.mapper.IRQ(scanline);
+                    lastWrite = nextByte;
+                    lastWriteDecay = lastWriteDecayTime;
+                    break;
+                default:
+                    nextByte = lastWrite;
+                    break;
             }
             return nextByte;
         }
         public void Write(byte value, ushort address)
         {
-            if (address == 0x2000)
+            switch (address)
             {
-                bool wasEnabled = nmiEnable;
-                loopyT = (loopyT & 0xF3FF) | ((value & 3) << 10);
-                vramInc = (value & 0x04) != 0;
-                if ((value & 0x08) != 0)
-                    spriteTable = 0x1000;
-                else
-                    spriteTable = 0x0000;
-                if ((value & 0x10) != 0)
-                    backgroundTable = 0x1000;
-                else
-                    backgroundTable = 0x0000;
-                tallSprites = (value & 0x20) != 0;
-                nmiEnable = (value & 0x80) != 0;
-                if (inVblank && nmiEnable && !wasEnabled)
-                    pendingNMI = 2;
-                lastWrite = (byte)(value & 0x1F);
-            }
-            else if (address == 0x2001) //PPU Mask
-            {
-                if((value & 0x01) != 0)
-                    grayScale = 0x30;
-                else
-                    grayScale = 0x3F;
-                leftmostBackground = (value & 0x02) != 0;
-                leftmostSprites = (value & 0x04) != 0;
-                backgroundRendering = (value & 0x08) != 0;
-                spriteRendering = (value & 0x10) != 0;
-                colorMask = (ushort)((value << 1) & 0x1C0);
-                lastWrite = (byte)(value & 0x1F);
-            }
-            else if (address == 0x2003) //OAM Address
-            {
-                spriteAddr = value;
-                lastWrite = (byte)(value & 0x1F);
-            }
-            else if (address == 0x2004) //OAM Write
-            {
-                SPRMemory[spriteAddr & 0xFF] = value;
-                spriteAddr++;
-                lastWrite = (byte)(value & 0x1F);
-            }
-            else if (address == 0x4014) //Sprite DMA
-            {
-                int startAddress = value << 8;
-                for (int i = 0; i < 0x100; i++)
-                    SPRMemory[(spriteAddr + i) & 0xFF] = nes.Memory[nes.MirrorMap[(startAddress + i) & 0xFFFF]];
-                lastWrite = (byte)(value & 0x1F);
-                nes.AddCycles(513);
-            }
-            else if (address == 0x2005) //PPUScroll
-            {
-                if (!addrLatch) //1st Write
-                {
-                    loopyT = ((loopyT & 0x7FE0) | (value >> 3));
-                    loopyX = value & 0x07;
-                }
-                else //2nd Write
-                    loopyT = ((loopyT & 0x0C1F) | ((value & 0x07) << 12) | ((value & 0xF8) << 2));
-                addrLatch = !addrLatch;
-                lastWrite = (byte)(value & 0x1F);
-            }
-            else if (address == 0x2006) //PPUAddr
-            {
-                if (!addrLatch)//1st Write
-                {
-                    loopyT = ((loopyT & 0x00FF) | ((value & 0x3F) << 8));
-                }
-                else //2nd Write
-                {
-                    loopyT = ((loopyT & 0x7F00) | value);
-                    int oldA12 = ((loopyV >> 12) & 1); ;
-                    loopyV = loopyT;
-                    if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                        nes.mapper.IRQ(scanline);
-                }
-                addrLatch = !addrLatch;
-                lastWrite = (byte)(value & 0x1F);
-            }
-            else if (address == 0x2007) //PPU Write
-            {
-                if ((loopyV & 0x3F00) == 0x3F00)
-                    PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] = (byte)(value & 0x3F);
-                else
-                    PPUMemory[PPUMirrorMap[loopyV & 0x3FFF]] = value;
+                case 0x2000:
+                    bool wasEnabled = nmiEnable;
+                    loopyT = (loopyT & 0xF3FF) | ((value & 3) << 10);
+                    vramInc = (value & 0x04) != 0;
+                    if ((value & 0x08) != 0)
+                        spriteTable = 0x1000;
+                    else
+                        spriteTable = 0x0000;
+                    if ((value & 0x10) != 0)
+                        backgroundTable = 0x1000;
+                    else
+                        backgroundTable = 0x0000;
+                    tallSprites = (value & 0x20) != 0;
+                    nmiEnable = (value & 0x80) != 0;
+                    if (!nmiEnable && pendingNMI > 1)
+                        pendingNMI = 0;
+                    else if (inVblank && nmiEnable && !wasEnabled)
+                        pendingNMI = 2;
+                    lastWrite = value;
+                    lastWriteDecay = lastWriteDecayTime;
+                    break;
+                case 0x2001: //PPU Mask
+                    if ((value & 0x01) != 0)
+                        grayScale = 0x30;
+                    else
+                        grayScale = 0x3F;
+                    leftmostBackground = (value & 0x02) != 0;
+                    leftmostSprites = (value & 0x04) != 0;
+                    backgroundRendering = (value & 0x08) != 0;
+                    spriteRendering = (value & 0x10) != 0;
+                    colorMask = (ushort)((value << 1) & 0x1C0);
+                    lastWrite = value;
+                    lastWriteDecay = lastWriteDecayTime;
+                    break;
+                case 0x2002:
+                    lastWrite = value;
+                    lastWriteDecay = lastWriteDecayTime;
+                    break;
+                case 0x2003: //OAM Address
+                    spriteAddr = value;
+                    lastWrite = value;
+                    lastWriteDecay = lastWriteDecayTime;
+                    break;
+                case 0x2004: //OAM Write
+                    SPRMemory[spriteAddr & 0xFF] = value;
+                    spriteAddr++;
+                    lastWrite = value;
+                    lastWriteDecay = lastWriteDecayTime;
+                    break;
+                case 0x4014: //Sprite DMA
+                    int startAddress = value << 8;
+                    for (int i = 0; i < 0x100; i++)
+                        SPRMemory[(spriteAddr + i) & 0xFF] = nes.Memory[nes.MirrorMap[(startAddress + i) & 0xFFFF]];
+                    if ((nes.counter & 1) == 0) //Sprite DMA always ends on even cycles.
+                        nes.AddCycles(514);
+                    else
+                        nes.AddCycles(513);
+                    break;
+                case 0x2005: //PPUScroll
+                    if (!addrLatch) //1st Write
+                    {
+                        loopyT = ((loopyT & 0x7FE0) | (value >> 3));
+                        loopyX = value & 0x07;
+                    }
+                    else //2nd Write
+                        loopyT = ((loopyT & 0x0C1F) | ((value & 0x07) << 12) | ((value & 0xF8) << 2));
+                    addrLatch = !addrLatch;
+                    lastWrite = value;
+                    lastWriteDecay = lastWriteDecayTime;
+                    break;
+                case 0x2006: //PPUAddr
+                    if (!addrLatch)//1st Write
+                    {
+                        loopyT = ((loopyT & 0x00FF) | ((value & 0x3F) << 8));
+                    }
+                    else //2nd Write
+                    {
+                        loopyT = ((loopyT & 0x7F00) | value);
+                        int oldA12 = ((loopyV >> 12) & 1); ;
+                        loopyV = loopyT;
+                        if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
+                            nes.mapper.IRQ(scanline);
+                    }
+                    addrLatch = !addrLatch;
+                    lastWrite = value;
+                    lastWriteDecay = lastWriteDecayTime;
+                    break;
+                case 0x2007: //PPU Write
+                    if ((loopyV & 0x3F00) == 0x3F00)
+                        PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] = (byte)(value & 0x3F);
+                    else
+                        PPUMemory[PPUMirrorMap[loopyV & 0x3FFF]] = value;
 
-                int oldA12 = (loopyV >> 12) & 1;
-                loopyV = ((loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF);
-                if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                    nes.mapper.IRQ(scanline);
-                lastWrite = (byte)(value & 0x1F);
+                    int writeOldA12 = (loopyV >> 12) & 1;
+                    loopyV = ((loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF);
+                    if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && writeOldA12 == 0 && ((loopyV >> 12) & 1) == 1)
+                        nes.mapper.IRQ(scanline);
+                    lastWrite = value;
+                    lastWriteDecay = lastWriteDecayTime;
+                    break;
             }
         }
 
@@ -425,6 +456,10 @@ namespace EmuoTron
                     }
                 }
                 scanlineCycle += palCycles;
+                if (lastWriteDecay > 0)
+                    lastWriteDecay -= palCycles;
+                else
+                    lastWrite = 0;
             }
             else
             {
@@ -445,11 +480,15 @@ namespace EmuoTron
                     }
                 }
                 scanlineCycle += (cycles * 3);
+                if (lastWriteDecay > 0)
+                    lastWriteDecay -= (cycles * 3);
+                else
+                    lastWrite = 0;
             }
             if (scanlineCycle >= 341)//scanline finished
             {
-                if (nes.rom.crc == 0x279710DC && scanline == 28)
-                    spriteZeroHit = true;
+                //if (nes.rom.crc == 0x279710DC && scanline == 28)//Battletoads
+                //    spriteZeroHit = true;
                 scanlineCycle -= 341;
                 bool spriteZeroLine = false;
                 if (turbo)
@@ -646,7 +685,7 @@ namespace EmuoTron
                     if (nes.rom.mapper == 0x05)
                         nes.mapper.IRQ(1);
                     if (nmiEnable)
-                        pendingNMI = 3;
+                        pendingNMI = 6;
                     inVblank = true;
                     //I think I will just put this out of my mind and hope the CPPU rewrite solves everything
                     //scanlineCycle += 36;//Now this makes it pass vbl_clear_time and nmi_sync but fail ppu_vbl_nmi I don't know which is less wrong : /

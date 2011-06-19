@@ -32,7 +32,7 @@ namespace EmuoTron.Mappers
                 if (address >= 0x8000)
                 {
                     if (nes.Memory[address] == value)
-                        nes.Memory.Swap32kROM(0x8000, (value & 3) % (nes.rom.prgROM / 32));
+                        nes.Memory.Swap32kROM(0x8000, (value) % (nes.rom.prgROM / 32));
                 }
             }
             else //NINA-001

@@ -181,12 +181,12 @@ namespace EmuoTron
             for (int i = 0; i < 32; i++)
             {
                 pulseTable[i] = ((95.52 / (8128.0 / i + 100)));
-                pulseTableShort[i] = (short)(pulseTable[i] * short.MaxValue);
+                pulseTableShort[i] = (int)(pulseTable[i] * 65535);
             }
             for (int i = 0; i < 204; i++)
             {
                 tndTable[i] = ((163.67 / (24329.0 / i + 100)));
-                tndTableShort[i] = (short)(tndTable[i] * short.MinValue);
+                tndTableShort[i] = (int)(tndTable[i] * 65535);
             }
         }
         public void Power() //4017_written.nes gives different results on initial load vs. power emulation, MUST fix.
@@ -291,193 +291,170 @@ namespace EmuoTron
         }
         public void Write(byte value, ushort address)
         {
-            if (address == 0x4000) //Pulse 1 Duty
+            switch (address)
             {
-                Update();
-                pulse1Envelope = (byte)(value & 0xF);
-                pulse1ConstantVolume = (value & 0x10) != 0;
-                pulse1HaltFlag = (value & 0x20) != 0;
-                pulse1Duty = (byte)(value >> 6);
-
-            }
-            else if (address == 0x4001) //Pulse 1 Sweep
-            {
-                Update();
-                pulse1SweepShift = (byte)(value & 0x7);
-                pulse1SweepNegate = ((value & 0x8) != 0);
-                pulse1SweepTimer = (byte)((value >> 4) & 0x7);
-                pulse1SweepDivider = (byte)(pulse1SweepTimer + 1);
-                pulse1SweepEnable = ((value & 0x80) != 0);
-                pulse1SweepReload = true;
-
-            }
-            else if (address == 0x4002) //Pulse 1 Low Timer
-            {
-                Update();
-                pulse1Timer = (ushort)((pulse1Timer & 0x700) | value);
-                pulse1Freq = (pulse1Timer + 1) * 2;
-                pulse1Divider = pulse1Freq;
-
-            }
-            else if (address == 0x4003)//Pulse 1 Length Counter and High Timer
-            {
-                Update();
-                if (pulse1Enable)
-                    pulse1LengthCounter = lengthTable[value >> 3];
-                pulse1Timer = (ushort)((pulse1Timer & 0x00FF) | ((value & 0x7) << 8));
-                pulse1Freq = (pulse1Timer + 1) * 2;
-                pulse1Divider = pulse1Freq;
-                pulse1DutySequencer = 0;
-                pulse1StartFlag = true;
-            }
-            else if (address == 0x4004) //Pulse 2 Duty
-            {
-                Update();
-                pulse2Envelope = (byte)(value & 0xF);
-                pulse2ConstantVolume = (value & 0x10) != 0;
-                pulse2HaltFlag = (value & 0x20) != 0;
-                pulse2Duty = (byte)(value >> 6);
-
-            }
-            else if (address == 0x4005) //Pulse 2 Sweep
-            {
-                Update();
-                pulse2SweepShift = (byte)(value & 0x7);
-                pulse2SweepNegate = ((value & 0x8) != 0);
-                pulse2SweepTimer = (byte)((value >> 4) & 0x7);
-                pulse2SweepDivider = (byte)(pulse2SweepTimer + 1);
-                pulse2SweepEnable = ((value & 0x80) != 0);
-                pulse2SweepReload = true;
-
-            }
-            else if (address == 0x4006) //Pulse 2 Low Timer
-            {
-                Update();
-                pulse2Timer = (ushort)((pulse2Timer & 0x700) | value);
-                pulse2Freq = (pulse2Timer + 1) * 2;
-                pulse2Divider = pulse2Freq;
-
-            }
-            else if (address == 0x4007)//Pulse 2 Length Counter and High Timer
-            {
-                Update();
-                if (pulse2Enable)
-                    pulse2LengthCounter = lengthTable[(value >> 3)];
-                pulse2Timer = (ushort)((pulse2Timer & 0x00FF) | ((value & 0x7) << 8));
-                pulse2Freq = (pulse2Timer + 1) * 2;
-                pulse2Divider = pulse2Freq;
-                pulse2DutySequencer = 0;
-                pulse2StartFlag = true;
-            }
-            else if (address == 0x400C) //Noise Envelope
-            {
-                Update();
-                noiseEnvelope = (byte)(value & 0xF);
-                noiseEnvelopeDivider = noiseEnvelope + 1;
-                noiseConstantVolume = ((value & 0x10) != 0);
-                noiseHaltFlag = (value & 0x20) != 0;
-            }
-            else if (address == 0x400E) //Noise Timer
-            {
-                Update();
-                noiseTimer = noisePeriods[value & 0xF];
-                noiseDivider = noiseTimer;
-                noiseLoop = (value & 0x80) != 0;
-            }
-            else if (address == 0x400F)//Noise Length Counter
-            {
-                Update();
-                if (noiseEnable)
-                    noiseLengthCounter = lengthTable[(value >> 3)];
-                noiseStartFlag = true;
-            }
-            else if (address == 0x4008) //Triangle Linear Counter
-            {
-                Update();
-                triangleControlFlag = (value & 0x80) != 0;
-                triangleLinearCounterReload = (byte)(value & 0x7F);
-            }
-            else if (address == 0x400A) //Triangle Low Timer
-            {
-                Update();
-                triangleTimer = (ushort)((triangleTimer & 0x0700) | value);
-                triangleFreq = (triangleTimer + 1);
-                triangleDivider = triangleFreq;
-            }
-            else if (address == 0x400B)//Triangle Length Counter and High Timer
-            {
-                Update();
-                if (triangleEnable)
-                    triangleLengthCounter = lengthTable[(value >> 3)];
-                triangleTimer = (ushort)((triangleTimer & 0x00FF) | ((value & 0x7) << 8));
-                triangleFreq = (triangleTimer + 1);
-                triangleDivider = triangleFreq;
-                triangleHaltFlag = true;
-            }
-            else if (address == 0x4010) //DMC Flags and Freq
-            {
-                Update();
-                dmcRate = dmcRates[value & 0xF];
-                dmcDivider = dmcRate;
-                dmcLoop = (value & 0x40) != 0;
-                dmcInterruptEnable = (value & 0x80) != 0;
-                if(!dmcInterruptEnable)
+                case 0x4000: //Pulse 1 Duty
+                    Update();
+                    pulse1Envelope = (byte)(value & 0xF);
+                    pulse1ConstantVolume = (value & 0x10) != 0;
+                    pulse1HaltFlag = (value & 0x20) != 0;
+                    pulse1Duty = (byte)(value >> 6);
+                    break;
+                case 0x4001: //Pulse 1 Sweep
+                    Update();
+                    pulse1SweepShift = (byte)(value & 0x7);
+                    pulse1SweepNegate = ((value & 0x8) != 0);
+                    pulse1SweepTimer = (byte)((value >> 4) & 0x7);
+                    pulse1SweepDivider = (byte)(pulse1SweepTimer + 1);
+                    pulse1SweepEnable = ((value & 0x80) != 0);
+                    pulse1SweepReload = true;
+                    break;
+                case 0x4002: //Pulse 1 Low Timer
+                    Update();
+                    pulse1Timer = (ushort)((pulse1Timer & 0x700) | value);
+                    pulse1Freq = (pulse1Timer + 1) * 2;
+                    pulse1Divider = pulse1Freq;
+                    break;
+                case 0x4003: //Pulse 1 Length Counter and High Timer
+                    Update();
+                    if (pulse1Enable)
+                        pulse1LengthCounter = lengthTable[value >> 3];
+                    pulse1Timer = (ushort)((pulse1Timer & 0x00FF) | ((value & 0x7) << 8));
+                    pulse1Freq = (pulse1Timer + 1) * 2;
+                    pulse1Divider = pulse1Freq;
+                    pulse1DutySequencer = 0;
+                    pulse1StartFlag = true;
+                    break;
+                case 0x4004: //Pulse 2 Duty
+                    Update();
+                    pulse2Envelope = (byte)(value & 0xF);
+                    pulse2ConstantVolume = (value & 0x10) != 0;
+                    pulse2HaltFlag = (value & 0x20) != 0;
+                    pulse2Duty = (byte)(value >> 6);
+                    break;
+                case 0x4005: //Pulse 2 Sweep
+                    Update();
+                    pulse2SweepShift = (byte)(value & 0x7);
+                    pulse2SweepNegate = ((value & 0x8) != 0);
+                    pulse2SweepTimer = (byte)((value >> 4) & 0x7);
+                    pulse2SweepDivider = (byte)(pulse2SweepTimer + 1);
+                    pulse2SweepEnable = ((value & 0x80) != 0);
+                    pulse2SweepReload = true;
+                    break;
+                case 0x4006: //Pulse 2 Low Timer
+                    Update();
+                    pulse2Timer = (ushort)((pulse2Timer & 0x700) | value);
+                    pulse2Freq = (pulse2Timer + 1) * 2;
+                    pulse2Divider = pulse2Freq;
+                    break;
+                case 0x4007: //Pulse 2 Length Counter and High Timer
+                    Update();
+                    if (pulse2Enable)
+                        pulse2LengthCounter = lengthTable[(value >> 3)];
+                    pulse2Timer = (ushort)((pulse2Timer & 0x00FF) | ((value & 0x7) << 8));
+                    pulse2Freq = (pulse2Timer + 1) * 2;
+                    pulse2Divider = pulse2Freq;
+                    pulse2DutySequencer = 0;
+                    pulse2StartFlag = true;
+                    break;
+                case 0x4008: //Triangle Linear Counter
+                    Update();
+                    triangleControlFlag = (value & 0x80) != 0;
+                    triangleLinearCounterReload = (byte)(value & 0x7F);
+                    break;
+                case 0x400A: //Triangle Low Timer
+                    Update();
+                    triangleTimer = (ushort)((triangleTimer & 0x0700) | value);
+                    triangleFreq = (triangleTimer + 1);
+                    triangleDivider = triangleFreq;
+                    break;
+                case 0x400B: //Triangle Length Counter and High Timer
+                    Update();
+                    if (triangleEnable)
+                        triangleLengthCounter = lengthTable[(value >> 3)];
+                    triangleTimer = (ushort)((triangleTimer & 0x00FF) | ((value & 0x7) << 8));
+                    triangleFreq = (triangleTimer + 1);
+                    triangleDivider = triangleFreq;
+                    triangleHaltFlag = true;
+                    break;
+                case 0x400C: //Noise Envelope
+                    Update();
+                    noiseEnvelope = (byte)(value & 0xF);
+                    noiseEnvelopeDivider = noiseEnvelope + 1;
+                    noiseConstantVolume = ((value & 0x10) != 0);
+                    noiseHaltFlag = (value & 0x20) != 0;
+                    break;
+                case 0x400E: //Noise Timer
+                    Update();
+                    noiseTimer = noisePeriods[value & 0xF];
+                    noiseDivider = noiseTimer;
+                    noiseLoop = (value & 0x80) != 0;
+                    break;
+                case 0x400F: //Noise Length Counter
+                    Update();
+                    if (noiseEnable)
+                        noiseLengthCounter = lengthTable[(value >> 3)];
+                    noiseStartFlag = true;
+                    break;
+                case 0x4010: //DMC Flags and Freq
+                    Update();
+                    dmcRate = dmcRates[value & 0xF];
+                    dmcDivider = dmcRate;
+                    dmcLoop = (value & 0x40) != 0;
+                    dmcInterruptEnable = (value & 0x80) != 0;
+                    if (!dmcInterruptEnable)
+                        dmcInterrupt = false;
+                    break;
+                case 0x4011: //DMC Direct Load
+                    Update();
+                    dmcDeltaCounter = (byte)(value & 0x7F);
+                    break;
+                case 0x4012: //DMC Sample Address
+                    Update();
+                    dmcSampleAddress = 0xC000 | (value << 6);
+                    break;
+                case 0x4013: //DMC Sample Length
+                    Update();
+                    dmcSampleLength = (value << 4) + 1;
+                    break;
+                case 0x4015:
+                    Update();
+                    pulse1Enable = (value & 0x1) != 0;
+                    if (!pulse1Enable)
+                        pulse1LengthCounter = 0;
+                    pulse2Enable = (value & 0x2) != 0;
+                    if (!pulse2Enable)
+                        pulse2LengthCounter = 0;
+                    triangleEnable = (value & 0x4) != 0;
+                    if (!triangleEnable)
+                        triangleLengthCounter = 0;
+                    noiseEnable = (value & 0x8) != 0;
+                    if (!noiseEnable)
+                        noiseLengthCounter = 0;
+                    if ((value & 0x10) == 0)
+                        dmcBytesRemaining = 0;
+                    else if (dmcBytesRemaining == 0)
+                    {
+                        dmcSampleCurrentAddress = dmcSampleAddress;
+                        dmcBytesRemaining = dmcSampleLength;
+                    }
                     dmcInterrupt = false;
-            }
-            else if (address == 0x4011) //DMC Direct Load
-            {
-                Update();
-                dmcDeltaCounter = (byte)(value & 0x7F);
-            }
-            else if (address == 0x4012) //DMC Sample Address
-            {
-                Update();
-                dmcSampleAddress = 0xC000 | (value << 6);
-            }
-            else if (address == 0x4013) //DMC Sample Length
-            {
-                Update();
-                dmcSampleLength = (value << 4) + 1;
-            }
-            else if (address == 0x4015)
-            {
-                Update();
-                pulse1Enable = (value & 0x1) != 0;
-                if (!pulse1Enable)
-                    pulse1LengthCounter = 0;
-                pulse2Enable = (value & 0x2) != 0;
-                if (!pulse2Enable)
-                    pulse2LengthCounter = 0;
-                triangleEnable = (value & 0x4) != 0;
-                if (!triangleEnable)
-                    triangleLengthCounter = 0;
-                noiseEnable = (value & 0x8) != 0;
-                if (!noiseEnable)
-                    noiseLengthCounter = 0;
-                if ((value & 0x10) == 0)
-                    dmcBytesRemaining = 0;
-                else if (dmcBytesRemaining == 0)
-                {
-                    dmcSampleCurrentAddress = dmcSampleAddress;
-                    dmcBytesRemaining = dmcSampleLength;
-                }
-                dmcInterrupt = false;
-            }
-            else if (address == 0x4017)//APU Frame rate/ IRQ control
-            {
-                Update();
-                mode = (value & 0x80) != 0;
-                frameIRQInhibit = (value & 0x40) != 0;
-                if (frameIRQInhibit)
-                    frameIRQ = false;
-                frameCounter = 0;
-                lastCycleClock = cycles;
-                if (mode)
-                    timeToClock = modeOneDelay;
-                else
-                    timeToClock = modeZeroDelay;
-                if (cycles % 2 == 0) //jitter, apu_test 4-jitter.nes
-                    timeToClock++;
+                    break;
+                case 0x4017://APU Frame rate/ IRQ control
+                    Update();
+                    mode = (value & 0x80) != 0;
+                    frameIRQInhibit = (value & 0x40) != 0;
+                    if (frameIRQInhibit)
+                        frameIRQ = false;
+                    frameCounter = 0;
+                    lastCycleClock = cycles;
+                    if (mode)
+                        timeToClock = modeOneDelay;
+                    else
+                        timeToClock = modeZeroDelay;
+                    if (cycles % 2 == 0) //jitter, apu_test 4-jitter.nes
+                        timeToClock++;
+                    break;
             }
         }
         public void ResetBuffer()
@@ -981,7 +958,7 @@ namespace EmuoTron
                     pulse2Volume = (byte)(pulse2Volume * volume.pulse2);
                     noiseVolume = (byte)(noiseVolume * volume.noise);
                     dmcVolume = (byte)(dmcBuffer[outputPtr] * volume.dmc);
-                    output[outputPtr] = (short)(tndTableShort[(3 * triangleVolume) + (2 * noiseVolume) + dmcVolume] + pulseTableShort[pulse1Volume + pulse2Volume]);
+                    output[outputPtr] = (short)((tndTableShort[(3 * triangleVolume) + (2 * noiseVolume) + dmcVolume] + pulseTableShort[pulse1Volume + pulse2Volume]) ^ 0x8000);
                     outputPtr++;
                     sampleRateDivider -= sampleDivider;
                 }

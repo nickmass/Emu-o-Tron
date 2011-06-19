@@ -292,7 +292,7 @@ namespace EmuoTron
             SetOp(0xD0, InstrBNE, AddrRelative, 2, 2);
             SetOp(0xF0, InstrBEQ, AddrRelative, 2, 2);
 
-            SetOp(0x00, InstrBRK, AddrNone, 1, 7);
+            SetOp(0x00, InstrBRK, AddrImmediate, 2, 7);
 
             SetOp(0x18, InstrCLC, AddrNone, 1, 2);
             SetOp(0x58, InstrCLI, AddrNone, 1, 2);

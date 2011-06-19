@@ -104,18 +104,13 @@ namespace EmuoTron
                 PPUMemory.SetReadOnly(0x0000, 8, false);
             }
             PPUMemory.swapOffset = 0x20;
-            PPUMemory.SetReadOnly(0x2000, 4, false); //Nametables
-            PPUMemory.SetReadOnly(0x3C00, 1, false); //Palette area + some mirrored ram
+            PPUMemory.SetReadOnly(0x2000, 8, false); //Nametables
             for (ushort i = 0; i < 0x8000; i++)
                 PPUMirrorMap[i] = i;
             for (uint i = 0; i < 0x200; i++)
                 colorChart[i] = i;
-            PPUMirror(0x3F00, 0x3F10, 1, 1);
-            PPUMirror(0x3F04, 0x3F14, 1, 1);
-            PPUMirror(0x3F08, 0x3F18, 1, 1);
-            PPUMirror(0x3F0C, 0x3F1C, 1, 1);
-            PPUMirror(0x2000, 0x3000, 0x0F00, 1);
-            PPUMirror(0x3F00, 0x3F20, 0x20, 7);
+            PPUMirror(0x2000, 0x3000, 0x1000, 1);
+            PPUMirror(0x0000, 0x4000, 0x4000, 1);
 
             switch (nes.nesRegion)
             {
@@ -124,7 +119,7 @@ namespace EmuoTron
                     vblankEnd = 261;
                     break;
                 case SystemType.PAL:
-                    vblankEnd = 312;
+                    vblankEnd = 311;
                     break;
             }
             horzFlipTable = new byte[256];
@@ -184,181 +179,190 @@ namespace EmuoTron
                 for (int i = 0; i < length; i++)
                     PPUMirrorMap[mirrorAddress + i + (j * length)] = (ushort)(PPUMirrorMap[address + i]);
         }
-        public byte Read(byte value, ushort address)
+        public byte Read(ushort address)
         {
-            byte nextByte = value;
-            if (address == 0x2002) //PPU Status register
+            byte nextByte = 0;
+            switch (address)
             {
-                nextByte = 0;
-                if (spriteOverflow)
-                    nextByte |= 0x20;
-                if (spriteZeroHit)
-                    nextByte |= 0x40;
-                if (inVblank)
-                    nextByte |= 0x80;
-                inVblank = false;
-                addrLatch = false;
-                nextByte |= (byte)(lastWrite & 0x1F);
-                vblFlagRead = currentTime;
-            }
-            else if (address == 0x2004) //OAM Read
-            {
-                if ((spriteAddr & 0x03) == 0x02)
-                {
-                    nextByte = (byte)(SPRMemory[spriteAddr & 0xFF] & 0xE3);
+                case 0x2002: //PPU Status register
+                    nextByte = 0;
+                    if (spriteOverflow)
+                        nextByte |= 0x20;
+                    if (spriteZeroHit)
+                        nextByte |= 0x40;
+                    if (inVblank)
+                        nextByte |= 0x80;
+                    inVblank = false;
+                    addrLatch = false;
+                    nextByte |= (byte)(lastWrite & 0x1F);
+                    vblFlagRead = currentTime;
+                    break;
+                case 0x2004: //OAM Read
+                    if (scanline < 240 && (spriteRendering || backgroundRendering))
+                    {
+                        if ((spriteAddr & 0x03) == 0x02) //Not sure if open bus and data width functions like this during rendering, but this is surely and improvement.
+                        {
+                            nextByte = (byte)(spriteData & 0xE3);
+                            lastWrite = nextByte;
+                            lastWriteDecay = lastWriteDecayTime;
+                        }
+                        else
+                        {
+                            nextByte = spriteData;
+                        }
+                    }
+                    else
+                    {
+                        if ((spriteAddr & 0x03) == 0x02)
+                        {
+                            nextByte = (byte)(SPRMemory[spriteAddr & 0xFF] & 0xE3);
+                            lastWrite = nextByte;
+                            lastWriteDecay = lastWriteDecayTime;
+                        }
+                        else
+                        {
+                            nextByte = SPRMemory[spriteAddr & 0xFF];
+                        }
+                    }
+                    break;
+                case 0x2007: //PPU Data
+                    if ((loopyV & 0x3F00) == 0x3F00)
+                    {
+                        nextByte = (byte)((PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] & grayScale) | (lastWrite & 0xC0)); //random wiki readings claim gray scale is applied here but have seen no roms that test it or evidence to support it.
+                        readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x2FFF]];
+                    }
+                    else
+                    {
+                        nextByte = readBuffer;
+                        readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x3FFF]];
+                        if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
+                            nes.mapper.IRQ(PPUMirrorMap[loopyV & 0x3FFF]);
+                    }
+                    int oldA12 = (loopyV >> 12) & 1;
+                    if (scanline < 240 && (spriteRendering || backgroundRendering)) //Young Indiana Jones fix, http://nesdev.parodius.com/bbs/viewtopic.php?t=6401
+                    {
+                        if (vramInc)
+                            VerticalIncrement();
+                        else
+                            loopyV++;//Some parts of the thread suggest that this should be a horz increment but that breaks Camerica games intro
+                    }
+                    else
+                        loopyV = (loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF;
+                    if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
+                        nes.mapper.IRQ(scanline);
                     lastWrite = nextByte;
                     lastWriteDecay = lastWriteDecayTime;
-                }
-                else
-                {
-                    nextByte = SPRMemory[spriteAddr & 0xFF];
-                }
-            }
-            else if (address == 0x2007) //PPU Data
-            {
-                if ((loopyV & 0x3F00) == 0x3F00)
-                {
-                    nextByte = (byte)((PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] & grayScale) | (lastWrite & 0xC0)); //random wiki readings claim gray scale is applied here but have seen no roms that test it or evidence to support it.
-                    readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x2FFF]];
-                }
-                else
-                {
-                    nextByte = readBuffer;
-                    readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x3FFF]];
-                    if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
-                        nes.mapper.IRQ(PPUMirrorMap[loopyV & 0x3FFF]);
-                }
-                int oldA12 = (loopyV >> 12) & 1;
-                if (scanline < 240 && (spriteRendering || backgroundRendering)) //Young Indiana Jones fix, http://nesdev.parodius.com/bbs/viewtopic.php?t=6401
-                {
-                    if (vramInc)
-                        VerticalIncrement();
-                    else
-                        loopyV++;//Some parts of the thread suggest that this should be a horz increment but that breaks Camerica games intro
-                }
-                else
-                    loopyV = (loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF;
-                if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                    nes.mapper.IRQ(scanline);
-                lastWrite = nextByte;
-                lastWriteDecay = lastWriteDecayTime;
-            }
-            else if(address == 0x2000 || address == 0x2001 || address == 0x2003 || address == 0x2005 || address == 0x2006)
-            {
-                nextByte = lastWrite;
+                    break;
+                default:
+                    nextByte = lastWrite;
+                    break;
             }
             return nextByte;
         }
         public void Write(byte value, ushort address)
         {
-            if (address == 0x2000)
+            switch (address)
             {
-                bool wasEnabled = nmiEnable;
-                loopyT = (loopyT & 0xF3FF) | ((value & 3) << 10);
-                vramInc = (value & 0x04) != 0;
-                if ((value & 0x08) != 0)
-                    spriteTable = 0x1000;
-                else
-                    spriteTable = 0x0000;
-                if ((value & 0x10) != 0)
-                    backgroundTable = 0x1000;
-                else
-                    backgroundTable = 0x0000;
-                tallSprites = (value & 0x20) != 0;
-                nmiEnable = (value & 0x80) != 0;
-                if (!nmiEnable && pendingNMI > 1)
-                    pendingNMI = 0;
-                else if (inVblank && nmiEnable && !wasEnabled)
-                    pendingNMI = 2;
-                lastWrite = value;
-                lastWriteDecay = lastWriteDecayTime;
-            }
-            else if (address == 0x2001) //PPU Mask
-            {
-                if((value & 0x01) != 0)
-                    grayScale = 0x30;
-                else
-                    grayScale = 0x3F;
-                leftmostBackground = (value & 0x02) != 0;
-                leftmostSprites = (value & 0x04) != 0;
-                backgroundRendering = (value & 0x08) != 0;
-                spriteRendering = (value & 0x10) != 0;
-                colorMask = (ushort)((value << 1) & 0x1C0);
-                lastWrite = value;
-                lastWriteDecay = lastWriteDecayTime;
-            }
-            else if (address == 0x2003) //OAM Address
-            {
-                spriteAddr = value;
-                lastWrite = value;
-                lastWriteDecay = lastWriteDecayTime;
-            }
-            else if (address == 0x2004) //OAM Write
-            {
-                SPRMemory[spriteAddr & 0xFF] = value;
-                spriteAddr++;
-                lastWrite = value;
-                lastWriteDecay = lastWriteDecayTime;
-            }
-            else if (address == 0x4014) //Sprite DMA
-            {
-                int startAddress = value << 8;
-                for (int i = 0; i < 0x100; i++)
-                    SPRMemory[(spriteAddr + i) & 0xFF] = nes.Memory[nes.MirrorMap[(startAddress + i) & 0xFFFF]];
-                if ((nes.counter & 1) == 0) //Sprite DMA always ends on even cycles.
-                    nes.AddCycles(514);
-                else
-                    nes.AddCycles(513);
-            }
-            else if (address == 0x2005) //PPUScroll
-            {
-                if (!addrLatch) //1st Write
-                {
-                    loopyT = ((loopyT & 0x7FE0) | (value >> 3));
-                    loopyX = value & 0x07;
-                }
-                else //2nd Write
-                    loopyT = ((loopyT & 0x0C1F) | ((value & 0x07) << 12) | ((value & 0xF8) << 2));
-                addrLatch = !addrLatch;
-                lastWrite = value;
-                lastWriteDecay = lastWriteDecayTime;
-            }
-            else if (address == 0x2006) //PPUAddr
-            {
-                if (!addrLatch)//1st Write
-                {
-                    loopyT = ((loopyT & 0x00FF) | ((value & 0x3F) << 8));
-                }
-                else //2nd Write
-                {
-                    loopyT = ((loopyT & 0x7F00) | value);
-                    int oldA12 = ((loopyV >> 12) & 1); ;
-                    loopyV = loopyT;
-                    if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                        nes.mapper.IRQ(scanline);
-                }
-                addrLatch = !addrLatch;
-                lastWrite = value;
-                lastWriteDecay = lastWriteDecayTime;
-            }
-            else if (address == 0x2007) //PPU Write
-            {
-                if ((loopyV & 0x3F00) == 0x3F00)
-                    PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] = (byte)(value & 0x3F);
-                else
-                    PPUMemory[PPUMirrorMap[loopyV & 0x3FFF]] = value;
+                case 0x2000:
+                    bool wasEnabled = nmiEnable;
+                    loopyT = (loopyT & 0xF3FF) | ((value & 3) << 10);
+                    vramInc = (value & 0x04) != 0;
+                    if ((value & 0x08) != 0)
+                        spriteTable = 0x1000;
+                    else
+                        spriteTable = 0x0000;
+                    if ((value & 0x10) != 0)
+                        backgroundTable = 0x1000;
+                    else
+                        backgroundTable = 0x0000;
+                    tallSprites = (value & 0x20) != 0;
+                    nmiEnable = (value & 0x80) != 0;
+                    if (!nmiEnable && pendingNMI > 1)
+                        pendingNMI = 0;
+                    else if (inVblank && nmiEnable && !wasEnabled)
+                        pendingNMI = 2;
+                    lastWrite = value;
+                    lastWriteDecay = lastWriteDecayTime;
+                    break;
+                case 0x2001: //PPU Mask
+                    if ((value & 0x01) != 0)
+                        grayScale = 0x30;
+                    else
+                        grayScale = 0x3F;
+                    leftmostBackground = (value & 0x02) != 0;
+                    leftmostSprites = (value & 0x04) != 0;
+                    backgroundRendering = (value & 0x08) != 0;
+                    spriteRendering = (value & 0x10) != 0;
+                    colorMask = (ushort)((value << 1) & 0x1C0);
+                    lastWrite = value;
+                    lastWriteDecay = lastWriteDecayTime;
+                    break;
+                case 0x2002:
+                    lastWrite = value;
+                    lastWriteDecay = lastWriteDecayTime;
+                    break;
+                case 0x2003: //OAM Address
+                    spriteAddr = value;
+                    lastWrite = value;
+                    lastWriteDecay = lastWriteDecayTime;
+                    break;
+                case 0x2004: //OAM Write
+                    SPRMemory[spriteAddr & 0xFF] = value;
+                    spriteAddr++;
+                    lastWrite = value;
+                    lastWriteDecay = lastWriteDecayTime;
+                    break;
+                case 0x4014: //Sprite DMA
+                    int startAddress = value << 8;
+                    for (int i = 0; i < 0x100; i++)
+                        SPRMemory[(spriteAddr + i) & 0xFF] = nes.Memory[nes.MirrorMap[(startAddress + i) & 0xFFFF]];
+                    if ((nes.counter & 1) == 0) //Sprite DMA always ends on even cycles.
+                        nes.AddCycles(514);
+                    else
+                        nes.AddCycles(513);
+                    break;
+                case 0x2005: //PPUScroll
+                    if (!addrLatch) //1st Write
+                    {
+                        loopyT = ((loopyT & 0x7FE0) | (value >> 3));
+                        loopyX = value & 0x07;
+                    }
+                    else //2nd Write
+                        loopyT = ((loopyT & 0x0C1F) | ((value & 0x07) << 12) | ((value & 0xF8) << 2));
+                    addrLatch = !addrLatch;
+                    lastWrite = value;
+                    lastWriteDecay = lastWriteDecayTime;
+                    break;
+                case 0x2006: //PPUAddr
+                    if (!addrLatch)//1st Write
+                    {
+                        loopyT = ((loopyT & 0x00FF) | ((value & 0x3F) << 8));
+                    }
+                    else //2nd Write
+                    {
+                        loopyT = ((loopyT & 0x7F00) | value);
+                        int oldA12 = ((loopyV >> 12) & 1); ;
+                        loopyV = loopyT;
+                        if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
+                            nes.mapper.IRQ(scanline);
+                    }
+                    addrLatch = !addrLatch;
+                    lastWrite = value;
+                    lastWriteDecay = lastWriteDecayTime;
+                    break;
+                case 0x2007: //PPU Write
+                    if ((loopyV & 0x3F00) == 0x3F00)
+                        PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] = (byte)(value & 0x3F);
+                    else
+                        PPUMemory[PPUMirrorMap[loopyV & 0x3FFF]] = value;
 
-                int oldA12 = (loopyV >> 12) & 1;
-                loopyV = ((loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF);
-                if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                    nes.mapper.IRQ(scanline);
-                lastWrite = value;
-                lastWriteDecay = lastWriteDecayTime;
-            }
-            else if (address == 0x2002)
-            {
-                lastWrite = value;
-                lastWriteDecay = lastWriteDecayTime;
+                    int writeOldA12 = (loopyV >> 12) & 1;
+                    loopyV = ((loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF);
+                    if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && writeOldA12 == 0 && ((loopyV >> 12) & 1) == 1)
+                        nes.mapper.IRQ(scanline);
+                    lastWrite = value;
+                    lastWriteDecay = lastWriteDecayTime;
+                    break;
             }
         }
 
@@ -407,6 +411,24 @@ namespace EmuoTron
             }
             Update();
         }
+        byte spriteData = 0;
+        int secondaryOAMFillPtr = 0;
+        int spriteF = 0;
+        int secondaryOAMPtr = 0;
+        int spriteN = 0;
+        int spriteM = 0;
+        int spriteE = 0;
+        int currentSprite = 0;
+        int spriteStage = 0;
+        int currentSpriteY = 0;
+        int currentSpriteTileNum = 0;
+        int currentSpriteAttr = 0;
+        int currentSpriteX = 0;
+        byte currentSpritePlane1 = 0;
+        byte currentSpritePlane2 = 0;
+        int currentSpriteChrAddress = 0;
+
+
         private void Update()
         {
             while (lastUpdate < currentTime)
@@ -425,115 +447,292 @@ namespace EmuoTron
                     {
                         HorizontalReset();
                     }
-                    else if (scanlineCycle == 32) //All sprite loading functions have been optimized to run within a single cycle in the middle of their period they are meant to run, can do it right once I get speed up to par again.
+
+
+                    //Sprites
+                    if (scanlineCycle < 64) //Fill secondary oam.
                     {
-                        for (int i = 0; i < maxSprites << 2; i++)
-                            secondaryOAM[i] = 0xFF;
-                    }
-                    else if (scanlineCycle == 160)
-                    {
-                        int secondaryOAMPtr = 0;
-                        int spriteN = 0;
-                        int spriteM = 0;
-                        bool spriteInRange = false;
-                        spritesFound = 0;
-                        spriteZeroLine = false;
-                        while (spriteN < 64 && spritesFound <= maxSprites)
+                        if ((scanlineCycle & 1) == 0)
                         {
-                            if (spriteInRange)
+                            spriteData = secondaryOAM[secondaryOAMFillPtr] = 0xFF;
+                            secondaryOAMFillPtr++;
+                        }
+                        if (scanlineCycle == 63)
+                        {
+                            for (int i = secondaryOAMFillPtr; i < maxSprites << 2; i++)
+                                secondaryOAM[i] = 0xFF;
+                        }
+                    }
+                    else if (scanlineCycle < 256) //Sprite evaluation.
+                    {
+                        if ((scanlineCycle & 1) == 0)
+                        {
+                            if (spriteF < 4)
+                                spriteData = SPRMemory[(spriteN << 2) + spriteF];
+                            else if (spriteF == 4) //Evaluate for overflows, a tad bit insane.
                             {
-                                if (spriteN == 0)
-                                    spriteZeroLine = true;
-                                secondaryOAM[secondaryOAMPtr] = SPRMemory[(spriteN << 2) + spriteM];
-                                secondaryOAMPtr++;
-                                spriteM++;
-                                if (spriteM == 4)
+                                if (spriteE == 0)
                                 {
-                                    spriteM = 0;
-                                    spriteInRange = false;
-                                    spriteN++;
-                                }
-                            }
-                            else
-                            {
-                                if (SPRMemory[spriteN << 2] <= scanline && SPRMemory[spriteN << 2] > (scanline - (tallSprites ? 16 : 8)))
-                                {
-                                    spritesFound++;
-                                    if (spritesFound >= 9)
+                                    spriteData = SPRMemory[(spriteN << 2) + spriteM];
+                                    if (spriteData <= scanline && spriteData > (scanline - (tallSprites ? 16 : 8)))
                                     {
 #if DEBUGGER
-                                        if(!spriteOverflow)
+                                        if (!spriteOverflow)
                                             nes.debug.SpriteOverflow();
 #endif
                                         spriteOverflow = true;
+                                        spriteE++;
+                                        spriteM++;
+                                        if (spriteM == 4)
+                                        {
+                                            spriteN++;
+                                            if (spriteN == 64)
+                                                spriteN = 0;
+                                            spriteM = 0;
+                                        }
                                     }
-                                    if (spritesFound <= maxSprites)
-                                        spriteInRange = true;
+                                    else
+                                    {
+                                        spriteN++;
+                                        if (spriteN == 64)
+                                            spriteF = 5;
+                                        spriteM++;
+                                        if (spriteM == 4)
+                                            spriteM = 0;
+                                    }
                                 }
                                 else
+                                {
+                                    spriteData = SPRMemory[(spriteN << 2) + spriteM];
+                                    spriteE++;
+                                    spriteM++;
+                                    if (spriteM == 4)
+                                    {
+                                        spriteN++;
+                                        if (spriteN == 64)
+                                            spriteN = 0;
+                                        spriteM = 0;
+                                    }
+                                    if (spriteE == 4)
+                                        spriteE = 0;
+                                }
+
+                            }
+                            else if(spriteF == 5) //Endless reads till HBlank
+                            {
+                                if (spriteN == 64)
+                                    spriteN = 0;
+                                spriteData = SPRMemory[(spriteN << 2)];
+                                spriteN++;
+                            }
+                        }
+                        else
+                        {
+                            if (spriteF == 0)
+                            {
+                                secondaryOAM[secondaryOAMPtr] = spriteData;
+                                if (spriteData <= scanline && spriteData > (scanline - (tallSprites ? 16 : 8)))
+                                {
+                                    if (spriteN == 0)
+                                        spriteZeroLine = true;
+                                    secondaryOAMPtr++;
+                                    spriteF++;
+                                    spritesFound++;
+                                }
+                                else //Not in range move onto the next sprite
                                 {
                                     spriteN++;
+                                    if (spriteN == 64)//All sprites evaluated, move into time wasting loop
+                                    {
+                                        spriteF = 5;
+                                    }
                                 }
                             }
-                        }
-                    }
-                    else if (scanlineCycle == 288)
-                    {
-                        if (nes.rom.mapper == 0x05)
-                            ((Mappers.m005)nes.mapper).StartSprites(tallSprites);
-                        int currentSprite = 0;
-                        while (currentSprite < spritesFound && currentSprite < maxSprites)
-                        {
-                            int spriteY = ((scanline) - secondaryOAM[currentSprite << 2]);
-                            int tileNumber = secondaryOAM[(currentSprite << 2) + 1];
-                            int attr = secondaryOAM[(currentSprite << 2) + 2];
-                            spriteCounter[currentSprite] = secondaryOAM[(currentSprite << 2) + 3];
-                            spritePalette[currentSprite] = ((attr & 3) << 2) | 0x10;
-                            spriteAbove[currentSprite] = (attr & 0x20) == 0;
-                            bool horzFlip = (attr & 0x40) != 0;
-                            bool vertFlip = (attr & 0x80) != 0;
-                            int chrAddress;
-                            if (tallSprites)
+                            else if (spriteF < 4)//Load in sprite attributes
                             {
-                                int spriteTable;
-                                if ((tileNumber & 1) != 0)
-                                    spriteTable = 0x1000;
-                                else
-                                    spriteTable = 0x0000;
-                                tileNumber &= 0xFE;
-                                int flipper = 0;
-                                if (spriteY > 7)
+                                secondaryOAM[secondaryOAMPtr] = spriteData;
+                                secondaryOAMPtr++;
+                                spriteF++;
+                                if (spriteF == 4)
                                 {
-                                    tileNumber |= 1;
-                                    if (vertFlip)
-                                        flipper = vertFlipTable[spriteY & 7] - 16;
+                                    spriteN++;
+                                    if (spriteN == 64)//All sprites evaluated, move into time wasting loop
+                                    {
+                                        spriteF = 5;
+                                    }
+                                    else if (spritesFound < 8)//Finished loading sprite, search for more.
+                                    {
+                                        spriteF = 0;
+                                    }
+                                    else //8 sprites have been found check for overflow.
+                                    {
+                                        spriteF = 4;
+                                        if (maxSprites > 8)//Handle disable sprite limit
+                                        {
+                                            int overflowSpriteN = spriteN;
+                                            int overflowOAMPtr = secondaryOAMPtr;
+                                            while (overflowSpriteN < maxSprites && overflowSpriteN < 64)
+                                            {
+                                                if (SPRMemory[overflowSpriteN << 2] <= scanline && SPRMemory[overflowSpriteN << 2] > (scanline - (tallSprites ? 16 : 8)))
+                                                {
+                                                    spritesFound++;
+                                                    secondaryOAM[overflowOAMPtr] = SPRMemory[overflowSpriteN << 2];
+                                                    overflowOAMPtr++;
+                                                    secondaryOAM[overflowOAMPtr] = SPRMemory[(overflowSpriteN << 2) + 1];
+                                                    overflowOAMPtr++;
+                                                    secondaryOAM[overflowOAMPtr] = SPRMemory[(overflowSpriteN << 2) + 2];
+                                                    overflowOAMPtr++;
+                                                    secondaryOAM[overflowOAMPtr] = SPRMemory[(overflowSpriteN << 2) + 3];
+                                                    overflowOAMPtr++;
+                                                }
+                                                overflowSpriteN++;
+                                            }
+                                        }
+                                    }
                                 }
-                                else if (vertFlip)
-                                    flipper = vertFlipTable[spriteY & 7] + 16;
-                                chrAddress = (spriteTable | (tileNumber << 4) | (spriteY & 7)) + flipper;
                             }
-                            else
-                            {
-                                chrAddress = (this.spriteTable | (tileNumber << 4) | (spriteY & 7)) + (vertFlip ? vertFlipTable[spriteY & 7] : 0);
-                            }
-                            if (!horzFlip)
-                            {
-                                spriteTileShift1[currentSprite] = horzFlipTable[PPUMemory[chrAddress]];
-                                spriteTileShift2[currentSprite] = horzFlipTable[PPUMemory[chrAddress + 8]];
-                            }
-                            else
-                            {
-                                spriteTileShift1[currentSprite] = PPUMemory[chrAddress];
-                                spriteTileShift2[currentSprite] = PPUMemory[chrAddress + 8];
-                            }
-                            if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
-                                nes.mapper.IRQ(chrAddress);
-                            currentSprite++;
                         }
-                        spriteCount = (spritesFound > maxSprites) ? maxSprites : spritesFound;
-                        if (nes.rom.mapper == 0x05)
-                            ((Mappers.m005)nes.mapper).StartBackground(tallSprites);
                     }
+                    else if (scanlineCycle < 320)//Load sprite tiles and counters.
+                    {
+                        if(nes.rom.mapper == 0x05 && scanlineCycle == 256)
+                                ((Mappers.m005)nes.mapper).StartSprites(tallSprites);
+                        switch (spriteStage)
+                        {
+                            case 0:
+                                currentSpriteY = spriteData = secondaryOAM[currentSprite << 2];
+                                break;
+                            case 1:
+                                currentSpriteTileNum = spriteData = secondaryOAM[(currentSprite << 2) + 1];
+                                //Should have garbage nametable read
+                                break;
+                            case 2:
+                                currentSpriteAttr = spriteData = secondaryOAM[(currentSprite << 2) + 2];
+                                spritePalette[currentSprite] = ((currentSpriteAttr & 3) << 2) | 0x10;
+                                spriteAbove[currentSprite] = (currentSpriteAttr & 0x20) == 0;
+                                break;
+                            case 3:
+                                currentSpriteX = spriteData = secondaryOAM[(currentSprite << 2) + 3];
+                                spriteCounter[currentSprite] = currentSpriteX;
+                                //Should have garbage nametable read
+                                int spriteY = ((scanline) - currentSpriteY);
+                                bool vertFlip = (currentSpriteAttr & 0x80) != 0;
+                                if (tallSprites)
+                                {
+                                    int spriteTable;
+                                    if ((currentSpriteTileNum & 1) != 0)
+                                        spriteTable = 0x1000;
+                                    else
+                                        spriteTable = 0x0000;
+                                    currentSpriteTileNum &= 0xFE;
+                                    int flipper = 0;
+                                    if (spriteY > 7)
+                                    {
+                                        currentSpriteTileNum |= 1;
+                                        if (vertFlip)
+                                            flipper = vertFlipTable[spriteY & 7] - 16;
+                                    }
+                                    else if (vertFlip)
+                                        flipper = vertFlipTable[spriteY & 7] + 16;
+                                    currentSpriteChrAddress = PPUMirrorMap[(spriteTable | (currentSpriteTileNum << 4) | (spriteY & 7)) + flipper];
+                                }
+                                else
+                                {
+                                    currentSpriteChrAddress = PPUMirrorMap[(this.spriteTable | (currentSpriteTileNum << 4) | (spriteY & 7)) + (vertFlip ? vertFlipTable[spriteY & 7] : 0)];
+                                }
+                                break;
+                            case 4:
+                                spriteData = secondaryOAM[(currentSprite << 2) + 3];
+                                break;
+                            case 5:
+                                spriteData = secondaryOAM[(currentSprite << 2) + 3];
+                                currentSpritePlane1 = PPUMemory[currentSpriteChrAddress];
+                                if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
+                                    nes.mapper.IRQ(currentSpriteChrAddress);
+                                break;
+                            case 6:
+                                spriteData = secondaryOAM[(currentSprite << 2) + 3];
+                                break;
+                            case 7:
+                                spriteData = secondaryOAM[(currentSprite << 2) + 3];
+                                currentSpritePlane2 = PPUMemory[currentSpriteChrAddress + 8];
+                                if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
+                                    nes.mapper.IRQ(currentSpriteChrAddress);
+                                bool horzFlip = (currentSpriteAttr & 0x40) != 0;
+                                if (!horzFlip)
+                                {
+                                    spriteTileShift1[currentSprite] = horzFlipTable[currentSpritePlane1];
+                                    spriteTileShift2[currentSprite] = horzFlipTable[currentSpritePlane2];
+                                }
+                                else
+                                {
+                                    spriteTileShift1[currentSprite] = currentSpritePlane1;
+                                    spriteTileShift2[currentSprite] = currentSpritePlane2;
+                                }
+                                currentSprite++;
+                                break;
+                        }
+                        spriteStage++;
+                        if (spriteStage == 8)
+                            spriteStage = 0;
+                        if (currentSprite == 8 && maxSprites > 8) //Handle disable sprite limit, I don't really like duplicating this much code but it really seems like the best way. And now I can avoid triggering mappers and what not on extra sprites.
+                        {
+                            for (int i = 8; i < maxSprites; i++)
+                            {
+                                int spriteY = ((scanline) - secondaryOAM[i << 2]);
+                                int tileNumber = secondaryOAM[(i << 2) + 1];
+                                int attr = secondaryOAM[(i << 2) + 2];
+                                spriteCounter[i] = secondaryOAM[(i << 2) + 3];
+                                spritePalette[i] = ((attr & 3) << 2) | 0x10;
+                                spriteAbove[i] = (attr & 0x20) == 0;
+                                bool horzFlip = (attr & 0x40) != 0;
+                                bool vertFlip = (attr & 0x80) != 0;
+                                int chrAddress;
+                                if (tallSprites)
+                                {
+                                    int tallSpriteTable;
+                                    if ((tileNumber & 1) != 0)
+                                        tallSpriteTable = 0x1000;
+                                    else
+                                        tallSpriteTable = 0x0000;
+                                    tileNumber &= 0xFE;
+                                    int flipper = 0;
+                                    if (spriteY > 7)
+                                    {
+                                        tileNumber |= 1;
+                                        if (vertFlip)
+                                            flipper = vertFlipTable[spriteY & 7] - 16;
+                                    }
+                                    else if (vertFlip)
+                                        flipper = vertFlipTable[spriteY & 7] + 16;
+                                    chrAddress = (tallSpriteTable | (tileNumber << 4) | (spriteY & 7)) + flipper;
+                                }
+                                else
+                                {
+                                    chrAddress = (spriteTable | (tileNumber << 4) | (spriteY & 7)) + (vertFlip ? vertFlipTable[spriteY & 7] : 0);
+                                }
+                                if (!horzFlip)
+                                {
+                                    spriteTileShift1[i] = horzFlipTable[PPUMemory[PPUMirrorMap[chrAddress]]];
+                                    spriteTileShift2[i] = horzFlipTable[PPUMemory[PPUMirrorMap[chrAddress + 8]]];
+                                }
+                                else
+                                {
+                                    spriteTileShift1[i] = PPUMemory[PPUMirrorMap[chrAddress]];
+                                    spriteTileShift2[i] = PPUMemory[PPUMirrorMap[chrAddress + 8]];
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (nes.rom.mapper == 0x05 && scanlineCycle == 320)
+                            ((Mappers.m005)nes.mapper).StartBackground(tallSprites);
+                        spriteData = secondaryOAM[0];
+                    }
+
+
+                    //Background and draw routine.
                     if (scanlineCycle < 256 || (scanlineCycle >= 320 && scanlineCycle < 336))
                     {
                         if (shiftCount == 0)
@@ -559,24 +758,13 @@ namespace EmuoTron
                         }
                         if (scanlineCycle < 256 && scanline != -1 && (!turbo || (turbo && onSpriteZeroLine && !spriteZeroHit))) //I think this is all I can cut with turbo mode without some messy rewrites : /
                         {
-                            bool zeroBackgroundPixel = true;
-                            if (backgroundRendering)
-                            {
-                                int fineX = (loopyX & 0x7);
-                                int color = (((tile1Shift << fineX) >> 15) & 1) | (((tile2Shift << fineX) >> 14) & 2);
-                                zeroBackgroundPixel = (color == 0 || (!leftmostBackground && scanlineCycle < 8));
-                                if (zeroBackgroundPixel || !displayBG)
-                                    screen[scanline, scanlineCycle] = colorChart[(PalMemory[0x00] & grayScale) | colorMask];
-                                else
-                                    screen[scanline, scanlineCycle] = colorChart[(PalMemory[((((paletteShift << (fineX << 1)) >> 14) & 3) << 2) | color] & grayScale) | colorMask];
-                            }
+                            int fineX = (loopyX & 0x7);
+                            int tileColor = (((tile1Shift << fineX) >> 15) & 1) | (((tile2Shift << fineX) >> 14) & 2);
+                            bool zeroBackgroundPixel = (tileColor == 0 || (!leftmostBackground && scanlineCycle < 8) || !backgroundRendering);
+                            if (zeroBackgroundPixel || !displayBG)
+                                screen[scanline, scanlineCycle] = colorChart[(PalMemory[0x00] & grayScale) | colorMask];
                             else
-                            {
-                                if ((loopyV & 0x3F00) == 0x3F00)//Direct color control http://wiki.nesdev.com/w/index.php/Full_palette_demo
-                                    screen[scanline, scanlineCycle] = colorChart[(PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] & grayScale) | colorMask];
-                                else
-                                    screen[scanline, scanlineCycle] = colorChart[(PalMemory[0x00] & grayScale) | colorMask];
-                            }
+                                screen[scanline, scanlineCycle] = colorChart[(PalMemory[((((paletteShift << (fineX << 1)) >> 14) & 3) << 2) | tileColor] & grayScale) | colorMask];
                             if (spriteRendering)
                             {
                                 bool pixelDrawn = false;
@@ -625,7 +813,7 @@ namespace EmuoTron
                     }
                     lastUpdate++;
                     scanlineCycle++;
-                    if (scanlineCycle == 341 || (scanline == -1 && scanlineCycle == 340 && oddFrame && backgroundRendering))
+                    if (scanlineCycle == 341 || (scanline == -1 && scanlineCycle == 340 && oddFrame && backgroundRendering && nes.nesRegion == SystemType.NTSC))
                     {
                         if (generateNameTables && scanline == generateLine)
                             nameTables = GenerateNameTables();
@@ -636,10 +824,21 @@ namespace EmuoTron
                         }
                         if (nes.rom.mapper == 5)
                             nes.mapper.IRQ(0);
-                        onSpriteZeroLine = spriteZeroLine;
                         scanline++;
                         scanlineCycle = 0;
+                        onSpriteZeroLine = spriteZeroLine;
+                        spriteCount = spritesFound;
+                        spriteZeroLine = false;
                         shiftCount = 0;
+                        secondaryOAMFillPtr = 0;
+                        secondaryOAMPtr = 0;
+                        spriteF = 0;
+                        spriteN = 0;
+                        spriteM = 0;
+                        spriteE = 0;
+                        spritesFound = 0;
+                        currentSprite = 0;
+                        spriteStage = 0;
                     }
                 }
                 else
@@ -668,7 +867,19 @@ namespace EmuoTron
                         }
                         scanline++;
                         scanlineCycle = 0;
+                        onSpriteZeroLine = spriteZeroLine;
+                        spriteCount = spritesFound;
+                        spriteZeroLine = false;
                         shiftCount = 0;
+                        secondaryOAMFillPtr = 0;
+                        secondaryOAMPtr = 0;
+                        spriteF = 0;
+                        spriteN = 0;
+                        spriteM = 0;
+                        spriteE = 0;
+                        spritesFound = 0;
+                        currentSprite = 0;
+                        spriteStage = 0;
                         if (scanline == 241)
                         {
                             if (nes.rom.mapper == 5)
@@ -676,9 +887,9 @@ namespace EmuoTron
                             if (Math.Abs(vblFlagRead - lastUpdate) > 1)//This is WRONG, it is just a kinda close imitation of proper behavior, need a CPU with finer grain.
                             {
                                 inVblank = true;
-                                if (nmiEnable) 
+                                if (nmiEnable) //pending NMI value of 3 breaks battletoads pit, 4 fixed pit, 5 has working pit and nice scanline.nes
                                 {
-                                    pendingNMI = 3; //The NMI does not occur immediatly, and what I have here isnt precise but its the best I can pull off without some big changes.
+                                    pendingNMI = 5; //The NMI does not occur immediatly, and what I have here isnt precise but its the best I can pull off without some big changes.
                                 }
                             }
                         }
@@ -850,7 +1061,6 @@ namespace EmuoTron
             writer.Write(tileAddress);
             writer.Write(shiftCount);
             writer.Write(spritesFound);
-            writer.Write(spriteCount);
             writer.Write(spriteZeroLine);
             writer.Write(onSpriteZeroLine);
             writer.Write(maxSprites);
@@ -918,7 +1128,6 @@ namespace EmuoTron
             tileAddress = reader.ReadInt32();
             shiftCount = reader.ReadInt32();
             spritesFound = reader.ReadInt32();
-            spriteCount = reader.ReadInt32();
             spriteZeroLine = reader.ReadBoolean();
             onSpriteZeroLine = reader.ReadBoolean();
             maxSprites = reader.ReadInt32();

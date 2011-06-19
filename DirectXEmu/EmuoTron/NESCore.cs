@@ -325,7 +325,7 @@ namespace EmuoTron
                         }
                         break;
                     case OpInfo.InstrBRK:
-                        PushWordStack((RegPC + 1) & 0xFFFF);
+                        PushWordStack((RegPC) & 0xFFFF);
                         PushByteStack(RegP | 0x30);
                         FlagIRQ = 1;
                         RegPC = ReadWord(0xFFFE);
@@ -1305,6 +1305,7 @@ namespace EmuoTron
                 case 206:
                 case 37:
                 case 4: //MMC3
+                    rom.mapper = 4;
                     mapper = new Mappers.m004(this);
                     break;
                 case 5: //MMC5
@@ -1322,9 +1323,15 @@ namespace EmuoTron
                 case 11: //Color Dreams
                     mapper = new Mappers.m011(this);
                     break;
+                case 13:
+                    mapper = new Mappers.m013(this);
+                    break;
+                case 15:
+                    mapper = new Mappers.m015(this);
+                    break;
                 case 16: //Bandai - EEPROM
                 case 159:
-                case 153: //I dont think 153 belongs here but bootgod's xml reports Dragon Ball as 153 and I know that's 16
+                case 153: //I dont think 153 belongs here but bootgod's xml reports Dragon Ball as 153 and I know that it's 16
                     mapper = new Mappers.m016(this);
                     break;
                 case 19:
@@ -1475,7 +1482,7 @@ namespace EmuoTron
             }
             else if ((address & 0xF000) == 0x2000 && !nsfPlayer)
             {
-                nextByte = PPU.Read(nextByte, address);
+                nextByte = PPU.Read(address);
             }
             nextByte = mapper.Read(nextByte, address);
 #if DEBUGGER
@@ -1498,9 +1505,9 @@ namespace EmuoTron
         private void Write(int addr, int val)
         {
             ushort address = MirrorMap[addr & 0xFFFF];
-            byte value = (byte)(val & 0xFF);
+            byte value = (byte)val;
 
-            if ((address & 0xF000) == 0x4000 || (address & 0xF000) == 0x2000)
+            if ((address & 0xF000) == 0x4000)
             {
                 APU.Write(value, address);
                 if (!nsfPlayer)
@@ -1511,6 +1518,11 @@ namespace EmuoTron
                     PPU.Write(value, address);//Need this in here for sprite DMA
                 }
             }
+            else if ((address & 0xF000) == 0x2000 && !nsfPlayer)
+            {
+                PPU.Write(value, address);
+            }
+
             mapper.Write(value, address);
 #if DEBUGGER
             debug.Write(value, address);
