@@ -17,7 +17,6 @@ namespace EmuoTron
         public bool mute;
         public bool turbo;
 
-        public int frameBuffer;
         public int sampleRate;
         private double sampleRateDivider;
         private double sampleDivider;
@@ -143,12 +142,27 @@ namespace EmuoTron
         public int outputPtr;
         private byte[] dmcBuffer;
         private int dmcPtr;
-        
-        public APU(NESCore nes, int sampleRate, int frameBuffer)
+        private int dmcOutputPtr;
+
+        byte pulse1Volume;
+        byte pulse2Volume;
+        byte triangleVolume;
+        byte noiseVolume;
+        int dmcVolume;
+
+        double aveSample;
+        long aveSampleCount;
+
+        int sampleTotal;
+        int sampleCount;
+
+        int dmcSampleTotal;
+        int dmcSampleCount;
+
+        public APU(NESCore nes, int sampleRate)
         {
             this.nes = nes;
             this.sampleRate = sampleRate;
-            this.frameBuffer = frameBuffer;
             switch (nes.nesRegion)
             {
                 default:
@@ -177,17 +191,22 @@ namespace EmuoTron
                 this.sampleRate = CPUClock;
             SetFPS(FPS);
             output = new short[this.sampleRate]; //the buffers really don't need to be this large, but it should prevent overflows when the FPS is set exceptionally low.
-            dmcBuffer = new byte[this.sampleRate];
+            dmcBuffer = new byte[CPUClock];
             for (int i = 0; i < 32; i++)
             {
                 pulseTable[i] = ((95.52 / (8128.0 / i + 100)));
-                pulseTableShort[i] = (int)(pulseTable[i] * 65535);
+                pulseTableShort[i] = (int)(pulseTable[i] * 32767);
             }
             for (int i = 0; i < 204; i++)
             {
                 tndTable[i] = ((163.67 / (24329.0 / i + 100)));
-                tndTableShort[i] = (int)(tndTable[i] * 65535);
+                tndTableShort[i] = (int)(tndTable[i] * 32767);
             }
+            volume.triangle = 1;
+            volume.pulse1 = 1;
+            volume.pulse2 = 1;
+            volume.noise = 1;
+            volume.dmc = 1;
         }
         public void Power() //4017_written.nes gives different results on initial load vs. power emulation, MUST fix.
         {
@@ -415,7 +434,7 @@ namespace EmuoTron
                     break;
                 case 0x4013: //DMC Sample Length
                     Update();
-                    dmcSampleLength = (value << 4) + 1;
+                    dmcSampleLength = (value << 4) | 1;
                     break;
                 case 0x4015:
                     Update();
@@ -461,6 +480,7 @@ namespace EmuoTron
         {
             outputPtr = 0;
             dmcPtr = 0;
+            dmcOutputPtr = 0;
         }
         public void TriangleLinear()
         {
@@ -497,32 +517,32 @@ namespace EmuoTron
                 }
             }
         }
+        public void PulseSweepMute()
+        {
+            pulse1SweepMute = pulse1Timer < 8 || ((!pulse1SweepNegate) && (pulse1Timer + (pulse1Timer >> pulse1SweepShift)) > 0x7FF);
+            pulse2SweepMute = pulse2Timer < 8 || ((!pulse2SweepNegate) && (pulse2Timer + (pulse2Timer >> pulse2SweepShift)) > 0x7FF);
+        }
         public void Pulse1Sweep()
         {
             pulse1SweepDivider--;
-            if (pulse1SweepReload)
-            {
-                pulse1SweepReload = false;
-                pulse1SweepDivider = (byte)(pulse1SweepTimer + 1);
-            }
             if (pulse1SweepDivider == 0)
             {
                 int tmp = pulse1Timer >> pulse1SweepShift;
                 if (pulse1SweepNegate)
-                    tmp = -1 - tmp;
+                    tmp = ~tmp;
                 tmp += pulse1Timer;
-                pulse1SweepMute = false;
-                if (pulse1Timer < 8 || tmp > 0x7FF)
-                {
-                    pulse1SweepMute = false;
-                }
-                else if (pulse1SweepEnable && pulse1SweepShift != 0)
+                if (pulse1SweepEnable && pulse1SweepShift != 0 && !pulse1SweepMute)
                 {
                     pulse1Timer = (ushort)(tmp & 0x7FF);
                     pulse1Freq = (pulse1Timer + 1) * 2;
                 }
                 pulse1SweepDivider = (byte)(pulse1SweepTimer + 1);
 
+            }
+            if (pulse1SweepReload)
+            {
+                pulse1SweepReload = false;
+                pulse1SweepDivider = (byte)(pulse1SweepTimer + 1);
             }
         }
         public void Pulse2Envelope()
@@ -549,27 +569,22 @@ namespace EmuoTron
         public void Pulse2Sweep()
         {
             pulse2SweepDivider--;
-            if (pulse2SweepReload)
-            {
-                pulse2SweepReload = false;
-                pulse2SweepDivider = (byte)(pulse2SweepTimer + 1);
-            }
             if (pulse2SweepDivider == 0)
             {
                 int tmp = pulse2Timer >> pulse2SweepShift;
                 if (pulse2SweepNegate)
                     tmp = 0 - tmp;
                 tmp += pulse2Timer;
-                pulse2SweepMute = false;
-                if (pulse2Timer < 8 || tmp > 0x7FF)
-                {
-                    pulse2SweepMute = false;
-                }
-                else if (pulse2SweepEnable && pulse2SweepShift != 0)
+                if (pulse2SweepEnable && pulse2SweepShift != 0 && !pulse2SweepMute)
                 {
                     pulse2Timer = (ushort)(tmp & 0x7FF);
                     pulse2Freq = (pulse2Timer + 1) * 2;
                 }
+                pulse2SweepDivider = (byte)(pulse2SweepTimer + 1);
+            }
+            if (pulse2SweepReload)
+            {
+                pulse2SweepReload = false;
                 pulse2SweepDivider = (byte)(pulse2SweepTimer + 1);
             }
         }
@@ -632,6 +647,7 @@ namespace EmuoTron
                     }
                     else if (step == 1) //Envelopes + Triangle Linear Counter + Length Counters + Sweep Units
                     {
+                        PulseSweepMute();
                         Pulse1Sweep();
                         Pulse2Sweep();
                         Pulse1Envelope();
@@ -652,6 +668,7 @@ namespace EmuoTron
                     }
                     else if (step == 3) //Envelopes + Triangle Linear Counter + Length Counters + Sweep Units + Interrupt
                     {
+                        PulseSweepMute();
                         Pulse1Sweep();
                         Pulse2Sweep();
                         Pulse1Envelope();
@@ -674,6 +691,7 @@ namespace EmuoTron
                     frameCounter++;
                     if (step == 0)//Envelopes + Triangle Linear Counter + Length Counters + Sweep Units
                     {
+                        PulseSweepMute();
                         Pulse1Sweep();
                         Pulse2Sweep();
                         Pulse1Envelope();
@@ -694,6 +712,7 @@ namespace EmuoTron
                     }
                     else if (step == 2)//Envelopes + Triangle Linear Counter + Length Counters + Sweep Units
                     {
+                        PulseSweepMute();
                         Pulse1Sweep();
                         Pulse2Sweep();
                         Pulse1Envelope();
@@ -733,10 +752,10 @@ namespace EmuoTron
                 if (dmcBytesRemaining != 0)
                 {
                     dmcSampleBuffer = nes.Memory[dmcSampleCurrentAddress];
+                    dmcSampleBufferEmpty = false;
                     dmcDelay = true;
                     nes.AddCycles(4);
                     dmcDelay = false;
-                    dmcSampleBufferEmpty = false;
                     dmcSampleCurrentAddress++;
                     if (dmcSampleCurrentAddress > 0xFFFF)
                         dmcSampleCurrentAddress = 0x8000;
@@ -756,7 +775,7 @@ namespace EmuoTron
             dmcDivider--;
             if (dmcDivider == 0)
             {
-                if (dmcShiftCount != 0)
+                if (dmcShiftCount > 0)
                 {
                     if ((dmcShiftReg & 1) != 0 && dmcDeltaCounter > 1)
                         dmcDeltaCounter -= 2;
@@ -779,13 +798,7 @@ namespace EmuoTron
                 }
                 dmcDivider = dmcRate;
             }
-            dmcSampleRateDivider++;
-            if (dmcSampleRateDivider > sampleDivider && !dmcDelay)// && dmcPtr < dmcBuffer.Length)//This last condition really should never fire except when caused by my bugs elsewhere.
-            {
-                dmcBuffer[dmcPtr] = dmcDeltaCounter;
-                dmcPtr++;
-                dmcSampleRateDivider -= sampleDivider;
-            }
+            dmcBuffer[dmcPtr++] = dmcDeltaCounter;
         }
         public void Update()
         {
@@ -793,174 +806,82 @@ namespace EmuoTron
             {
                 for (int updateCycle = lastUpdateCycle; updateCycle < cycles; updateCycle++)
                 {
-                    sampleRateDivider++;
-                    if (sampleRateDivider > sampleDivider)
+                    sampleRateDivider--;
+                    if (sampleRateDivider <= 0)
                     {
                         output[outputPtr] = 0;
                         outputPtr++;
-                        sampleRateDivider -= sampleDivider;
+                        sampleRateDivider += sampleDivider;
                     }
                 }
                 lastUpdateCycle = cycles;
                 return;
             }
-            byte pulse1Volume = 0;
-            if (pulse1LengthCounter == 0)
-                pulse1Volume = 0;
-            else if (pulse1SweepMute)
-                pulse1Volume = 0;
-            else if (!dutyCycles[pulse1Duty][pulse1DutySequencer % 8])
-                pulse1Volume = 0;
-            else if (pulse1ConstantVolume)
-            {
-                pulse1Volume = pulse1Envelope;
-                if (pulse1Timer <= 0)
-                    pulse1Volume = 0;
-            }
-            else
-            {
-                pulse1Volume = pulse1EnvelopeCounter;
-                if (pulse1Timer <= 0)
-                    pulse1Volume = 0;
-            }
-
-            byte pulse2Volume = 0;
-            if (pulse2LengthCounter == 0)
-                pulse2Volume = 0;
-            else if (pulse2SweepMute)
-                pulse2Volume = 0;
-            else if (!dutyCycles[pulse2Duty][pulse2DutySequencer % 8])
-                pulse2Volume = 0;
-            else if (pulse2ConstantVolume)
-            {
-                pulse2Volume = pulse2Envelope;
-                if (pulse2Timer <= 0)
-                    pulse2Volume = 0;
-            }
-            else
-            {
-                pulse2Volume = pulse2EnvelopeCounter;
-                if (pulse2Timer <= 0)
-                    pulse2Volume = 0;
-            }
-
-            byte noiseVolume = 0;
-            if ((noiseShiftReg & 1) == 1)
-                noiseVolume = 0;
-            else if (noiseLengthCounter == 0)
-                noiseVolume = 0;
-            else if (noiseConstantVolume)
-                noiseVolume = noiseEnvelope;
-            else
-                noiseVolume = noiseEnvelopeCounter;
-
-            byte triangleVolume = 0;
-            if (triangleLengthCounter == 0)
-                triangleVolume = 0;
-            else if (triangleLinearCounter == 0)
-                triangleVolume = 0;
-            else
-            {
-                if (triangleTimer <= 1)
-                    triangleVolume = 7;
-                else
-                    triangleVolume = triangleSequence[triangleSequenceCounter % 32];
-            }
-
-            int dmcVolume = 0;
+            PulseSweepMute();
             for (int updateCycle = lastUpdateCycle; updateCycle < cycles; updateCycle++)
             {
                 triangleDivider--;
                 if (triangleDivider == 0)
                 {
-                    if (triangleLengthCounter == 0)
-                        triangleVolume = 0;
-                    else if (triangleLinearCounter == 0)
-                        triangleVolume = 0;
+                    if (triangleTimer <= 1) //Filter ultra-high freq. channel
+                        triangleVolume = 7;
                     else
-                    {
-                        if (triangleTimer <= 1)
-                            triangleVolume = 7;
-                        else
-                            triangleVolume = triangleSequence[triangleSequenceCounter % 32];
+                        triangleVolume = triangleSequence[triangleSequenceCounter % 32];
+                    if (triangleLengthCounter != 0 && triangleLinearCounter != 0)
                         triangleSequenceCounter++;
-                    }
                     triangleDivider = triangleFreq;
                 }
-
                 pulse1Divider--;
                 if (pulse1Divider == 0)
                 {
-                    if (pulse1LengthCounter == 0)
-                        pulse1Volume = 0;
-                    else if (pulse1SweepMute)
-                        pulse1Volume = 0;
-                    else if (!dutyCycles[pulse1Duty][pulse1DutySequencer % 8])
+                    if (pulse1LengthCounter == 0 || pulse1SweepMute || !dutyCycles[pulse1Duty][pulse1DutySequencer % 8])
                         pulse1Volume = 0;
                     else if (pulse1ConstantVolume)
-                    {
                         pulse1Volume = pulse1Envelope;
-                        if (pulse1Timer <= 0)
-                            pulse1Volume = 0;
-                    }
                     else
-                    {
                         pulse1Volume = pulse1EnvelopeCounter;
-                        if (pulse1Timer <= 0)
-                            pulse1Volume = 0;
-                    }
                     pulse1DutySequencer++;
                     pulse1Divider = pulse1Freq;
                 }
                 pulse2Divider--;
                 if (pulse2Divider == 0)
                 {
-                    if (pulse2LengthCounter == 0)
-                        pulse2Volume = 0;
-                    else if (pulse2SweepMute)
-                        pulse2Volume = 0;
-                    else if (!dutyCycles[pulse2Duty][pulse2DutySequencer % 8])
+                    if (pulse2LengthCounter == 0 || pulse2SweepMute || !dutyCycles[pulse2Duty][pulse2DutySequencer % 8])
                         pulse2Volume = 0;
                     else if (pulse2ConstantVolume)
-                    {
                         pulse2Volume = pulse2Envelope;
-                        if (pulse2Timer <= 0)
-                            pulse2Volume = 0;
-                    }
                     else
-                    {
                         pulse2Volume = pulse2EnvelopeCounter;
-                        if (pulse2Timer <= 0)
-                            pulse2Volume = 0;
-                    }
                     pulse2DutySequencer++;
                     pulse2Divider = pulse2Freq;
                 }
                 noiseDivider--;
                 if (noiseDivider == 0)
                 {
-                    NoiseClock();
-                    if ((noiseShiftReg & 1) == 1)
-                        noiseVolume = 0;
-                    else if (noiseLengthCounter == 0)
+                    if ((noiseShiftReg & 1) == 1 || noiseLengthCounter == 0)
                         noiseVolume = 0;
                     else if (noiseConstantVolume)
                         noiseVolume = noiseEnvelope;
                     else
                         noiseVolume = noiseEnvelopeCounter;
+                    NoiseClock();
                     noiseDivider = noiseTimer;
                 }
-                sampleRateDivider++;
-                if (sampleRateDivider > sampleDivider) //&& outputPtr < output.Length)
+                triangleVolume = (byte)(triangleVolume * volume.triangle);
+                pulse1Volume = (byte)(pulse1Volume * volume.pulse1);
+                pulse2Volume = (byte)(pulse2Volume * volume.pulse2);
+                noiseVolume = (byte)(noiseVolume * volume.noise);
+                dmcVolume = (byte)(dmcBuffer[dmcOutputPtr++] * volume.dmc);
+                sampleTotal += (short)(tndTableShort[(3 * triangleVolume) + (2 * noiseVolume) + dmcVolume] + pulseTableShort[pulse1Volume + pulse2Volume]);
+                sampleCount++;
+                sampleRateDivider--;
+                if (sampleRateDivider <= 0) //&& outputPtr < output.Length)
                 {
-                    triangleVolume = (byte)(triangleVolume * volume.triangle);
-                    pulse1Volume = (byte)(pulse1Volume * volume.pulse1);
-                    pulse2Volume = (byte)(pulse2Volume * volume.pulse2);
-                    noiseVolume = (byte)(noiseVolume * volume.noise);
-                    dmcVolume = (byte)(dmcBuffer[outputPtr] * volume.dmc);
-                    output[outputPtr] = (short)((tndTableShort[(3 * triangleVolume) + (2 * noiseVolume) + dmcVolume] + pulseTableShort[pulse1Volume + pulse2Volume]) ^ 0x8000);
-                    outputPtr++;
-                    sampleRateDivider -= sampleDivider;
+                    output[outputPtr++] = (short)((sampleTotal / (sampleCount * 1.0)) - aveSample);
+                    sampleRateDivider += sampleDivider;
+                    aveSample += (output[outputPtr] / ((++aveSampleCount) * 1.0)); //Attempt at centering waveform to reduce clicks, this is probably a horrible thing to do but I really cant hear any negative effects.
+                    sampleTotal = 0;
+                    sampleCount = 0;
                 }
             }
             lastUpdateCycle = cycles;

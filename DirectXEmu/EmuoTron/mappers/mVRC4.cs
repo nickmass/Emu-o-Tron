@@ -39,18 +39,16 @@ namespace EmuoTron.Mappers
         }
         public override void Power()
         {
-            nes.Memory.Swap8kROM(0x8000, 0);
-            nes.Memory.Swap8kROM(0xA000, 1);
-            nes.Memory.Swap8kROM(0xC000, (nes.rom.prgROM / 8) - 2);
-            nes.Memory.Swap8kROM(0xE000, (nes.rom.prgROM / 8) - 1);
-            nes.PPU.PPUMemory.Swap8kROM(0x0000, 0);
+            SyncPrg();
+            SyncChr();
+            nes.Memory.SetReadOnly(0x6000, 8, false); //Crisis Force NEEDs prgram, not battery backed, not mentioned anywhere?
         }
         public override void Write(byte value, ushort address)
         {
 
             byte highAddr = (byte)(address >> 8);
             byte lowAddr = (byte)(address & 0xFF);
-
+            
             if (lowAddr == altRegAddr[0])
                 lowAddr = regAddr[0];
             if (lowAddr == altRegAddr[1])
@@ -59,6 +57,12 @@ namespace EmuoTron.Mappers
                 lowAddr = regAddr[2];
             if (lowAddr == altRegAddr[3])
                 lowAddr = regAddr[3];
+
+            if (address >= 0x8000)
+            {
+                int a = 0;
+                a++;
+            }
 
             if (highAddr == 0x80 && (lowAddr == regAddr[0] || lowAddr == regAddr[1] || lowAddr == regAddr[2] || lowAddr == regAddr[3]))
             {

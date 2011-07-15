@@ -397,11 +397,11 @@
             // label6
             // 
             this.label6.AutoSize = true;
-            this.label6.Location = new System.Drawing.Point(409, 392);
+            this.label6.Location = new System.Drawing.Point(413, 392);
             this.label6.Name = "label6";
-            this.label6.Size = new System.Drawing.Size(33, 13);
+            this.label6.Size = new System.Drawing.Size(29, 13);
             this.label6.TabIndex = 34;
-            this.label6.Text = "Cycle";
+            this.label6.Text = "Pixel";
             // 
             // label7
             // 

@@ -136,6 +136,7 @@ namespace EmuoTron
             int temp;
             int value;
             int dummy;
+            APU.ResetBuffer();
             while (!PPU.frameComplete && !debug.debugInterrupt && emulationRunning)
             {
 #if DEBUGGER
@@ -817,19 +818,7 @@ namespace EmuoTron
                 {
                     opCycles = ((Mappers.mNSF)mapper).IRQ(opCycles, instruction);
                     counter += opCycles;
-                    try
-                    {
-                        APU.AddCycles(opCycles);
-                    }
-                    catch (IndexOutOfRangeException e)//Song never returns and overflows sound buffers, try to recover.
-                    {
-                        APU.outputPtr = APU.sampleRate / (APU.CPUClock / (int)((Mappers.mNSF)mapper).speed);
-                        ((Mappers.mNSF)mapper).counter = ((Mappers.mNSF)mapper).speed;
-                        PPU.frameComplete = true;
-                        RegS = 0xFD; //Stack is more then likely corrupted, try to reset it.
-                        PushWordStack(((Mappers.mNSF)mapper).playAddress - 1);
-                        ((Mappers.mNSF)mapper).overTime = false;
-                    }
+                    APU.AddCycles(opCycles);
                 }
                 if (pendingFlagIRQ1 != 0)
                 {
@@ -886,7 +875,7 @@ namespace EmuoTron
             PPU.generatePatternTables = false;
             APU.Update();
         }
-        public NESCore(string input, int sampleRate, int frameBuffer, bool ignoreFileCheck = false) //NSF Load
+        public NESCore(string input, int sampleRate, bool ignoreFileCheck = false) //NSF Load
         {
             nsfPlayer = true;
             opList = OpInfo.GetOps();
@@ -954,7 +943,7 @@ namespace EmuoTron
             Memory = new MemoryStore(0x20 + 32, true);
             Memory.swapOffset = 0x20;
             Memory.SetReadOnly(0, 2, false);
-            APU = new APU(this, sampleRate, frameBuffer);
+            APU = new APU(this, sampleRate);
 #if SCANLINE_PPU
             PPU = new SPPU(this);
 #else
@@ -1035,7 +1024,7 @@ namespace EmuoTron
             CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
             Power();
         }
-        public NESCore(SystemType region, String input, String fdsImage, String cartDBLocation, int sampleRate, int frameBuffer, bool ignoreFileCheck = false) //FDS Load
+        public NESCore(SystemType region, String input, String fdsImage, String cartDBLocation, int sampleRate, bool ignoreFileCheck = false) //FDS Load
         {
             nesRegion = region;
             opList = OpInfo.GetOps();
@@ -1044,14 +1033,13 @@ namespace EmuoTron
                 throw new FDSBiosException("FDS BIOS not found.");
             }
             Stream biosStream = File.OpenRead(input);
-            Stream diskStream = File.OpenRead(fdsImage);
             rom.filePath = fdsImage;
             rom.fileName = Path.GetFileNameWithoutExtension(rom.filePath);
             rom.mapper = 20;
             Memory = new MemoryStore(0x40, true);
             Memory.swapOffset = 0x20;
             Memory.SetReadOnly(0, 2, false);
-            APU = new APU(this, sampleRate, frameBuffer);
+            APU = new APU(this, sampleRate);
 #if SCANLINE_PPU
             PPU = new SPPU(this);
 #else
@@ -1068,11 +1056,12 @@ namespace EmuoTron
             {
                 Memory.banks[(i / 0x400) + Memory.swapOffset][i % 0x400] = (byte)biosStream.ReadByte();
             }
+            biosStream.Close();
+            Stream diskStream = File.OpenRead(fdsImage);
             mapper = new Mappers.m020(this, diskStream, ignoreFileCheck);
             rom.crc = ((Mappers.m020)mapper).crc; //I don't like this.
             debug.LogInfo("ROM CRC32: " + rom.crc.ToString("X8"));
             diskStream.Close();
-            biosStream.Close();
             for (int i = 0; i < 0x10000; i++)
             {
                 MirrorMap[i] = (ushort)i;
@@ -1082,14 +1071,14 @@ namespace EmuoTron
             Power();
 
         }
-        public NESCore(SystemType region, String input, String cartDBLocation, int sampleRate, int frameBuffer, bool ignoreFileCheck = false) : 
-            this(region, File.OpenRead(input), cartDBLocation, sampleRate, frameBuffer, ignoreFileCheck)
+        public NESCore(SystemType region, String input, String cartDBLocation, int sampleRate, bool ignoreFileCheck = false) : 
+            this(region, File.OpenRead(input), cartDBLocation, sampleRate, ignoreFileCheck)
         {
             rom.filePath = input;
             rom.fileName = Path.GetFileNameWithoutExtension(rom.filePath);
             debug.LogInfo(rom.filePath);
         }
-        public NESCore(SystemType region, Stream inputStream, String cartDBLocation, int sampleRate, int frameBuffer, bool ignoreFileCheck = false)
+        public NESCore(SystemType region, Stream inputStream, String cartDBLocation, int sampleRate, bool ignoreFileCheck = false)
         {
             nesRegion = region;
             opList = OpInfo.GetOps();
@@ -1127,7 +1116,7 @@ namespace EmuoTron
                 Memory = new MemoryStore(0x20 + rom.prgROM, true);
             Memory.swapOffset = 0x20;
             Memory.SetReadOnly(0, 2, false);
-            APU = new APU(this, sampleRate, frameBuffer);
+            APU = new APU(this, sampleRate);
 #if SCANLINE_PPU
             PPU = new SPPU(this);
 #else
@@ -1153,7 +1142,7 @@ namespace EmuoTron
                 debug.LogInfo("Trainer Present");
                 for (int i = 0x00; i < 0x200; i++)
                 {
-                    Memory[i + 0x7000] = (byte)inputStream.ReadByte();
+                    Memory.ForceValue(0x7000 + i, (byte)inputStream.ReadByte());
                 }
             }
             rom.crc = 0xFFFFFFFF;
@@ -1333,6 +1322,9 @@ namespace EmuoTron
                 case 159:
                 case 153: //I dont think 153 belongs here but bootgod's xml reports Dragon Ball as 153 and I know that it's 16
                     mapper = new Mappers.m016(this);
+                    break;
+                case 18:
+                    mapper = new Mappers.m018(this);
                     break;
                 case 19:
                 case 210:
@@ -1538,7 +1530,7 @@ namespace EmuoTron
             RegS--;
             RegS &= 0xFF;
         }
-        private int PopWordStack()
+        public int PopWordStack()
         {
             RegS += 2;
             RegS &= 0xFF;
@@ -1550,7 +1542,7 @@ namespace EmuoTron
             RegS--;
             RegS &= 0xFF;
         }
-        private byte PopByteStack()
+        public byte PopByteStack()
         {
             RegS++;
             RegS &= 0xFF;
@@ -1628,7 +1620,6 @@ namespace EmuoTron
                 else
                     RegX = 1;
                 Start();
-                APU.ResetBuffer();
             }
 
         }

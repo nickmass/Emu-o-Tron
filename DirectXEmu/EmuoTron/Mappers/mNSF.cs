@@ -112,24 +112,26 @@ namespace EmuoTron.Mappers
         }
         public int IRQ(int cycles, int opCode)
         {
-            if (opCode == OpInfo.InstrRTS)
+            if (opCode == OpInfo.InstrBRK)
             {
-                if (nes.RegS == 0xFD)
+                if (!overTime)
+                    cycles = (int)(Math.Round(counter) + 1);
+                counter = speed;
+                nes.PPU.frameComplete = true;
+                nes.RegPC = playAddress;
+                overTime = false;
+            }
+            else
+            {
+                counter -= cycles;
+                if (counter <= 0)
                 {
-                    if (!overTime)
-                        cycles = (int)(Math.Round(counter) + 1);
-                    else
-                        counter = speed + cycles;
+                    overTime = true;
+                    counter = speed;
                     nes.PPU.frameComplete = true;
-                    nes.PushWordStack(playAddress - 1);
+                    nes.RegPC = playAddress;
                     overTime = false;
                 }
-            }
-            counter -= cycles;
-            if (counter <= 0)
-            {
-                overTime = true && !nes.PPU.frameComplete;
-                counter += speed;
             }
             return cycles;
         }

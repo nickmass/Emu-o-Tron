@@ -60,7 +60,7 @@ namespace DirectXEmu
         int messageDuration = 0;
         bool loadState;
         bool fm2Reset;
-        StreamReader fm2File;
+        BinaryReader fm2File;
         bool playMovie;
         Keybinds keyBindings;
         SystemState state;
@@ -198,7 +198,6 @@ namespace DirectXEmu
                             nsfScreen.ReDraw();
                         renderer.MainLoop(true);
                     }
-                    cpu.APU.ResetBuffer();
                 }
                 else
                 {
@@ -283,6 +282,11 @@ namespace DirectXEmu
             if (playMovie)
             {
                 playMovie = !Fm2Reader();
+                if (fm2Reset)
+                {
+                    cpu.Reset();
+                    fm2Reset = false;
+                }
                 if (!playMovie)
                 {
                     this.playMovieToolStripMenuItem.Text = "Play Movie";
@@ -352,8 +356,6 @@ namespace DirectXEmu
                 cpu.PPU.generateLine = this.nameTablePreview.UpdateNameTables(cpu.PPU.nameTables);
                 cpu.PPU.generateNameTables = true;
             }
-            if (fm2Reset)
-                cpu.Reset();
         }
 
         public void Initialize()
@@ -565,21 +567,21 @@ namespace DirectXEmu
             try
             {
                 if (Path.GetExtension(romPath).ToLower() == ".fds")
-                    this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), config["fdsBios"], this.romPath, this.appPath, Convert.ToInt32(this.config["sampleRate"]), 1);
+                    this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), config["fdsBios"], this.romPath, this.appPath, Convert.ToInt32(this.config["sampleRate"]));
                 else if (Path.GetExtension(romPath).ToLower() == ".nsf")
-                    this.cpu = new NESCore(this.romPath, Convert.ToInt32(this.config["sampleRate"]), 1);
+                    this.cpu = new NESCore(this.romPath, Convert.ToInt32(this.config["sampleRate"]));
                 else
-                    this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath, Convert.ToInt32(this.config["sampleRate"]), 1);
+                    this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath, Convert.ToInt32(this.config["sampleRate"]));
             }
             catch (BadHeaderException e)
             {
                 if (MessageBox.Show("File appears to be invalid. Attempt load anyway?", "Error", MessageBoxButtons.YesNo) == DialogResult.Yes)
                     if (Path.GetExtension(romPath).ToLower() == ".fds")
-                        this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), config["fdsBios"], this.romPath, this.appPath, Convert.ToInt32(this.config["sampleRate"]), 1, true);
+                        this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), config["fdsBios"], this.romPath, this.appPath, Convert.ToInt32(this.config["sampleRate"]), true);
                     else if (Path.GetExtension(romPath).ToLower() == ".nsf")
-                        this.cpu = new NESCore(this.romPath, Convert.ToInt32(this.config["sampleRate"]), 1, true);
+                        this.cpu = new NESCore(this.romPath, Convert.ToInt32(this.config["sampleRate"]), true);
                     else
-                        this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath, Convert.ToInt32(this.config["sampleRate"]), 1, true);
+                        this.cpu = new NESCore((SystemType)Convert.ToInt32(config["region"]), this.romPath, this.appPath, Convert.ToInt32(this.config["sampleRate"]), true);
                 else
                     throw (e);
             }
@@ -1057,34 +1059,43 @@ namespace DirectXEmu
         #region movies
         private bool Fm2Reader()
         {
-            String line = " ";
-            while (line[0] != '|')
+            string line = "";
+            while (line.Length == 0 || line[0] != '|')
             {
-                line = fm2File.ReadLine();
-                if (fm2File.EndOfStream)
+                line = "";
+                bool done = false;
+                while (!done)
                 {
-                    fm2File.Close();
-                    return true;
+                    if (fm2File.BaseStream.Position == fm2File.BaseStream.Length)
+                    {
+                        fm2File.Close();
+                        return true;
+                    }
+                    char nextChar = fm2File.ReadChar();
+                    if (nextChar == '\r' || nextChar == '\n')
+                        done = true;
+                    else
+                        line += nextChar;
                 }
             }
-            player1.right = line[3] != '.';
-            player1.left = line[4] != '.';
-            player1.down = line[5] != '.';
-            player1.up = line[6] != '.';
-            player1.start = line[7] != '.';
-            player1.select = line[8] != '.';
-            player1.b = line[9] != '.';
-            player1.a = line[10] != '.';
-            player2.right = line[12] != '.';
-            player2.left = line[13] != '.';
-            player2.down = line[14] != '.';
-            player2.up = line[15] != '.';
-            player2.start = line[16] != '.';
-            player2.select = line[17] != '.';
-            player2.b = line[18] != '.';
-            player2.a = line[19] != '.';
+            player1.right = line[3] != '.' && line[3] != ' ';
+            player1.left = line[4] != '.' && line[4] != ' ';
+            player1.down = line[5] != '.' && line[5] != ' ';
+            player1.up = line[6] != '.' && line[6] != ' ';
+            player1.start = line[7] != '.' && line[7] != ' ';
+            player1.select = line[8] != '.' && line[8] != ' ';
+            player1.b = line[9] != '.' && line[9] != ' ';
+            player1.a = line[10] != '.' && line[10] != ' ';
+            player2.right = line[12] != '.' && line[12] != ' ';
+            player2.left = line[13] != '.' && line[13] != ' ';
+            player2.down = line[14] != '.' && line[14] != ' ';
+            player2.up = line[15] != '.' && line[15] != ' ';
+            player2.start = line[16] != '.' && line[16] != ' ';
+            player2.select = line[17] != '.' && line[17] != ' ';
+            player2.b = line[18] != '.' && line[18] != ' ';
+            player2.a = line[19] != '.' && line[19] != ' ';
             fm2Reset = line[1] == '1';
-            return fm2File.EndOfStream;
+            return fm2File.BaseStream.Position == fm2File.BaseStream.Length;
         }
 
         private void openMovieToolStripMenuItem_Click(object sender, EventArgs e)
@@ -1105,7 +1116,7 @@ namespace DirectXEmu
             }
             else
             {
-                this.fm2File = File.OpenText(this.openMovieDialog.FileName);
+                this.fm2File = new BinaryReader(File.OpenRead(this.openMovieDialog.FileName));
                 cpu.Power();
                 this.playMovie = true;
                 this.playMovieToolStripMenuItem.Text = "Stop Movie";
