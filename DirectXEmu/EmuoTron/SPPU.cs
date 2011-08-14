@@ -94,8 +94,6 @@ namespace EmuoTron
             PPUMemory.SetReadOnly(0x3C00, 1, false); //Palette area + some mirrored ram
             for (ushort i = 0; i < 0x8000; i++)
                 PPUMirrorMap[i] = i;
-            for (uint i = 0; i < 0x200; i++)
-                colorChart[i] = i;
             PPUMirror(0x3F00, 0x3F10, 1, 1);
             PPUMirror(0x3F04, 0x3F14, 1, 1);
             PPUMirror(0x3F08, 0x3F18, 1, 1);

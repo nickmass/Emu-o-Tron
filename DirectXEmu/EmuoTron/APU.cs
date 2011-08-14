@@ -11,8 +11,8 @@ namespace EmuoTron
         NESCore nes;
 
         public int CPUClock;
-        public int FPS;
-        public int curFPS;
+        public double FPS;
+        public double curFPS;
 
         public bool mute;
         public bool turbo;
@@ -131,7 +131,6 @@ namespace EmuoTron
         private int dmcShiftCount;
         private byte dmcShiftReg;
         private int[] dmcRates;
-        private double dmcSampleRateDivider;
 
         private double[] pulseTable = new double[32];
         private double[] tndTable = new double[204];
@@ -156,9 +155,6 @@ namespace EmuoTron
         int sampleTotal;
         int sampleCount;
 
-        int dmcSampleTotal;
-        int dmcSampleCount;
-
         public APU(NESCore nes, int sampleRate)
         {
             this.nes = nes;
@@ -168,7 +164,7 @@ namespace EmuoTron
                 default:
                 case SystemType.NTSC:
                     CPUClock = 1789773;
-                    FPS = 60;
+                    FPS = (CPUClock * 3.0) / 89341.5;
                     modeZeroDelay = 7459;//http://nesdev.parodius.com/bbs/viewtopic.php?p=64281#64281
                     modeZeroFrameLengths = new int[] { 7456, 7458, 7458, 7458};
                     modeOneDelay = 1;
@@ -178,7 +174,7 @@ namespace EmuoTron
                     break;
                 case SystemType.PAL:
                     CPUClock = 1662607;
-                    FPS = 50;
+                    FPS = (CPUClock * 3.2) / 106392;
                     modeZeroDelay = 8315;
                     modeZeroFrameLengths = new int[] { 8314, 8312, 8314, 8314 };
                     modeOneDelay = 1;
@@ -195,12 +191,12 @@ namespace EmuoTron
             for (int i = 0; i < 32; i++)
             {
                 pulseTable[i] = ((95.52 / (8128.0 / i + 100)));
-                pulseTableShort[i] = (int)(pulseTable[i] * 32767);
+                pulseTableShort[i] = (int)(pulseTable[i] * 65535);
             }
             for (int i = 0; i < 204; i++)
             {
                 tndTable[i] = ((163.67 / (24329.0 / i + 100)));
-                tndTableShort[i] = (int)(tndTable[i] * 32767);
+                tndTableShort[i] = (int)(tndTable[i] * 65535);
             }
             volume.triangle = 1;
             volume.pulse1 = 1;
@@ -234,7 +230,7 @@ namespace EmuoTron
             Write(00, 0x4013);
             Write(00, 0x4015);
             Write(00, 0x4017);
-            timeToClock = modeZeroDelay - 12;
+            timeToClock = modeZeroDelay - 10;
             pulse1EnvelopeCounter = 0xF;
             pulse1EnvelopeDivider = pulse1Envelope + 1;
             pulse2EnvelopeCounter = 0xF;
@@ -283,7 +279,7 @@ namespace EmuoTron
             timeToClock -= 12;
             frameIRQ = false;
         }
-        public void SetFPS(int FPS)
+        public void SetFPS(double FPS)
         {
             curFPS = FPS;
             sampleDivider = (CPUClock / ((double)this.FPS)) / ((sampleRate * 1.0) / ((double)FPS));
@@ -872,7 +868,7 @@ namespace EmuoTron
                 pulse2Volume = (byte)(pulse2Volume * volume.pulse2);
                 noiseVolume = (byte)(noiseVolume * volume.noise);
                 dmcVolume = (byte)(dmcBuffer[dmcOutputPtr++] * volume.dmc);
-                sampleTotal += (short)(tndTableShort[(3 * triangleVolume) + (2 * noiseVolume) + dmcVolume] + pulseTableShort[pulse1Volume + pulse2Volume]);
+                sampleTotal += (short)((tndTableShort[(3 * triangleVolume) + (2 * noiseVolume) + dmcVolume] + pulseTableShort[pulse1Volume + pulse2Volume]) ^ 0x8000);
                 sampleCount++;
                 sampleRateDivider--;
                 if (sampleRateDivider <= 0) //&& outputPtr < output.Length)

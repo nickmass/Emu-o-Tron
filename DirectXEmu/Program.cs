@@ -67,6 +67,7 @@ namespace DirectXEmu
         int generateLine = 0;
         bool generateNameTables = false;
         int nameTableUpdate = 10;
+        bool frameAdvance = false;
 
         int generatePatternLine = 0;
         bool generatePatternTables = false;
@@ -164,6 +165,12 @@ namespace DirectXEmu
                 }
                 if (state == SystemState.Playing && !cpu.debug.debugInterrupt)
                 {
+                    if(frameAdvance)
+                    {
+                        frameAdvance = false;
+                        state = SystemState.Paused;
+                        cpu.APU.SetFPS(cpu.APU.FPS);
+                    }
                     input.MainLoop();
                     debugger.smartUpdate = false;
                     RunCPU();
@@ -182,7 +189,7 @@ namespace DirectXEmu
                         }
                         else if (cpu.APU.curFPS < cpu.APU.FPS)
                             cpu.APU.curFPS++;
-                        cpu.APU.SetFPS(cpu.APU.curFPS);
+                        //cpu.APU.SetFPS(cpu.APU.curFPS);
                         if (stopWAVToolStripMenuItem.Enabled)
                         {
                             cpu.APU.SetFPS(cpu.APU.FPS);
@@ -213,7 +220,7 @@ namespace DirectXEmu
                         debugger.UpdateDebug();
                         cpu.APU.SetFPS(cpu.APU.FPS);
                     }
-                    Thread.Sleep(16);
+                    Thread.Sleep(100);
                 }
                 if (state != SystemState.SystemPause && this.frame++ % this.frameSkipper == 0)
                 {
@@ -1405,6 +1412,14 @@ namespace DirectXEmu
                 this.message = "Save Slot " + quickSaveSlot.ToString();
                 this.messageDuration = 90;
 
+            }
+            else if (key == Keys.OemPipe)
+            {
+                if (state == SystemState.Paused)
+                    state = SystemState.Playing;
+                frameAdvance = true;
+                this.message = "Paused";
+                this.messageDuration = 2;
             }
         }
 

@@ -412,18 +412,18 @@ namespace EmuoTron
             SetOp(0xDC, IllInstrNOP, AddrAbsoluteX, 3, 4);
             SetOp(0xFC, IllInstrNOP, AddrAbsoluteX, 3, 4);
 
-            SetOp(0x02, IllInstrKIL, AddrNone, 1, 0);
-            SetOp(0x12, IllInstrKIL, AddrNone, 1, 0);
-            SetOp(0x22, IllInstrKIL, AddrNone, 1, 0);
-            SetOp(0x32, IllInstrKIL, AddrNone, 1, 0);
-            SetOp(0x42, IllInstrKIL, AddrNone, 1, 0);
-            SetOp(0x52, IllInstrKIL, AddrNone, 1, 0);
-            SetOp(0x62, IllInstrKIL, AddrNone, 1, 0);
-            SetOp(0x72, IllInstrKIL, AddrNone, 1, 0);
-            SetOp(0x92, IllInstrKIL, AddrNone, 1, 0);
-            SetOp(0xB2, IllInstrKIL, AddrNone, 1, 0);
-            SetOp(0xD2, IllInstrKIL, AddrNone, 1, 0);
-            SetOp(0xF2, IllInstrKIL, AddrNone, 1, 0);
+            SetOp(0x02, IllInstrKIL, AddrNone, 1, 2);
+            SetOp(0x12, IllInstrKIL, AddrNone, 1, 2);
+            SetOp(0x22, IllInstrKIL, AddrNone, 1, 2);
+            SetOp(0x32, IllInstrKIL, AddrNone, 1, 2);
+            SetOp(0x42, IllInstrKIL, AddrNone, 1, 2);
+            SetOp(0x52, IllInstrKIL, AddrNone, 1, 2);
+            SetOp(0x62, IllInstrKIL, AddrNone, 1, 2);
+            SetOp(0x72, IllInstrKIL, AddrNone, 1, 2);
+            SetOp(0x92, IllInstrKIL, AddrNone, 1, 2);
+            SetOp(0xB2, IllInstrKIL, AddrNone, 1, 2);
+            SetOp(0xD2, IllInstrKIL, AddrNone, 1, 2);
+            SetOp(0xF2, IllInstrKIL, AddrNone, 1, 2);
             LoadDummyReads();
         }
 
@@ -439,6 +439,8 @@ namespace EmuoTron
         public static void LoadDummyReads()
         {
             dummyReads = new int[256];
+            for (int i = 0; i < 256; i++)
+                dummyReads[i] = DummyNever;
             dummyReads[0x1D] = DummyOnCarry;
             dummyReads[0x19] = DummyOnCarry;
             dummyReads[0x11] = DummyOnCarry;

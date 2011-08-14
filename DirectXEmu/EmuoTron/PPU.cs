@@ -89,6 +89,8 @@ namespace EmuoTron
         private bool onSpriteZeroLine;
         private int maxSprites = 8;
         private long vblFlagRead;
+        private long nmiPendingSet;
+        private long nmiEnableTime;
 
         public PPU(NESCore nes)
         {
@@ -151,26 +153,47 @@ namespace EmuoTron
                 PPUMemory[i] = 0;
             for (int i = 0; i < 0x20; i++)
                 PalMemory[i] = 0x0F; //Sets the background to black on startup to prevent grey flashes, not exactly accurate but it looks nicer
-            scanline = -1;
+            scanline = 241;
+            inVblank = true;
             scanlineCycle = 0;
             currentTime = 0;
             lastUpdate = 0;
-            Write(0, 0x2000);
-            Write(0, 0x2001);
-            Write(0, 0x2003);
-            Write(0, 0x2005);
-            Write(0, 0x2006);
-            Write(0, 0x2007);
+            vramInc = false;
+            spriteTable = 0x0000;
+            backgroundTable = 0x0000;
+            tallSprites = false;
+            grayScale = 0x3F;
+            leftmostBackground = false;
+            leftmostSprites = false;
+            backgroundRendering = false;
+            spriteRendering = false;
+            colorMask = 0;
+            spriteData = 0;
+            spriteAddr = 0;
+            loopyT = 0;
+            loopyV = 0;
+            loopyX = 0;
+            readBuffer = 0;
             addrLatch = false;
+            lastWrite = 0;
         }
         public void Reset()
         {
-            Write(0, 0x2000);
-            Write(0, 0x2001);
-            Write(0, 0x2005);
-            Write(0, 0x2007);
+            vramInc = false;
+            spriteTable = 0x0000;
+            backgroundTable = 0x0000;
+            tallSprites = false;
+            grayScale = 0x3F;
+            leftmostBackground = false;
+            leftmostSprites = false;
+            backgroundRendering = false;
+            spriteRendering = false;
+            colorMask = 0;
+            loopyT = 0;
+            loopyV = 0;
+            loopyX = 0;
+            readBuffer = 0;
             addrLatch = false;
-
         }
         private void PPUMirror(ushort address, ushort mirrorAddress, ushort length, int repeat)
         {
@@ -195,6 +218,8 @@ namespace EmuoTron
                     addrLatch = false;
                     nextByte |= (byte)(lastWrite & 0x1F);
                     vblFlagRead = currentTime;
+                    if (vblFlagRead - nmiPendingSet == 0 || vblFlagRead - nmiPendingSet == 1) //suppression.nes, reading 2002 around the time it is set will prevent NMIs for 2 ppu cycles despite entering vblank.
+                        pendingNMI = 0;
                     break;
                 case 0x2004: //OAM Read
                     if (scanline < 240 && (spriteRendering || backgroundRendering))
@@ -228,7 +253,7 @@ namespace EmuoTron
                     if ((loopyV & 0x3F00) == 0x3F00)
                     {
                         nextByte = (byte)((PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] & grayScale) | (lastWrite & 0xC0)); //random wiki readings claim gray scale is applied here but have seen no roms that test it or evidence to support it.
-                        readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x2FFF]];
+                        readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x3FFF]];
                     }
                     else
                     {
@@ -276,10 +301,14 @@ namespace EmuoTron
                         backgroundTable = 0x0000;
                     tallSprites = (value & 0x20) != 0;
                     nmiEnable = (value & 0x80) != 0;
-                    if (!nmiEnable && pendingNMI > 1)
+                    if (!nmiEnable && currentTime - nmiPendingSet <= 1)//disabling nmi shortly ever vblank will prevent it from ever going off
                         pendingNMI = 0;
-                    else if (inVblank && nmiEnable && !wasEnabled)
-                        pendingNMI = 2;
+                    else if (nmiEnable && !wasEnabled)
+                    {
+                        nmiEnableTime = currentTime;
+                        if(inVblank)
+                            pendingNMI = 5; //enabling NMI inside vblank will trigger one immediatly
+                    }
                     lastWrite = value;
                     lastWriteDecay = lastWriteDecayTime;
                     break;
@@ -806,13 +835,18 @@ namespace EmuoTron
                             shiftCount = 0;
                         }
                     }
-                    if (scanlineCycle == 300 && (nes.rom.mapper == 4 || nes.rom.mapper == 48))
+                    if (nes.rom.mapper == 4 || nes.rom.mapper == 48)
                     {
-                        nes.mapper.IRQ(scanline);//I am having far too much trouble with this stupid scanline counter.
+                        if(scanlineCycle == 260 && spriteTable == 0x1000 && backgroundTable == 0x0000)
+                            nes.mapper.IRQ(scanline);//I am having far too much trouble with this stupid scanline counter.
+                        if (scanlineCycle == 324 && scanline != -1 && spriteTable == 0x0000 && backgroundTable == 0x1000)
+                            nes.mapper.IRQ(scanline);
                     }
                     lastUpdate++;
                     scanlineCycle++;
-                    if (scanlineCycle == 341 || (scanline == -1 && scanlineCycle == 340 && oddFrame && backgroundRendering && nes.nesRegion == SystemType.NTSC))
+                    if (scanline == -1 && oddFrame && nes.nesRegion == SystemType.NTSC && scanlineCycle == 337)//Skip cycle on odd frames.
+                        scanlineCycle++;
+                    if (scanlineCycle == 341)
                     {
                         if (generateNameTables && scanline == generateLine)
                             nameTables = GenerateNameTables();
@@ -857,6 +891,11 @@ namespace EmuoTron
                     lastUpdate++;
                     scanlineCycle++;
                     shiftCount++;
+                    if (scanline == vblankEnd - 1 && scanlineCycle == 341)
+                    {
+                        if (lastUpdate - nmiEnableTime <= 1) //Attempting to force an nmi in vblank 1 ppu cycle before the end of vblank will fail.
+                            pendingNMI = 0;
+                    }
                     if (scanlineCycle == 341)
                     {
                         if (generateNameTables && scanline == generateLine)
@@ -883,21 +922,22 @@ namespace EmuoTron
                         spriteStage = 0;
                         if (scanline == 241)
                         {
+                            frameComplete = true;
                             if (nes.rom.mapper == 5)
                                 nes.mapper.IRQ(1);
-                            if (Math.Abs(vblFlagRead - lastUpdate) > 1)//This is WRONG, it is just a kinda close imitation of proper behavior, need a CPU with finer grain.
+                            if (vblFlagRead - lastUpdate != -1) //Reading 2002 at the same time as it is set will cause the PPU to never enter vblank
                             {
                                 inVblank = true;
-                                if (nmiEnable) //pending NMI value of 3 breaks battletoads pit, 4 fixed pit, 5 has working pit and nice scanline.nes
+                                if (nmiEnable)
                                 {
-                                    pendingNMI = 5; //The NMI does not occur immediatly, and what I have here isnt precise but its the best I can pull off without some big changes.
+                                    nmiPendingSet = lastUpdate;
+                                    pendingNMI = 8;
                                 }
                             }
                         }
                         else if (scanline == vblankEnd)
                         {
                             scanline = -1;
-                            frameComplete = true;
                             inVblank = false;
                             spriteZeroHit = false;
                             spriteOverflow = false;
@@ -908,6 +948,12 @@ namespace EmuoTron
                                 maxSprites = 64;
                         }
                     }
+                }
+                if (pendingNMI != 0)
+                {
+                    pendingNMI--;
+                    if (pendingNMI == 0)
+                        interruptNMI = true;
                 }
                 if (lastWriteDecay > 0)
                     lastWriteDecay--;

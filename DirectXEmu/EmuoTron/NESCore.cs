@@ -127,8 +127,6 @@ namespace EmuoTron
             bool emulationRunning = true;
             int op;
             int opInfo;
-            int opCycles;
-            int opCycleAdd;
             int addressing;
             int instruction;
             int opAddr;
@@ -144,8 +142,7 @@ namespace EmuoTron
 #endif
                 op = Read(RegPC);
                 opInfo = opList[op];
-                opCycles = (opInfo >> 24) & 0xFF;
-                opCycleAdd = 0;
+                //opCycles = (opInfo >> 24) & 0xFF;
                 addressing = (opInfo >> 8) & 0xFF;
                 instruction = opInfo & 0xFF;
                 dummy = OpInfo.dummyReads[op];
@@ -156,8 +153,10 @@ namespace EmuoTron
                 switch (addressing)
                 {
                     case OpInfo.AddrNone:
+                        Read(opAddr + 1);
                         break;
                     case OpInfo.AddrAccumulator:
+                        Read(opAddr + 1);
                         addr = RegA;
                         break;
                     case OpInfo.AddrImmediate:
@@ -167,10 +166,14 @@ namespace EmuoTron
                         addr = Read(opAddr + 1);
                         break;
                     case OpInfo.AddrZeroPageX:
-                        addr = (Read(opAddr + 1) + RegX) & 0xFF;
+                        addr = Read(opAddr + 1);
+                        Read(addr);
+                        addr = (addr + RegX) & 0xFF;
                         break;
                     case OpInfo.AddrZeroPageY:
-                        addr = (Read(opAddr + 1) + RegY) & 0xFF;
+                        addr = Read(opAddr + 1);
+                        Read(addr);
+                        addr = (addr + RegY) & 0xFF;
                         break;
                     case OpInfo.AddrAbsolute:
                         addr = ReadWord(opAddr + 1);
@@ -179,7 +182,6 @@ namespace EmuoTron
                         addr = ReadWord(opAddr + 1);
                         if ((addr & 0xFF00) != ((addr + RegX) & 0xFF00))
                         {
-                            opCycleAdd++;
                             if (dummy == OpInfo.DummyOnCarry)
                                 Read((addr & 0xFF00) | ((addr + RegX) & 0xFF));
 
@@ -193,7 +195,6 @@ namespace EmuoTron
                         addr = ReadWord(opAddr + 1);
                         if ((addr & 0xFF00) != ((addr + RegY) & 0xFF00))
                         {
-                            opCycleAdd++;
                             if (dummy == OpInfo.DummyOnCarry)
                                 Read((addr & 0xFF00) | ((addr + RegY) & 0xFF));
 
@@ -207,26 +208,10 @@ namespace EmuoTron
                         break;
                     case OpInfo.AddrRelative:
                         addr = Read(opAddr + 1);
-                        if (addr < 0x80)
-                        {
-                            if ((RegPC & 0xFF00) != ((addr + RegPC) & 0xFF00))
-                            {
-                                opCycleAdd++;
-                            }
-                            addr += RegPC;
-                        }
-                        else
-                        {
-                            if ((RegPC & 0xFF00) != ((addr + RegPC - 256) & 0xFF00))
-                            {
-                                opCycleAdd++;
-                            }
-                            addr += RegPC - 256;
-                        }
-
                         break;
                     case OpInfo.AddrIndirectX:
                         addr = Read(opAddr + 1);
+                        Read(addr);
                         addr += RegX;
                         addr &= 0xFF;
                         addr = ReadWordWrap(addr);
@@ -235,7 +220,6 @@ namespace EmuoTron
                         addr = ReadWordWrap(Read(opAddr + 1));
                         if ((addr & 0xFF00) != ((addr + RegY) & 0xFF00))
                         {
-                            opCycleAdd++;
                             if (dummy == OpInfo.DummyOnCarry)
                                 Read((addr & 0xFF00) | ((addr + RegY) & 0xFF));
 
@@ -251,15 +235,13 @@ namespace EmuoTron
                     case OpInfo.InstrADC:
                         value = Read(addr);
                         temp = RegA + value + FlagCarry;
-                        FlagOverflow = ((!(((RegA ^ value) & 0x80) != 0) && (((RegA ^ temp) & 0x80)) != 0) ? 1 : 0);
+                        FlagOverflow = ((~(RegA ^ value) & (RegA ^ temp)) >> 7) & 1;
                         FlagCarry = temp > 0xFF ? 1 : 0;
                         RegA = FlagSign = FlagZero = temp & 0xFF;
-                        opCycles += opCycleAdd;
                         break;
                     case OpInfo.InstrAND:
                         RegA &= Read(addr);
                         FlagSign = FlagZero = RegA;
-                        opCycles += opCycleAdd;
                         break;
                     case OpInfo.InstrASL:
                         if (addressing == OpInfo.AddrAccumulator)
@@ -271,6 +253,7 @@ namespace EmuoTron
                         else
                         {
                             value = Read(addr);
+                            Write(addr, value);
                             FlagCarry = (value >> 7) & 1;
                             value = (value << 1) & 0xFF;
                             FlagSign = FlagZero = value;
@@ -280,22 +263,58 @@ namespace EmuoTron
                     case OpInfo.InstrBCC:
                         if (FlagCarry == 0)
                         {
+                            Read(RegPC);
+                            if (addr < 0x80)
+                            {
+                                if ((RegPC & 0xFF00) != ((addr + RegPC) & 0xFF00))
+                                    Read((RegPC & 0xFF00) | ((RegPC + addr) & 0x00FF));
+                                addr += RegPC;
+                            }
+                            else
+                            {
+                                if ((RegPC & 0xFF00) != ((addr + RegPC - 256) & 0xFF00))
+                                    Read((RegPC & 0xFF00) | ((RegPC + addr - 256) & 0x00FF));
+                                addr += RegPC - 256;
+                            }
                             RegPC = addr;
-                            opCycles += opCycleAdd + 1;
                         }
                         break;
                     case OpInfo.InstrBCS:
                         if (FlagCarry != 0)
                         {
+                            Read(RegPC);
+                            if (addr < 0x80)
+                            {
+                                if ((RegPC & 0xFF00) != ((addr + RegPC) & 0xFF00))
+                                    Read((RegPC & 0xFF00) | ((RegPC + addr) & 0x00FF));
+                                addr += RegPC;
+                            }
+                            else
+                            {
+                                if ((RegPC & 0xFF00) != ((addr + RegPC - 256) & 0xFF00))
+                                    Read((RegPC & 0xFF00) | ((RegPC + addr - 256) & 0x00FF));
+                                addr += RegPC - 256;
+                            }
                             RegPC = addr;
-                            opCycles += opCycleAdd + 1;
                         }
                         break;
                     case OpInfo.InstrBEQ:
                         if (FlagZero == 0)
                         {
+                            Read(RegPC);
+                            if (addr < 0x80)
+                            {
+                                if ((RegPC & 0xFF00) != ((addr + RegPC) & 0xFF00))
+                                    Read((RegPC & 0xFF00) | ((RegPC + addr) & 0x00FF));
+                                addr += RegPC;
+                            }
+                            else
+                            {
+                                if ((RegPC & 0xFF00) != ((addr + RegPC - 256) & 0xFF00))
+                                    Read((RegPC & 0xFF00) | ((RegPC + addr - 256) & 0x00FF));
+                                addr += RegPC - 256;
+                            }
                             RegPC = addr;
-                            opCycles += opCycleAdd + 1;
                         }
                         break;
                     case OpInfo.InstrBIT:
@@ -307,25 +326,62 @@ namespace EmuoTron
                     case OpInfo.InstrBMI:
                         if ((FlagSign >> 7) != 0)
                         {
+                            Read(RegPC);
+                            if (addr < 0x80)
+                            {
+                                if ((RegPC & 0xFF00) != ((addr + RegPC) & 0xFF00))
+                                    Read((RegPC & 0xFF00) | ((RegPC + addr) & 0x00FF));
+                                addr += RegPC;
+                            }
+                            else
+                            {
+                                if ((RegPC & 0xFF00) != ((addr + RegPC - 256) & 0xFF00))
+                                    Read((RegPC & 0xFF00) | ((RegPC + addr - 256) & 0x00FF));
+                                addr += RegPC - 256;
+                            }
                             RegPC = addr;
-                            opCycles += opCycleAdd + 1;
                         }
                         break;
                     case OpInfo.InstrBNE:
                         if (FlagZero != 0)
                         {
+                            Read(RegPC);
+                            if (addr < 0x80)
+                            {
+                                if ((RegPC & 0xFF00) != ((addr + RegPC) & 0xFF00))
+                                    Read((RegPC & 0xFF00) | ((RegPC + addr) & 0x00FF));
+                                addr += RegPC;
+                            }
+                            else
+                            {
+                                if ((RegPC & 0xFF00) != ((addr + RegPC - 256) & 0xFF00))
+                                    Read((RegPC & 0xFF00) | ((RegPC + addr - 256) & 0x00FF));
+                                addr += RegPC - 256;
+                            }
                             RegPC = addr;
-                            opCycles += opCycleAdd + 1;
                         }
                         break;
                     case OpInfo.InstrBPL:
                         if ((FlagSign >> 7) == 0)
                         {
+                            Read(RegPC);
+                            if (addr < 0x80)
+                            {
+                                if ((RegPC & 0xFF00) != ((addr + RegPC) & 0xFF00))
+                                    Read((RegPC & 0xFF00) | ((RegPC + addr) & 0x00FF));
+                                addr += RegPC;
+                            }
+                            else
+                            {
+                                if ((RegPC & 0xFF00) != ((addr + RegPC - 256) & 0xFF00))
+                                    Read((RegPC & 0xFF00) | ((RegPC + addr - 256) & 0x00FF));
+                                addr += RegPC - 256;
+                            }
                             RegPC = addr;
-                            opCycles += opCycleAdd + 1;
                         }
                         break;
                     case OpInfo.InstrBRK:
+                        Read(addr);
                         PushWordStack((RegPC) & 0xFFFF);
                         PushByteStack(RegP | 0x30);
                         FlagIRQ = 1;
@@ -334,15 +390,39 @@ namespace EmuoTron
                     case OpInfo.InstrBVC:
                         if (FlagOverflow == 0)
                         {
+                            Read(RegPC);
+                            if (addr < 0x80)
+                            {
+                                if ((RegPC & 0xFF00) != ((addr + RegPC) & 0xFF00))
+                                    Read((RegPC & 0xFF00) | ((RegPC + addr) & 0x00FF));
+                                addr += RegPC;
+                            }
+                            else
+                            {
+                                if ((RegPC & 0xFF00) != ((addr + RegPC - 256) & 0xFF00))
+                                    Read((RegPC & 0xFF00) | ((RegPC + addr - 256) & 0x00FF));
+                                addr += RegPC - 256;
+                            }
                             RegPC = addr;
-                            opCycles += opCycleAdd + 1;
                         }
                         break;
                     case OpInfo.InstrBVS:
                         if (FlagOverflow != 0)
                         {
+                            Read(RegPC);
+                            if (addr < 0x80)
+                            {
+                                if ((RegPC & 0xFF00) != ((addr + RegPC) & 0xFF00))
+                                    Read((RegPC & 0xFF00) | ((RegPC + addr) & 0x00FF));
+                                addr += RegPC;
+                            }
+                            else
+                            {
+                                if ((RegPC & 0xFF00) != ((addr + RegPC - 256) & 0xFF00))
+                                    Read((RegPC & 0xFF00) | ((RegPC + addr - 256) & 0x00FF));
+                                addr += RegPC - 256;
+                            }
                             RegPC = addr;
-                            opCycles += opCycleAdd + 1;
                         }
                         break;
                     case OpInfo.InstrCLC:
@@ -378,7 +458,6 @@ namespace EmuoTron
                         else
                             FlagZero = 1;
                         FlagSign = (RegA - value) & 0xFF;
-                        opCycles += opCycleAdd;
                         break;
                     case OpInfo.InstrCPX:
                         value = Read(addr);
@@ -406,6 +485,7 @@ namespace EmuoTron
                         break;
                     case OpInfo.InstrDEC:
                         value = Read(addr);
+                        Write(addr, value);
                         value = FlagSign = FlagZero = (value - 1) & 0xFF;
                         Write(addr, value);
                         break;
@@ -418,10 +498,10 @@ namespace EmuoTron
                     case OpInfo.InstrEOR:
                         RegA ^= Read(addr);
                         RegA = FlagSign = FlagZero = RegA & 0xFF;
-                        opCycles += opCycleAdd;
                         break;
                     case OpInfo.InstrINC:
                         value = Read(addr);
+                        Write(addr, value);
                         value = FlagSign = FlagZero = (value + 1) & 0xFF;
                         Write(addr, value);
                         break;
@@ -435,20 +515,18 @@ namespace EmuoTron
                         RegPC = addr;
                         break;
                     case OpInfo.InstrJSR:
+                        Read(RegS | 0x0100);
                         PushWordStack(RegPC - 1);
                         RegPC = addr;
                         break;
                     case OpInfo.InstrLDA:
                         RegA = FlagSign = FlagZero = Read(addr);
-                        opCycles += opCycleAdd;
                         break;
                     case OpInfo.InstrLDX:
                         RegX = FlagSign = FlagZero = Read(addr);
-                        opCycles += opCycleAdd;
                         break;
                     case OpInfo.InstrLDY:
                         RegY = FlagSign = FlagZero = Read(addr);
-                        opCycles += opCycleAdd;
                         break;
                     case OpInfo.InstrLSR:
                         if (addressing == OpInfo.AddrAccumulator)
@@ -459,6 +537,7 @@ namespace EmuoTron
                         else
                         {
                             value = Read(addr);
+                            Write(addr, value);
                             FlagCarry = value & 1;
                             value = FlagSign = FlagZero = value >> 1;
                             Write(addr, value);
@@ -468,7 +547,6 @@ namespace EmuoTron
                         break;
                     case OpInfo.InstrORA:
                         RegA = FlagSign = FlagZero = (RegA | Read(addr)) & 0xFF;
-                        opCycles += opCycleAdd;
                         break;
                     case OpInfo.InstrPHA:
                         PushByteStack(RegA);
@@ -479,9 +557,11 @@ namespace EmuoTron
                         PushByteStack(value);
                         break;
                     case OpInfo.InstrPLA:
+                        Read(RegS | 0x0100);
                         RegA = FlagSign = FlagZero = PopByteStack();
                         break;
                     case OpInfo.InstrPLP:
+                        Read(RegS | 0x0100);
                         RegP = PopByteStack();
                         if (pendingFlagIRQ1 != 0)
                         {
@@ -513,6 +593,7 @@ namespace EmuoTron
                         else
                         {
                             value = Read(addr);
+                            Write(addr, value);
                             if (FlagCarry != 0)
                             {
                                 FlagCarry = value >> 7;
@@ -544,6 +625,7 @@ namespace EmuoTron
                         else
                         {
                             value = Read(addr);
+                            Write(addr, value);
                             if (FlagCarry != 0)
                             {
                                 FlagCarry = value & 1;
@@ -558,6 +640,7 @@ namespace EmuoTron
                         }
                         break;
                     case OpInfo.InstrRTI:
+                        Read(RegS | 0x100);
                         RegP = PopByteStack();
                         delayedFlagIRQ = FlagIRQ;
                         FlagBreak = 1;
@@ -567,15 +650,16 @@ namespace EmuoTron
                         pendingFlagIRQ2 = 0;
                         break;
                     case OpInfo.InstrRTS:
+                        Read(RegS | 0x0100);
                         RegPC = (PopWordStack() + 1) & 0xFFFF;
+                        Read(RegPC);
                         break;
                     case OpInfo.InstrSBC:
                         value = Read(addr);
                         temp = RegA - value - (1 - FlagCarry);
                         FlagCarry = (temp < 0 ? 0 : 1);
-                        FlagOverflow = ((((RegA ^ temp) & 0x80) != 0 && ((RegA ^ Read(addr)) & 0x80) != 0) ? 1 : 0);
+                        FlagOverflow = (((RegA ^ value) & (RegA ^ temp)) >> 7) & 1;
                         RegA = FlagSign = FlagZero = (temp & 0xFF);
-                        opCycles += opCycleAdd;
                         break;
                     case OpInfo.InstrSEC:
                         FlagCarry = 1;
@@ -627,6 +711,9 @@ namespace EmuoTron
                         debug.SetError("Illegal OP");
                         switch (instruction) //Illegal Ops
                         {
+                            case OpInfo.IllInstrAHX:
+                                Read(addr); //Timing filler
+                                break;
                             case OpInfo.IllInstrALR:
                                 RegA &= Read(addr);
                                 FlagCarry = RegA & 1;
@@ -686,6 +773,7 @@ namespace EmuoTron
                                 break;
                             case OpInfo.IllInstrDCP:
                                 value = Read(addr);
+                                Write(addr, value);
                                 value = FlagSign = FlagZero = (value - 1) & 0xFF;
                                 Write(addr, value);
                                 if (RegA >= value)
@@ -700,30 +788,31 @@ namespace EmuoTron
                                 break;
                             case OpInfo.IllInstrISC:
                                 value = Read(addr);
+                                Write(addr, value);
                                 value = (value + 1) & 0xFF;
                                 Write(addr, value);
                                 temp = RegA - value - (1 - FlagCarry);
                                 FlagCarry = (temp < 0 ? 0 : 1);
-                                FlagOverflow = ((((RegA ^ temp) & 0x80) != 0 && ((RegA ^ Read(addr)) & 0x80) != 0) ? 1 : 0);
+                                FlagOverflow = (((RegA ^ value) & (RegA ^ temp)) >> 7) & 1;
                                 RegA = FlagSign = FlagZero = (temp & 0xFF);
                                 break;
                             case OpInfo.IllInstrKIL:
                                 debug.SetError("KIL encountered");
                                 //SHOULD crash CPU, but Im going to treat it as a NOP.
                                 break;
-                            case OpInfo.IllInstrLAS:
-                                opCycles += opCycleAdd;
+                            case OpInfo.IllInstrLAS: //Filler
+                                Read(addr);
                                 break;
                             case OpInfo.IllInstrLAX:
                                 RegA = RegX = FlagSign = FlagZero = Read(addr);
-                                opCycles += opCycleAdd;
                                 break;
                             case OpInfo.IllInstrNOP:
-                                if (addressing == OpInfo.AddrAbsoluteX)
-                                    opCycles += opCycleAdd;
+                                if (addressing == OpInfo.AddrImmediate || addressing == OpInfo.AddrZeroPage || addressing == OpInfo.AddrAbsolute || addressing == OpInfo.AddrZeroPageX || addressing == OpInfo.AddrAbsoluteX)
+                                    Read(addr);
                                 break;
                             case OpInfo.IllInstrRLA:
                                 value = Read(addr);
+                                Write(addr, value);
                                 if (FlagCarry != 0)
                                 {
                                     FlagCarry = value >> 7;
@@ -740,6 +829,7 @@ namespace EmuoTron
                                 break;
                             case OpInfo.IllInstrRRA:
                                 value = Read(addr);
+                                Write(addr, value);
                                 if (FlagCarry != 0)
                                 {
                                     FlagCarry = value & 1;
@@ -752,7 +842,7 @@ namespace EmuoTron
                                 }
                                 Write(addr, value);
                                 temp = RegA + value + FlagCarry;
-                                FlagOverflow = ((!(((RegA ^ value) & 0x80) != 0) && (((RegA ^ temp) & 0x80)) != 0) ? 1 : 0);
+                                FlagOverflow = ((~(RegA ^ value) & (RegA ^ temp)) >> 7) & 1;
                                 FlagCarry = temp > 0xFF ? 1 : 0;
                                 RegA = FlagSign = FlagZero = temp & 0xFF;
                                 break;
@@ -763,21 +853,28 @@ namespace EmuoTron
                                 value = Read(addr);
                                 temp = RegA - value - (1 - FlagCarry);
                                 FlagCarry = (temp < 0 ? 0 : 1);
-                                FlagOverflow = ((((RegA ^ temp) & 0x80) != 0 && ((RegA ^ Read(addr)) & 0x80) != 0) ? 1 : 0);
+                                FlagOverflow = (((RegA ^ value) & (RegA ^ temp)) >> 7) & 1;
                                 RegA = FlagSign = FlagZero = (temp & 0xFF);
                                 break;
                             case OpInfo.IllInstrSHX: //Passes Tests but may be wrong in some minute detail
                                 value = (RegX & ((addr >> 8) + 1)) & 0xFF;
-                                if((RegY + Read(opAddr + 1)) <= 0xFF)
+                                temp = (addr - RegY) & 0xFF;
+                                if((RegY + temp) <= 0xFF)
                                     Write(addr, value);
+                                else
+                                    Write(addr, Memory[MirrorMap[addr]]); //Not sure what to do for this cycle :(
                                 break;
                             case OpInfo.IllInstrSHY: //Passes Tests but may be wrong in some minute detail
                                 value = (RegY & ((addr >> 8) + 1)) & 0xFF;
-                                if((RegX + Read(opAddr + 1)) <= 0xFF)
+                                temp = (addr - RegX) & 0xFF;
+                                if ((RegX + temp) <= 0xFF)
                                     Write(addr, value);
+                                else
+                                    Write(addr, Memory[MirrorMap[addr]]);
                                 break;
                             case OpInfo.IllInstrSLO:
                                 value = Read(addr);
+                                Write(addr, value);
                                 FlagCarry = value >> 7;
                                 value = (value << 1) & 0xFF;
                                 Write(addr, value);
@@ -786,13 +883,23 @@ namespace EmuoTron
                                 break;
                             case OpInfo.IllInstrSRE:
                                 value = Read(addr);
+                                Write(addr, value);
                                 FlagCarry = value & 1;
                                 value = value >> 1;
                                 Write(addr, value);
                                 RegA ^= value;
                                 FlagSign = FlagZero = RegA;
                                 break;
+                            case OpInfo.IllInstrTAS://Mostly filler never tested.
+                                RegS = RegX & RegA;
+                                Write(addr, RegS & (addr >> 8));
+                                break;
+                            case OpInfo.IllInstrXAA:
+                                RegA = RegX & Read(addr);
+                                FlagSign = FlagZero = RegA;
+                                break;
                             case OpInfo.InstrDummy:
+                            default:
                                     debug.SetError("Missing OP");
                                     debug.LogInfo("Missing OP: " + OpInfo.GetOpNames()[OpInfo.GetOps()[op] & 0xFF] + " " + op.ToString("X2") + " Program Counter: " + RegPC.ToString("X4"));
                                 break;
@@ -800,13 +907,9 @@ namespace EmuoTron
                         break;
                 }
                 #endregion
+#if SCANLINE_PPU
                 if (!nsfPlayer)
                 {
-                    counter += opCycles;
-                    APU.AddCycles(opCycles);
-                    PPU.AddCycles(opCycles);
-                    if (mapper.cycleIRQ)
-                        mapper.IRQ(opCycles);
                     if (PPU.pendingNMI != 0)
                     {
                         PPU.pendingNMI--;
@@ -814,12 +917,7 @@ namespace EmuoTron
                             PPU.interruptNMI = true;
                     }
                 }
-                else
-                {
-                    opCycles = ((Mappers.mNSF)mapper).IRQ(opCycles, instruction);
-                    counter += opCycles;
-                    APU.AddCycles(opCycles);
-                }
+#endif
                 if (pendingFlagIRQ1 != 0)
                 {
                     pendingFlagIRQ1--;
@@ -832,12 +930,10 @@ namespace EmuoTron
                     if (pendingFlagIRQ2 == 0)
                         delayedFlagIRQ = pendingFlagIRQValue2;
                 }
-#if DEBUGGER
-                debug.AddCycles(opCycles);
-#endif
 #if !nestest
                 if (PPU.interruptNMI)
                 {
+                    ReadWord(RegPC);//Supposedly takes 7 cycles and is the same pattern as BRK
                     PushWordStack(RegPC);
                     FlagBreak = 0;
                     PushByteStack(RegP);
@@ -848,6 +944,7 @@ namespace EmuoTron
                 }
                 else if ((mapper.interruptMapper || APU.frameIRQ || APU.dmcInterrupt) && (delayedFlagIRQ == 0))
                 {
+                    ReadWord(RegPC);//Supposedly takes 7 cycles and is the same pattern as BRK
                     PushWordStack(RegPC);
                     FlagBreak = 0;
                     PushByteStack(RegP);
@@ -875,6 +972,7 @@ namespace EmuoTron
             PPU.generatePatternTables = false;
             APU.Update();
         }
+        int i = 0;
         public NESCore(string input, int sampleRate, bool ignoreFileCheck = false) //NSF Load
         {
             nsfPlayer = true;
@@ -1482,17 +1580,18 @@ namespace EmuoTron
 #endif
             nextByte = GameGenie(nextByte, address);
             lastRead = nextByte;
+            AddCycles(1);
             return nextByte;
         }
         private int ReadWord(int address)
         {
             int highAddress = (address + 1) & 0xFFFF;
-            return (Read(address) | (Read(highAddress) << 8)) & 0xFFFF;
+            return Read(address) | (Read(highAddress) << 8);
         }
         private int ReadWordWrap(int address)
         {
             int highAddress = (address & 0xFF00) | ((address + 1) & 0xFF);
-            return (Read(address) | (Read(highAddress) << 8)) & 0xFFFF;
+            return Read(address) | (Read(highAddress) << 8);
         }
         private void Write(int addr, int val)
         {
@@ -1520,6 +1619,7 @@ namespace EmuoTron
             debug.Write(value, address);
 #endif
             Memory[address] = value;
+            AddCycles(1);
         }
         public void PushWordStack(int value)
         {
@@ -1550,12 +1650,29 @@ namespace EmuoTron
         }
         public void AddCycles(int value)
         {
-            counter += value;
-            APU.AddCycles(value);
-            PPU.AddCycles(value);
+            if (!nsfPlayer)
+            {
+                counter += value;
+                APU.AddCycles(value);
+                PPU.AddCycles(value);
+                if (mapper.cycleIRQ)
+                    mapper.IRQ(value);
+                if (PPU.pendingNMI != 0)
+                {
+                    PPU.pendingNMI--;
+                    if (PPU.pendingNMI == 0)
+                        PPU.interruptNMI = true;
+                }
+            }
+            else
+            {
+                value = ((Mappers.mNSF)mapper).IRQ(value, 0); //NEEDS FIX FOR SECOND ARG
+                counter += value;
+                APU.AddCycles(value);
+            }
+#if DEBUGGER
             debug.AddCycles(value);
-            if (mapper.cycleIRQ)
-                mapper.IRQ(value);
+#endif
         }
         private void CPUMirror(ushort address, ushort mirrorAddress, ushort length, int repeat)
         {
