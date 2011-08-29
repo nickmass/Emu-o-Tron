@@ -142,12 +142,12 @@ namespace EmuoTron
 #endif
                 op = Read(RegPC);
                 opInfo = opList[op];
-                //opCycles = (opInfo >> 24) & 0xFF;
+                //opCycles = (opInfo >> 20) & 0xF;
                 addressing = (opInfo >> 8) & 0xFF;
                 instruction = opInfo & 0xFF;
-                dummy = OpInfo.dummyReads[op];
+                dummy = (opInfo >> 24) & 0xFF;
                 opAddr = RegPC;
-                RegPC += (opInfo >> 16) & 0xFF;
+                RegPC += (opInfo >> 16) & 0xF;
                 RegPC &= 0xFFFF;
                 #region CPU
                 switch (addressing)
@@ -385,6 +385,9 @@ namespace EmuoTron
                         PushWordStack((RegPC) & 0xFFFF);
                         PushByteStack(RegP | 0x30);
                         FlagIRQ = 1;
+                        delayedFlagIRQ = 1;
+                        pendingFlagIRQ1 = 0;
+                        pendingFlagIRQ2 = 0;
                         RegPC = ReadWord(0xFFFE);
                         break;
                     case OpInfo.InstrBVC:
@@ -939,6 +942,8 @@ namespace EmuoTron
                     PushByteStack(RegP);
                     FlagIRQ = 1;
                     delayedFlagIRQ = 1;
+                    pendingFlagIRQ1 = 0;
+                    pendingFlagIRQ2 = 0;
                     RegPC = ReadWord(0xFFFA);
                     PPU.interruptNMI = false;
                 }
@@ -950,12 +955,16 @@ namespace EmuoTron
                     PushByteStack(RegP);
                     FlagIRQ = 1;
                     delayedFlagIRQ = 1;
+                    pendingFlagIRQ1 = 0;
+                    pendingFlagIRQ2 = 0;
                     RegPC = ReadWord(0xFFFE);
                 }
                 else if (interruptReset)
                 {
                     FlagIRQ = 1;
                     delayedFlagIRQ = 1;
+                    pendingFlagIRQ1 = 0;
+                    pendingFlagIRQ2 = 0;
                     RegPC = ReadWord(0xFFFC);
                     RegS = (RegS - 3) & 0xFF;
                     interruptReset = false;
@@ -1657,12 +1666,6 @@ namespace EmuoTron
                 PPU.AddCycles(value);
                 if (mapper.cycleIRQ)
                     mapper.IRQ(value);
-                if (PPU.pendingNMI != 0)
-                {
-                    PPU.pendingNMI--;
-                    if (PPU.pendingNMI == 0)
-                        PPU.interruptNMI = true;
-                }
             }
             else
             {

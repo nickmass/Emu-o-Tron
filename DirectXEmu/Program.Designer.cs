@@ -45,6 +45,8 @@
             this.recordToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.recordWAVToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.stopWAVToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.recordAVSToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.stopAVSToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.openWithFXCEUToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.optionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.enableSoundToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -221,7 +223,9 @@
             // 
             this.recordToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.recordWAVToolStripMenuItem,
-            this.stopWAVToolStripMenuItem});
+            this.stopWAVToolStripMenuItem,
+            this.recordAVSToolStripMenuItem,
+            this.stopAVSToolStripMenuItem});
             this.recordToolStripMenuItem.Name = "recordToolStripMenuItem";
             this.recordToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.recordToolStripMenuItem.Text = "Record";
@@ -240,6 +244,21 @@
             this.stopWAVToolStripMenuItem.Size = new System.Drawing.Size(140, 22);
             this.stopWAVToolStripMenuItem.Text = "Stop WAV";
             this.stopWAVToolStripMenuItem.Click += new System.EventHandler(this.stopWAVToolStripMenuItem_Click);
+            // 
+            // recordAVSToolStripMenuItem
+            // 
+            this.recordAVSToolStripMenuItem.Name = "recordAVSToolStripMenuItem";
+            this.recordAVSToolStripMenuItem.Size = new System.Drawing.Size(140, 22);
+            this.recordAVSToolStripMenuItem.Text = "Record AVS";
+            this.recordAVSToolStripMenuItem.Click += new System.EventHandler(this.recordAVSToolStripMenuItem_Click);
+            // 
+            // stopAVSToolStripMenuItem
+            // 
+            this.stopAVSToolStripMenuItem.Enabled = false;
+            this.stopAVSToolStripMenuItem.Name = "stopAVSToolStripMenuItem";
+            this.stopAVSToolStripMenuItem.Size = new System.Drawing.Size(140, 22);
+            this.stopAVSToolStripMenuItem.Text = "Stop AVS";
+            this.stopAVSToolStripMenuItem.Click += new System.EventHandler(this.stopAVSToolStripMenuItem_Click);
             // 
             // openWithFXCEUToolStripMenuItem
             // 
@@ -647,8 +666,8 @@
             // 
             this.openFile.DefaultExt = "nes";
             this.openFile.Filter = "Supported File Types|*.nes;*.fds;*.nsf;*.rar;*.zip;*.7z;*.ips;*.ups|NES Roms|*.ne" +
-                "s;*.fds|NES Music|*.nsf|Archives|*.rar;*.zip;*.7z|Patches|*.ips;*.ups|All Files|" +
-                "*.*";
+    "s;*.fds|NES Music|*.nsf|Archives|*.rar;*.zip;*.7z|Patches|*.ips;*.ups|All Files|" +
+    "*.*";
             this.openFile.Title = "Load Rom";
             // 
             // openPaletteDialog
@@ -666,7 +685,6 @@
             // recordDialog
             // 
             this.recordDialog.DefaultExt = "wav";
-            this.recordDialog.Filter = "Wav files|*.wav";
             this.recordDialog.Title = "Save Wav";
             // 
             // surfaceControl
@@ -782,5 +800,7 @@
         private System.Windows.Forms.SaveFileDialog saveMovie;
         private System.Windows.Forms.ToolStripMenuItem smoothOutputToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem hQ2xToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem recordAVSToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem stopAVSToolStripMenuItem;
     }
 }

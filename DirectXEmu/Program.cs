@@ -36,6 +36,7 @@ namespace DirectXEmu
         IScaler imageScaler;
 
         WAVOutput wavRecorder;
+        AVSOutput avsRecorder;
 
         string appPath = "";
         string romPath = "";
@@ -194,6 +195,11 @@ namespace DirectXEmu
                         {
                             cpu.APU.SetFPS(cpu.APU.FPS);
                             wavRecorder.AddSamples(cpu.APU.output, cpu.APU.outputPtr);
+                        }
+                        if (stopAVSToolStripMenuItem.Enabled)
+                        {
+                            cpu.APU.SetFPS(cpu.APU.FPS);
+                            avsRecorder.AddFrame(cpu.PPU.screen, cpu.APU.output, cpu.APU.outputPtr);
                         }
                         if(cpu.nsfPlayer)
                             cpu.APU.SetFPS(cpu.APU.FPS);
@@ -363,8 +369,8 @@ namespace DirectXEmu
                 cpu.PPU.generateLine = this.nameTablePreview.UpdateNameTables(cpu.PPU.nameTables);
                 cpu.PPU.generateNameTables = true;
             }
-        }
 
+        }
         public void Initialize()
         {
             this.appPath = Path.GetDirectoryName(Application.ExecutablePath);
@@ -1928,6 +1934,9 @@ namespace DirectXEmu
                 recordDialog.FileName = cpu.rom.fileName;
                 SystemState old = state;
                 state = SystemState.SystemPause;
+                recordDialog.DefaultExt = ".wav";
+                recordDialog.Title = "Save WAV";
+                recordDialog.Filter = "WAV Files|*.wav";
                 if (recordDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
                 {
                     wavRecorder = new WAVOutput(recordDialog.FileName, cpu.APU.sampleRate);
@@ -1937,10 +1946,36 @@ namespace DirectXEmu
             }
         }
 
+        private void recordAVSToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (state != SystemState.Empty)
+            {
+                recordDialog.FileName = cpu.rom.fileName;
+                SystemState old = state;
+                state = SystemState.SystemPause;
+                recordDialog.DefaultExt = ".avs";
+                recordDialog.Title = "Save AVS";
+                recordDialog.Filter = "AVS Files|*.avs";
+                if (recordDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                {
+                    avsRecorder = new AVSOutput(recordDialog.FileName, 256, 240, cpu.APU.FPS, cpu.APU.sampleRate);
+                    stopAVSToolStripMenuItem.Enabled = true;
+                }
+                state = old;
+            }
+
+        }
+
         private void stopWAVToolStripMenuItem_Click(object sender, EventArgs e)
         {
             stopWAVToolStripMenuItem.Enabled = false;
             wavRecorder.CompleteRecording();
+        }
+
+        private void stopAVSToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            stopAVSToolStripMenuItem.Enabled = false;
+            avsRecorder.CompleteRecording();
         }
 
         private void enableSoundToolStripMenuItem_Click(object sender, EventArgs e)
@@ -2399,5 +2434,6 @@ namespace DirectXEmu
             }
         }
         #endregion
+
     }
 }

@@ -90,6 +90,7 @@ namespace EmuoTron
         private int maxSprites = 8;
         private long vblFlagRead;
         private long nmiPendingSet;
+        private long vblankEndTime;
         private long nmiEnableTime;
 
         public PPU(NESCore nes)
@@ -301,12 +302,12 @@ namespace EmuoTron
                         backgroundTable = 0x0000;
                     tallSprites = (value & 0x20) != 0;
                     nmiEnable = (value & 0x80) != 0;
-                    if (!nmiEnable && currentTime - nmiPendingSet <= 1)//disabling nmi shortly ever vblank will prevent it from ever going off
+                    if (!nmiEnable && currentTime - nmiPendingSet < 2)//disabling nmi shortly after vblank will prevent it from ever going off
                         pendingNMI = 0;
                     else if (nmiEnable && !wasEnabled)
                     {
                         nmiEnableTime = currentTime;
-                        if(inVblank)
+                        if (inVblank)
                             pendingNMI = 5; //enabling NMI inside vblank will trigger one immediatly
                     }
                     lastWrite = value;
@@ -931,12 +932,13 @@ namespace EmuoTron
                                 if (nmiEnable)
                                 {
                                     nmiPendingSet = lastUpdate;
-                                    pendingNMI = 8;
+                                    pendingNMI = 6;
                                 }
                             }
                         }
                         else if (scanline == vblankEnd)
                         {
+                            vblankEndTime = lastUpdate;
                             scanline = -1;
                             inVblank = false;
                             spriteZeroHit = false;

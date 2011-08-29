@@ -149,8 +149,11 @@ namespace EmuoTron
         byte noiseVolume;
         int dmcVolume;
 
-        double aveSample;
-        long aveSampleCount;
+        private  double aveSample;
+        private Queue<double> rollingAve = new Queue<double>();
+        private long rollingAveCount;
+        private long rollingAveWindow;
+        private double rollingAveTotal;
 
         int sampleTotal;
         int sampleCount;
@@ -183,6 +186,7 @@ namespace EmuoTron
                     dmcRates = new int[] { 398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118, 98, 78, 66, 50 };
                     break;
             }
+            rollingAveWindow = sampleRate / 10;
             if (this.sampleRate == -1)
                 this.sampleRate = CPUClock;
             SetFPS(FPS);
@@ -191,12 +195,12 @@ namespace EmuoTron
             for (int i = 0; i < 32; i++)
             {
                 pulseTable[i] = ((95.52 / (8128.0 / i + 100)));
-                pulseTableShort[i] = (int)(pulseTable[i] * 65535);
+                pulseTableShort[i] = (int)(pulseTable[i] * 0x7FFF); //Not using the whole range, to avoid some artifacts my averaging introduces.
             }
             for (int i = 0; i < 204; i++)
             {
                 tndTable[i] = ((163.67 / (24329.0 / i + 100)));
-                tndTableShort[i] = (int)(tndTable[i] * 65535);
+                tndTableShort[i] = (int)(tndTable[i] * 0x7FFF);
             }
             volume.triangle = 1;
             volume.pulse1 = 1;
@@ -873,9 +877,16 @@ namespace EmuoTron
                 sampleRateDivider--;
                 if (sampleRateDivider <= 0) //&& outputPtr < output.Length)
                 {
-                    output[outputPtr++] = (short)((sampleTotal / (sampleCount * 1.0)) - aveSample);
+                    double sample = sampleTotal / (sampleCount * 1.0);
                     sampleRateDivider += sampleDivider;
-                    aveSample += (output[outputPtr] / ((++aveSampleCount) * 1.0)); //Attempt at centering waveform to reduce clicks, this is probably a horrible thing to do but I really cant hear any negative effects.
+                    rollingAveTotal += sample;
+                    rollingAve.Enqueue(sample);
+                    if (rollingAveCount == rollingAveWindow)
+                        rollingAveTotal -= rollingAve.Dequeue();
+                    else
+                        rollingAveCount++;
+                    aveSample = rollingAveTotal / (rollingAveCount * 1.0); //aveSample reduces clicks by keeping waveform centered around 0, size of window can be adjusted with rollingAveWindow.
+                    output[outputPtr++] = (short)(sample - aveSample);
                     sampleTotal = 0;
                     sampleCount = 0;
                 }

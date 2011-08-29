@@ -201,6 +201,10 @@
     <Compile Include="Audio\IAudio.cs" />
     <Compile Include="Audio\NullAudio.cs" />
     <Compile Include="Audio\OpenALAudio.cs" />
+    <Compile Include="AVSOutput.cs" />
+    <Compile Include="BMPOutput.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="ByteViewer.cs">
       <SubType>Component</SubType>
     </Compile>

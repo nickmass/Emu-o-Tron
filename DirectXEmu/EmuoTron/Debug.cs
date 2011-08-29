@@ -233,7 +233,7 @@ namespace EmuoTron
             StringBuilder line = new StringBuilder();
             int op = Peek(address);
             int opInfo = OpInfo.GetOps()[op];
-            int size = (opInfo >> 16) & 0xFF;
+            int size = (opInfo >> 16) & 0xF;
             int addressing = (opInfo >> 8) & 0xFF;
             line.AppendFormat("{0}  ", address.ToString("X4"));
             if (size == 0)
@@ -319,14 +319,14 @@ namespace EmuoTron
         {
             int op = Peek(address);
             int opInfo = OpInfo.GetOps()[op];
-            return (opInfo >> 16) & 0xFF;
+            return (opInfo >> 16) & 0xF;
         }
         private string TraceLog(int address)
         {
             StringBuilder line = new StringBuilder();
             int op = Peek(address);
             int opInfo = OpInfo.GetOps()[op];
-            int size = (opInfo >> 16) & 0xFF;
+            int size = (opInfo >> 16) & 0xF;
             int addressing = (opInfo >> 8) & 0xFF;
             line.AppendFormat("{0}  ", address.ToString("X4"));
             if (size == 0)
