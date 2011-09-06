@@ -40,12 +40,15 @@
             this.label4 = new System.Windows.Forms.Label();
             this.label5 = new System.Windows.Forms.Label();
             this.label6 = new System.Windows.Forms.Label();
+            this.label7 = new System.Windows.Forms.Label();
+            this.externalVolume = new System.Windows.Forms.TrackBar();
             ((System.ComponentModel.ISupportInitialize)(this.soundVolume)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pulse1Volume)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.noiseVolume)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.pulse2Volume)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.triangleVolume)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.dmcVolume)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.externalVolume)).BeginInit();
             this.SuspendLayout();
             // 
             // soundVolume
@@ -162,11 +165,32 @@
             this.label6.TabIndex = 17;
             this.label6.Text = "DMC";
             // 
+            // label7
+            // 
+            this.label7.AutoSize = true;
+            this.label7.Location = new System.Drawing.Point(445, 9);
+            this.label7.Name = "label7";
+            this.label7.Size = new System.Drawing.Size(45, 13);
+            this.label7.TabIndex = 19;
+            this.label7.Text = "External";
+            // 
+            // externalVolume
+            // 
+            this.externalVolume.Location = new System.Drawing.Point(462, 27);
+            this.externalVolume.Maximum = 100;
+            this.externalVolume.Name = "externalVolume";
+            this.externalVolume.Orientation = System.Windows.Forms.Orientation.Vertical;
+            this.externalVolume.Size = new System.Drawing.Size(45, 119);
+            this.externalVolume.TabIndex = 18;
+            this.externalVolume.TickFrequency = 10;
+            // 
             // SoundConfig
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(447, 158);
+            this.ClientSize = new System.Drawing.Size(519, 158);
+            this.Controls.Add(this.label7);
+            this.Controls.Add(this.externalVolume);
             this.Controls.Add(this.label6);
             this.Controls.Add(this.label5);
             this.Controls.Add(this.label4);
@@ -190,6 +214,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.pulse2Volume)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.triangleVolume)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.dmcVolume)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.externalVolume)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -209,5 +234,7 @@
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.Label label6;
+        private System.Windows.Forms.Label label7;
+        public System.Windows.Forms.TrackBar externalVolume;
     }
 }

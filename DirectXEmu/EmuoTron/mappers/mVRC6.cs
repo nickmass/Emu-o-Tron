@@ -29,6 +29,7 @@ namespace EmuoTron.Mappers
             regAddr[1] = reg2;
             regAddr[2] = reg3;
             regAddr[3] = reg4;
+            this.nes.APU.external = new Channels.VRC6(reg1, reg2, reg3, reg4);
         }
         public override void Power()
         {
@@ -43,7 +44,7 @@ namespace EmuoTron.Mappers
 
             byte highAddr = (byte)(address >> 8);
             byte lowAddr = (byte)(address & 0xFF);
-
+            nes.APU.external.Write(value, address);
             if (highAddr == 0x80 && (lowAddr == regAddr[0] || lowAddr == regAddr[1] || lowAddr == regAddr[2] || lowAddr == regAddr[3]))
             {
                 prgReg0 = value;

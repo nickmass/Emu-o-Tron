@@ -16,11 +16,12 @@ namespace DirectXEmu
         {
             InitializeComponent();
             this.soundVolume.Value = (int)(volume.master * 100);
-            this.pulse1Volume.Value = (int)(volume.pulse1 * 100);
-            this.pulse2Volume.Value = (int)(volume.pulse2 * 100);
+            this.pulse1Volume.Value = (int)(volume.square1 * 100);
+            this.pulse2Volume.Value = (int)(volume.square2 * 100);
             this.triangleVolume.Value = (int)(volume.triangle * 100);
             this.noiseVolume.Value = (int)(volume.noise * 100);
             this.dmcVolume.Value = (int)(volume.dmc * 100);
+            this.externalVolume.Value = (int)(volume.external * 100);
         }
     }
 }

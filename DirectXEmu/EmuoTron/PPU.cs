@@ -155,6 +155,8 @@ namespace EmuoTron
             for (int i = 0; i < 0x20; i++)
                 PalMemory[i] = 0x0F; //Sets the background to black on startup to prevent grey flashes, not exactly accurate but it looks nicer
             scanline = 241;
+            interruptNMI = false;
+            pendingNMI = 0;
             inVblank = true;
             scanlineCycle = 0;
             currentTime = 0;
@@ -838,10 +840,13 @@ namespace EmuoTron
                     }
                     if (nes.rom.mapper == 4 || nes.rom.mapper == 48)
                     {
-                        if(scanlineCycle == 260 && spriteTable == 0x1000 && backgroundTable == 0x0000)
-                            nes.mapper.IRQ(scanline);//I am having far too much trouble with this stupid scanline counter.
-                        if (scanlineCycle == 324 && scanline != -1 && spriteTable == 0x0000 && backgroundTable == 0x1000)
+                        if(scanlineCycle == 264 && spriteTable == 0x1000 && backgroundTable == 0x0000)
                             nes.mapper.IRQ(scanline);
+                        if (scanlineCycle == 8 && scanline == -1 && spriteTable == 0x0000 && backgroundTable == 0x1000) //This table config has a seperate scanline trigger at the start of the frame.
+                            nes.mapper.IRQ(scanline);
+                        else if (scanlineCycle == 328 && spriteTable == 0x0000 && backgroundTable == 0x1000)
+                            nes.mapper.IRQ(scanline);
+
                     }
                     lastUpdate++;
                     scanlineCycle++;

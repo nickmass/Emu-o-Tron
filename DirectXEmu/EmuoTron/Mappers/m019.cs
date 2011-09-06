@@ -11,12 +11,13 @@ namespace EmuoTron.Mappers
         bool irqEnable;
         bool disableLowChrRAM;
         bool disableHighChrRAM;
-        byte soundData;
         byte[] chrBanks = new byte[8];
         public m019(NESCore nes)
         {
             this.nes = nes;
             this.cycleIRQ = true;
+            if (nes.rom.mapper == 19)
+                nes.APU.external = new Channels.N163();
         }
         public override void Power()
         {
@@ -30,11 +31,11 @@ namespace EmuoTron.Mappers
         {
             if (address >= 0x4800)
             {
-                switch (address & 0xF800)
+                address &= 0xF800;
+                if (nes.rom.mapper == 19)
+                    nes.APU.external.Read(value, address);
+                switch (address)
                 {
-                    case 0x4800:
-                        value = soundData;
-                        break;
                     case 0x5000:
                         value = (byte)(irqCounter & 0xFF);
                         interruptMapper = false;
@@ -53,11 +54,11 @@ namespace EmuoTron.Mappers
         {
             if (address >= 0x4800)
             {
-                switch (address & 0xF800)
+                address &= 0xF800;
+                if (nes.rom.mapper == 19)
+                    nes.APU.external.Write(value, address);
+                switch (address)
                 {
-                    case 0x4800:
-                        soundData = value;
-                        break;
                     case 0x5000:
                         irqCounter = (ushort)((irqCounter & 0xFF00) | value);
                         interruptMapper = false;
@@ -186,7 +187,6 @@ namespace EmuoTron.Mappers
             writer.Write(irqEnable);
             writer.Write(disableLowChrRAM);
             writer.Write(disableHighChrRAM);
-            writer.Write(soundData);
             writer.Write(chrBanks[0]);
             writer.Write(chrBanks[1]);
             writer.Write(chrBanks[2]);
@@ -202,7 +202,6 @@ namespace EmuoTron.Mappers
             irqEnable = reader.ReadBoolean();
             disableLowChrRAM = reader.ReadBoolean();
             disableHighChrRAM = reader.ReadBoolean();
-            soundData = reader.ReadByte();
             chrBanks[0] = reader.ReadByte();
             chrBanks[1] = reader.ReadByte();
             chrBanks[2] = reader.ReadByte();

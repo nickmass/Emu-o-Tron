@@ -117,14 +117,14 @@ namespace EmuoTron
         {
             get
             {
-                return (nes.FlagBreak != 0);
+                return (0 != 0);
             }
         }
         public bool FlagNotUsed
         {
             get
             {
-                return (nes.FlagNotUsed != 0);
+                return (0 != 0);
             }
         }
         public bool FlagOverflow
@@ -423,11 +423,11 @@ namespace EmuoTron
                 line.Append("D");
             else
                 line.Append("d");
-            if (nes.FlagBreak != 0)
+            if (0 != 0)
                 line.Append("B");
             else
                 line.Append("b");
-            if (nes.FlagNotUsed != 0)
+            if (0 != 0)
                 line.Append("-");
             else
                 line.Append("_");

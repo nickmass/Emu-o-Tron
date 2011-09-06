@@ -69,6 +69,7 @@ namespace DirectXEmu
         bool generateNameTables = false;
         int nameTableUpdate = 10;
         bool frameAdvance = false;
+        bool frameDevance = false;
 
         int generatePatternLine = 0;
         bool generatePatternTables = false;
@@ -175,6 +176,13 @@ namespace DirectXEmu
                     input.MainLoop();
                     debugger.smartUpdate = false;
                     RunCPU();
+                    if (frameDevance)
+                    {
+                        frameDevance = false;
+                        rewinding = false;
+                        state = SystemState.Paused;
+                        cpu.APU.SetFPS(cpu.APU.FPS);
+                    }
                     if (cpu.debug.pendingError)
                     {
                         cpu.debug.pendingError = false;
@@ -183,6 +191,8 @@ namespace DirectXEmu
                     }
                     if (frameSkipper == 1)//disable audio during turbo
                     {
+                        audio.SyncToAudio();
+                        /*
                         if (audio.SyncToAudio())// this in theory will reduce skipping, setting to zero should reduce some skipping, while setting it to one should reduce it completely but often seems to just make everything sound very depressing :P
                         {
                             if (cpu.APU.curFPS > 0)
@@ -191,6 +201,7 @@ namespace DirectXEmu
                         else if (cpu.APU.curFPS < cpu.APU.FPS)
                             cpu.APU.curFPS++;
                         //cpu.APU.SetFPS(cpu.APU.curFPS);
+                         */
                         if (stopWAVToolStripMenuItem.Enabled)
                         {
                             cpu.APU.SetFPS(cpu.APU.FPS);
@@ -201,8 +212,6 @@ namespace DirectXEmu
                             cpu.APU.SetFPS(cpu.APU.FPS);
                             avsRecorder.AddFrame(cpu.PPU.screen, cpu.APU.output, cpu.APU.outputPtr);
                         }
-                        if(cpu.nsfPlayer)
-                            cpu.APU.SetFPS(cpu.APU.FPS);
                         audio.MainLoop(cpu.APU.outputPtr, rewinding);
                     }
                     if (frame % frameSkipper == 0)//draw every n-th frame during turbo
@@ -327,7 +336,7 @@ namespace DirectXEmu
                     if (saveSafeRewind)
                     {
                         cpu.StateLoad(saveBuffer[saveBufferCounter]);
-                        moviePtr = saveBuffer[saveBufferCounter].frame; 
+                        moviePtr = saveBuffer[saveBufferCounter].frame;
                     }
                 }
                 else
@@ -492,11 +501,12 @@ namespace DirectXEmu
             surfaceControl.Visible = false;
 
             volume.master = Convert.ToInt32(config["volume"]) / 100f;
-            volume.pulse1 = 1;
-            volume.pulse2 = 1;
+            volume.square1 = 1;
+            volume.square2 = 1;
             volume.triangle = 1;
             volume.noise = 1;
             volume.dmc = 1;
+            volume.external = 1;
             if (this.romPath != "")
                 this.OpenFile(romPath);
         }
@@ -1427,6 +1437,18 @@ namespace DirectXEmu
                 this.message = "Paused";
                 this.messageDuration = 2;
             }
+            else if (key == Keys.Oemtilde)
+            {
+                if (rewindingEnabled)
+                {
+                    if (state == SystemState.Paused)
+                        state = SystemState.Playing;
+                    frameDevance = true;
+                    rewinding = true;
+                    this.message = "Paused";
+                    this.messageDuration = 2;
+                }
+            }
         }
 
         void input_KeyDownEvent(object sender, Keys key)
@@ -2002,6 +2024,7 @@ namespace DirectXEmu
             soundConfig.triangleVolume.ValueChanged += new EventHandler(soundVolume_ValueChanged);
             soundConfig.noiseVolume.ValueChanged += new EventHandler(soundVolume_ValueChanged);
             soundConfig.dmcVolume.ValueChanged += new EventHandler(soundVolume_ValueChanged);
+            soundConfig.externalVolume.ValueChanged += new EventHandler(soundVolume_ValueChanged);
             soundConfig.Show();
         }
 
@@ -2011,11 +2034,12 @@ namespace DirectXEmu
             if (audio != null)
                 audio.SetVolume(Convert.ToInt32(config["volume"]) / 100f);
             volume.master = soundConfig.soundVolume.Value / 100f;
-            volume.pulse1 = soundConfig.pulse1Volume.Value / 100f;
-            volume.pulse2 = soundConfig.pulse2Volume.Value / 100f;
+            volume.square1 = soundConfig.pulse1Volume.Value / 100f;
+            volume.square2 = soundConfig.pulse2Volume.Value / 100f;
             volume.triangle = soundConfig.triangleVolume.Value / 100f;
             volume.noise = soundConfig.noiseVolume.Value / 100f;
             volume.dmc = soundConfig.dmcVolume.Value / 100f;
+            volume.external = soundConfig.externalVolume.Value / 100f;
             if (cpu != null)
                 cpu.APU.volume = volume;
         }

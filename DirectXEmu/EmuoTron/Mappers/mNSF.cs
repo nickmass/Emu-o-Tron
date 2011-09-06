@@ -25,7 +25,7 @@ namespace EmuoTron.Mappers
         public double speed;
         public double counter;
         public bool overTime;
-        public mNSF(NESCore nes, byte[] banks, int PBRATE)
+        public mNSF(NESCore nes, byte[] banks, int PBRATE, int specialChip)
         {
             this.nes = nes;
             this.cycleIRQ = true;
@@ -34,6 +34,7 @@ namespace EmuoTron.Mappers
                 if (banks[i] != 0)
                     bankSwitching = true;
             initialBanks = banks;
+            nes.APU.external = new Channels.NSF(nes, specialChip);
         }
         public override void Power()
         {
@@ -51,6 +52,7 @@ namespace EmuoTron.Mappers
         }
         public override void Write(byte value, ushort address)
         {
+            nes.APU.external.Write(value, address);
             switch (address)
             {
                 case 0x5FF8:
@@ -86,6 +88,11 @@ namespace EmuoTron.Mappers
                     SyncPrg();
                     break;
             }
+        }
+        public override byte Read(byte value, ushort address)
+        {
+            value = nes.APU.external.Read(value, address);
+            return value;
         }
         private void SyncPrg()
         {

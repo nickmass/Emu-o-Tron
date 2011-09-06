@@ -30,7 +30,7 @@ namespace EmuoTron
         public int RegY = 0;
         public int RegS = 0xFD;
         public int RegPC = 0;
-        public int RegP
+        public int RegP //Don't bother with bits 4 and 5 they dont really exist and just make things complicated.
         {
             get
             {
@@ -39,8 +39,6 @@ namespace EmuoTron
                 if (FlagZero == 0) value |= 0x02;
                 if (FlagIRQ != 0) value |= 0x04;
                 if (FlagDecimal != 0) value |= 0x08;
-                if (FlagBreak != 0) value |= 0x10;
-                if (FlagNotUsed != 0) value |= 0x10;
                 if (FlagOverflow != 0) value |= 0x40;
                 if ((FlagSign >> 7) != 0) value |= 0x80;
                 return value;
@@ -51,8 +49,6 @@ namespace EmuoTron
                 FlagZero = ((value >> 1) & 1) == 0 ? 1 : 0;
                 FlagIRQ = ((value >> 2) & 1);
                 FlagDecimal = ((value >> 3) & 1);
-                FlagBreak = ((value >> 4) & 1);
-                FlagNotUsed = ((value >> 5) & 1);
                 FlagOverflow = ((value >> 6) & 1);
                 FlagSign = ((value >> 7) & 1) != 0 ? 0x80 : 0;
             }
@@ -61,8 +57,6 @@ namespace EmuoTron
         public int FlagZero = 1; //backwards
         public int FlagIRQ = 1;
         public int FlagDecimal = 0;
-        public int FlagBreak = 1;
-        public int FlagNotUsed = 1;
         public int FlagOverflow = 0;
         public int FlagSign = 0; //Bit 7 of P
         public int counter = 0;
@@ -389,6 +383,13 @@ namespace EmuoTron
                         pendingFlagIRQ1 = 0;
                         pendingFlagIRQ2 = 0;
                         RegPC = ReadWord(0xFFFE);
+
+                        if (nsfPlayer)
+                        {
+                            value = ((Mappers.mNSF)mapper).IRQ(0, OpInfo.InstrBRK);
+                            counter += value;
+                            APU.AddCycles(value);
+                        }
                         break;
                     case OpInfo.InstrBVC:
                         if (FlagOverflow == 0)
@@ -555,9 +556,7 @@ namespace EmuoTron
                         PushByteStack(RegA);
                         break;
                     case OpInfo.InstrPHP:
-                        value = RegP;
-                        value |= 0x30;
-                        PushByteStack(value);
+                        PushByteStack(RegP | 0x30);
                         break;
                     case OpInfo.InstrPLA:
                         Read(RegS | 0x0100);
@@ -576,8 +575,6 @@ namespace EmuoTron
                             pendingFlagIRQ1 = 2;
                             pendingFlagIRQValue1 = FlagIRQ;
                         }
-                        FlagBreak = 1;
-                        FlagNotUsed = 1;
                         break;
                     case OpInfo.InstrROL:
                         if (addressing == OpInfo.AddrAccumulator)
@@ -646,8 +643,6 @@ namespace EmuoTron
                         Read(RegS | 0x100);
                         RegP = PopByteStack();
                         delayedFlagIRQ = FlagIRQ;
-                        FlagBreak = 1;
-                        FlagNotUsed = 1;
                         RegPC = PopWordStack();
                         pendingFlagIRQ1 = 0;
                         pendingFlagIRQ2 = 0;
@@ -938,8 +933,7 @@ namespace EmuoTron
                 {
                     ReadWord(RegPC);//Supposedly takes 7 cycles and is the same pattern as BRK
                     PushWordStack(RegPC);
-                    FlagBreak = 0;
-                    PushByteStack(RegP);
+                    PushByteStack(RegP | 0x20);
                     FlagIRQ = 1;
                     delayedFlagIRQ = 1;
                     pendingFlagIRQ1 = 0;
@@ -947,12 +941,11 @@ namespace EmuoTron
                     RegPC = ReadWord(0xFFFA);
                     PPU.interruptNMI = false;
                 }
-                else if ((mapper.interruptMapper || APU.frameIRQ || APU.dmcInterrupt) && (delayedFlagIRQ == 0))
+                else if ((mapper.interruptMapper || APU.interruptAPU ) && (delayedFlagIRQ == 0))
                 {
                     ReadWord(RegPC);//Supposedly takes 7 cycles and is the same pattern as BRK
                     PushWordStack(RegPC);
-                    FlagBreak = 0;
-                    PushByteStack(RegP);
+                    PushByteStack(RegP | 0x20);
                     FlagIRQ = 1;
                     delayedFlagIRQ = 1;
                     pendingFlagIRQ1 = 0;
@@ -1085,7 +1078,7 @@ namespace EmuoTron
             debug.LogInfo("Starting Song: " + startingSong.ToString());
             debug.LogInfo("Playing Speed: " + Math.Round((1000000.0 / PBRATE), 3).ToString() + "hz");
             if ((specialChip & 1) != 0)
-                debug.LogInfo("VRC4");
+                debug.LogInfo("VRC6");
             if ((specialChip & 2) != 0)
                 debug.LogInfo("VRC7");
             if ((specialChip & 4) != 0)
@@ -1113,7 +1106,7 @@ namespace EmuoTron
                 byte nextByte = (byte)inputStream.ReadByte();
                 Memory.banks[(i / 0x400) + Memory.swapOffset][i % 0x400] = nextByte;
             }
-            mapper = new Mappers.mNSF(this, banks, PBRATE);
+            mapper = new Mappers.mNSF(this, banks, PBRATE, specialChip);
             ((Mappers.mNSF)mapper).totalSongs = totalSongs;
             ((Mappers.mNSF)mapper).startSong = startingSong;
             ((Mappers.mNSF)mapper).currentSong = startingSong;
@@ -1453,7 +1446,7 @@ namespace EmuoTron
                     mapper = new Mappers.mVRC4(this, 0x00, 0x02, 0x01, 0x03, 0x00, 0x08, 0x04, 0x0C);
                     break;
                 case 26: //VRC6b
-                    mapper = new Mappers.mVRC6(this, 0x00, 0x03, 0x02, 0x01);
+                    mapper = new Mappers.mVRC6(this, 0x00, 0x02, 0x01, 0x03);
                     break;
                 case 33:
                     mapper = new Mappers.m033(this);
@@ -1669,7 +1662,7 @@ namespace EmuoTron
             }
             else
             {
-                value = ((Mappers.mNSF)mapper).IRQ(value, 0); //NEEDS FIX FOR SECOND ARG
+                value = ((Mappers.mNSF)mapper).IRQ(value, -1); //NEEDS FIX FOR SECOND ARG
                 counter += value;
                 APU.AddCycles(value);
             }
@@ -1873,8 +1866,6 @@ namespace EmuoTron
             FlagZero = 1; //backwards
             FlagIRQ = 1;
             FlagDecimal = 0;
-            FlagBreak = 1;
-            FlagNotUsed = 1;
             FlagOverflow = 0;
             FlagSign = 0; //Bit 7 of P
             counter = 0;
@@ -1882,7 +1873,7 @@ namespace EmuoTron
             pendingFlagIRQ2 = 0;
             pendingFlagIRQValue1 = 0;
             pendingFlagIRQValue2 = 0;
-            delayedFlagIRQ = 0;
+            delayedFlagIRQ = 1;
             lastRead = 0;
             for (int i = 0; i < 0x800; i++)
             {
@@ -1963,11 +1954,12 @@ namespace EmuoTron
     public struct SoundVolume
     {
         public float master;
-        public float pulse1;
-        public float pulse2;
+        public float square1;
+        public float square2;
         public float triangle;
         public float noise;
         public float dmc;
+        public float external;
     }
     public struct Rom
     {

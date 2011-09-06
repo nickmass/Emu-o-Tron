@@ -38,6 +38,7 @@ namespace EmuoTron.Mappers
         public m005(NESCore nes)
         {
             this.nes = nes;
+            nes.APU.external = new Channels.MMC5(nes);
         }
         public override void Power()
         {
@@ -67,6 +68,7 @@ namespace EmuoTron.Mappers
         }
         public override byte Read(byte value, ushort address)
         {
+            nes.APU.external.Read(value, address);
             switch (address)
             {
                 case 0x5204:
@@ -94,6 +96,7 @@ namespace EmuoTron.Mappers
         }
         public override void Write(byte value, ushort address)
         {
+            nes.APU.external.Write(value, address);
             switch (address)
             {
                 case 0x5100:
