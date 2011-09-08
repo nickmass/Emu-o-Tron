@@ -91,9 +91,9 @@ namespace EmuoTron.Channels
                 divider = rate;
                 if (!silenced)
                 {
-                    if ((shiftReg & 1) != 0 && deltaCounter > 1)
+                    if ((shiftReg & 1) == 0 && deltaCounter > 1)
                         deltaCounter -= 2;
-                    else if ((shiftReg & 1) == 0 && deltaCounter < 126)
+                    else if ((shiftReg & 1) != 0 && deltaCounter < 126)
                         deltaCounter += 2;
                     shiftReg >>= 1;
                     shiftCount--;
