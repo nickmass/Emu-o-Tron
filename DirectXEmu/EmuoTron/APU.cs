@@ -28,7 +28,7 @@ namespace EmuoTron
         private int cycles;
         private int lastUpdateCycle;
         private int lastCycleClock;
-        public bool frameIRQ;
+        private bool frameIRQ;
         private int frameCounter;
         private int timeToClock;
         private int modeZeroDelay;
@@ -151,26 +151,7 @@ namespace EmuoTron
             timeToClock = modeZeroDelay - 10;
             if (nes.nsfPlayer)
             {
-                Write(00, 0x4000); //Start-up values
-                Write(00, 0x4001);
-                Write(00, 0x4002);
-                Write(00, 0x4003);
-                Write(00, 0x4004);
-                Write(00, 0x4005);
-                Write(00, 0x4006);
-                Write(00, 0x4007);
-                Write(00, 0x4008);
-                Write(00, 0x4009);
-                Write(00, 0x400A);
-                Write(00, 0x400B);
-                Write(00, 0x400C);
-                Write(00, 0x400D);
-                Write(00, 0x400E);
-                Write(00, 0x400F);
                 Write(0x10, 0x4010);
-                Write(00, 0x4011);
-                Write(00, 0x4012);
-                Write(00, 0x4013);
                 Write(0x0F, 0x4015);
             }
         }
@@ -211,7 +192,7 @@ namespace EmuoTron
         }
         public void Write(byte value, ushort address)
         {
-            if (address >= 0x4000 && address <= 0x4014)
+            if (address >= 0x4000 && address <= 0x4017)
             {
                 Update();
                 switch (address & 0xFFFC)
@@ -232,10 +213,6 @@ namespace EmuoTron
                         dmc.Write(value, (ushort)(address & 0x3));
                         break;
                 }
-            }
-            else
-            {
-                Update();
                 switch (address)
                 {
                     case 0x4015:
@@ -268,6 +245,23 @@ namespace EmuoTron
             dmc.ptr = 0;
             dmcOutputPtr = 0;
         }
+        private void QuarterFrame()
+        {
+            square1.QuarterFrame();
+            square2.QuarterFrame();
+            triangle.QuarterFrame();
+            noise.QuarterFrame();
+            external.QuarterFrame();
+        }
+        private void HalfFrame()
+        {
+            QuarterFrame(); //Quarter must be done first.
+            square1.HalfFrame();
+            square2.HalfFrame();
+            triangle.HalfFrame();
+            noise.HalfFrame();
+            external.HalfFrame();
+        }
         public void AddCycles(int cycles)
         {
             this.cycles += cycles;
@@ -277,63 +271,37 @@ namespace EmuoTron
             {
                 lastCycleClock += timeToClock;
                 Update();
-                int step;
                 if (!mode) //Mode 0
                 {
                     timeToClock = modeZeroFrameLengths[frameCounter % 4];
-                    step = frameCounter % 4;
+                    int step = frameCounter % 4;
+                    if (step == 0)
+                        QuarterFrame();
+                    else if (step == 1)
+                        HalfFrame();
+                    else if (step == 2)
+                        QuarterFrame();
+                    else if (step == 3)
+                    {
+                        HalfFrame();
+                        if (!mode && !frameIRQInhibit)
+                            frameIRQ = true;
+                    }
                 }
                 else
                 {
                     timeToClock = modeOneFrameLengths[frameCounter % 5];
-                    step = frameCounter % 5;
+                    int step = frameCounter % 5;
+                    if (step == 0)
+                        HalfFrame();
+                    else if (step == 1)
+                        QuarterFrame();
+                    else if (step == 2)
+                        HalfFrame();
+                    else if (step == 3)
+                        QuarterFrame();
                 }
                 frameCounter++;
-                if (step == 0)
-                {
-                    square1.QuaterFrame();
-                    square2.QuaterFrame();
-                    triangle.QuaterFrame();
-                    noise.QuaterFrame();
-                    external.QuaterFrame();
-                }
-                else if (step == 1)
-                {
-                    square1.HalfFrame();
-                    square2.HalfFrame();
-                    triangle.HalfFrame();
-                    noise.HalfFrame();
-                    external.HalfFrame();
-                    square1.QuaterFrame();
-                    square2.QuaterFrame();
-                    triangle.QuaterFrame();
-                    noise.QuaterFrame();
-                    external.QuaterFrame();
-                }
-                else if (step == 2)
-                {
-                    square1.QuaterFrame();
-                    square2.QuaterFrame();
-                    triangle.QuaterFrame();
-                    noise.QuaterFrame();
-                    external.QuaterFrame();
-                }
-                else if (step == 3)
-                {
-                    square1.HalfFrame();
-                    square2.HalfFrame();
-                    triangle.HalfFrame();
-                    noise.HalfFrame();
-                    external.HalfFrame();
-                    square1.QuaterFrame();
-                    square2.QuaterFrame();
-                    triangle.QuaterFrame();
-                    noise.QuaterFrame();
-                    external.QuaterFrame();
-                    if (!mode && !frameIRQInhibit)
-                        frameIRQ = true;
-
-                }
             }
         }
         public void Update()

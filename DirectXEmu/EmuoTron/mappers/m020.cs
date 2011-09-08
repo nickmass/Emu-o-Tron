@@ -75,6 +75,7 @@ namespace EmuoTron.Mappers
             }
             nes.debug.LogInfo("Disk Sides: " + sideCount.ToString());
             crc = crc ^ 0xFFFFFFFF;
+            nes.APU.external = new Channels.FDS();
         }
         public override void Power()
         {
@@ -90,6 +91,7 @@ namespace EmuoTron.Mappers
         {
             if((address & 0xFF00) == 0x4000)
             {
+                nes.APU.external.Write(value, address);
                 switch (address)
                 {
                     case 0x4020:
@@ -153,6 +155,7 @@ namespace EmuoTron.Mappers
         {
             if ((address & 0xFF00) == 0x4000)
             {
+                value = nes.APU.external.Read(value, address);
                 switch (address)
                 {
                     case 0x4030:

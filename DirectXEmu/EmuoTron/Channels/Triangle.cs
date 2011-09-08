@@ -59,7 +59,7 @@ namespace EmuoTron.Channels
                     break;
             }
         }
-        public override void QuaterFrame()
+        public override void QuarterFrame()
         {
             LinearCounter();
         }
@@ -67,7 +67,7 @@ namespace EmuoTron.Channels
         {
             LengthCounter();
         }
-        public override int Cycle()
+        public override byte Cycle()
         {
             divider--;
             if (divider == 0)

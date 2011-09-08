@@ -1086,7 +1086,7 @@ namespace EmuoTron
             if ((specialChip & 8) != 0)
                 debug.LogInfo("MMC5");
             if ((specialChip & 0x10) != 0)
-                debug.LogInfo("Namco 106");
+                debug.LogInfo("Namco 163");
             if ((specialChip & 0x20) != 0)
                 debug.LogInfo("Sunsoft FME-07");
             debug.LogInfo("Load Address: 0x" + loadAddress.ToString("X4"));

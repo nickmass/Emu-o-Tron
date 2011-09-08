@@ -16,6 +16,10 @@ namespace EmuoTron.Channels
 
         int chipCount;
 
+        bool hasMMC5 = false;
+        byte multiplicand;
+        byte multiplier;
+
         Channel VRC6;
         Channel VRC7;
         Channel FDS;
@@ -25,6 +29,7 @@ namespace EmuoTron.Channels
 
         public NSF(NESCore nes, int specialChips)
         {
+            this.nes = nes;
             chipCount = 0;
             if ((FlagVRC6 & specialChips) != 0)
             {
@@ -46,7 +51,7 @@ namespace EmuoTron.Channels
             }
             if ((FlagFDS & specialChips) != 0)
             {
-                FDS = new Channels.External();
+                FDS = new Channels.FDS();
                 chipCount++;
             }
             else
@@ -55,6 +60,7 @@ namespace EmuoTron.Channels
             }
             if ((FlagMMC5 & specialChips) != 0)
             {
+                hasMMC5 = true;
                 MMC5 = new Channels.MMC5(nes);
                 chipCount++;
             }
@@ -84,17 +90,43 @@ namespace EmuoTron.Channels
 
         public override byte Read(byte value, ushort address)
         {
+            value = FDS.Read(value, address);
             value = MMC5.Read(value, address);
             value = N163.Read(value, (ushort)(address & 0xF800));
+            if (hasMMC5)//Apparently some MMC5 NSFs need this.
+            {
+                switch (address)
+                {
+                    case 0x5205:
+                        value = (byte)((multiplicand * multiplier) & 0xFF);
+                        break;
+                    case 0x5206:
+                        value = (byte)((multiplicand * multiplier) >> 8);
+                        break;
+                }
+            }
             return value;
         }
 
         public override void Write(byte value, ushort address)
         {
             VRC6.Write(value, address);
+            FDS.Write(value, address);
             MMC5.Write(value, address);
             FME7.Write(value, (ushort)(address & 0xE000));
             N163.Write(value, (ushort)(address & 0xF800));
+            if (hasMMC5)
+            {
+                switch (address)
+                {
+                    case 0x5205:
+                        multiplicand = value;
+                        break;
+                    case 0x5206:
+                        multiplier = value;
+                        break;
+                }
+            }
         }
 
         public override void Power()
@@ -117,26 +149,30 @@ namespace EmuoTron.Channels
             FME7.HalfFrame();
         }
 
-        public override void QuaterFrame()
+        public override void QuarterFrame()
         {
-            VRC6.QuaterFrame();
-            VRC7.QuaterFrame();
-            FDS.QuaterFrame();
-            MMC5.QuaterFrame();
-            N163.QuaterFrame();
-            FME7.QuaterFrame();
+            VRC6.QuarterFrame();
+            VRC7.QuarterFrame();
+            FDS.QuarterFrame();
+            MMC5.QuarterFrame();
+            N163.QuarterFrame();
+            FME7.QuarterFrame();
         }
 
-        public override int Cycle()
+        public override byte Cycle()
         {
-            int volume = 0;
+            byte volume = 0;
             volume += VRC6.Cycle();
             volume += VRC7.Cycle();
             volume += FDS.Cycle();
             volume += MMC5.Cycle();
             volume += N163.Cycle();
             volume += FME7.Cycle();
-            volume = (int)(volume / (chipCount * 1.0));
+            volume = (byte)(volume / (chipCount * 1.0));
+            if (hasMMC5)
+            {
+                nes.mapper.interruptMapper = ((Channels.MMC5)MMC5).interrupt;
+            }
             return volume;
         }
 

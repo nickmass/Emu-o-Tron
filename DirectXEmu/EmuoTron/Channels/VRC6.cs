@@ -100,9 +100,9 @@ namespace EmuoTron.Channels
             }
 
         }
-        public override int Cycle()
+        public override byte Cycle()
         {
-            int volume = 0;
+            byte volume = 0;
             square1Counter++;
             if (square1Counter >= square1Freq)
             {
@@ -139,7 +139,7 @@ namespace EmuoTron.Channels
                 }
             }
             if (sawEnable)
-                volume += (sawAccum >> 3) & 0x1F;
+                volume += (byte)((sawAccum >> 3) & 0x1F);
             volume *= 3; //Could go to * 4 but that seems kinda overpowering, I really need an actual famicom and some carts to decide : (
             return volume;
         }

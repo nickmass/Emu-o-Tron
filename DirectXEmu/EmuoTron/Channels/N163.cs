@@ -86,9 +86,9 @@ namespace EmuoTron.Channels
                 value = soundRam[soundRamAddr];
             return value;
         }
-        public override int Cycle()
+        public override byte Cycle()
         {
-            int volume = 0;
+            byte volume = 0;
             for (int i = 7; i >= 0 && i >= 7 - enabledCount; i--)
             {
                 chanCounter[i]++;
@@ -106,9 +106,9 @@ namespace EmuoTron.Channels
                 if (chanVolume[i] != 0)
                 {
                     if ((chanAddr[i] & 1) == 0)
-                        volume += (int)((soundRam[chanAddr[i] >> 1] & 0x0F) * (chanVolume[i] / 7.0)); //Really don't like this volume clac, but will have to do.
+                        volume += (byte)((soundRam[chanAddr[i] >> 1] & 0x0F) * (chanVolume[i] / 7.0)); //Really don't like this volume clac, but will have to do.
                     else
-                        volume += (int)(((soundRam[chanAddr[i] >> 1] >> 4) & 0x0F) * (chanVolume[i] / 7.0));
+                        volume += (byte)(((soundRam[chanAddr[i] >> 1] >> 4) & 0x0F) * (chanVolume[i] / 7.0));
                 }
             }
             return volume;

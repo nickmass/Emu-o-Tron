@@ -7,8 +7,5 @@ namespace EmuoTron.Channels
 {
     class External : Channel
     {
-        public External()
-        {
-        }
     }
 }

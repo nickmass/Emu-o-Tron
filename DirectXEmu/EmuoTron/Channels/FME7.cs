@@ -15,7 +15,7 @@ namespace EmuoTron.Channels
         private int[] dutyCounter;
 
         private bool[] dutyCycle = { true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false };
-        private int[] sunsoftOut;
+        private byte[] sunsoftOut;
 
         public FME7()
         {
@@ -24,12 +24,12 @@ namespace EmuoTron.Channels
             dutyCounter = new int[3];
             enabled = new bool[3];
             volume = new byte[3];
-            sunsoftOut = new int[16];
+            sunsoftOut = new byte[16];
             double vol = 1.0;
             double step = Math.Pow(10, (3) / 20.0);
             for (int i = 0; i < 16; i++)
             {
-                sunsoftOut[i] = (int)(vol * 0.48); //0.48 is tweaked to keep the max volume * 3 under the 255 cap of the channel.
+                sunsoftOut[i] = (byte)(vol * 0.48); //0.48 is tweaked to keep the max volume * 3 under the 255 cap of the channel.
                 vol *= step;
             }
         }
@@ -79,9 +79,9 @@ namespace EmuoTron.Channels
                     break;
             }
         }
-        public override int Cycle()
+        public override byte Cycle()
         {
-            int volume = 0;
+            byte volume = 0;
             for (int i = 0; i < 3; i++)
             {
                 timer[i]++;

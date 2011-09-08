@@ -12,9 +12,9 @@ namespace EmuoTron.Channels
         public virtual void Power() { }
         public virtual byte Read(byte value, ushort address) { return value; }
         public virtual void Write(byte value, ushort address) { }
-        public virtual int Cycle() { return 0; }
+        public virtual byte Cycle() { return 0; }
         public virtual void HalfFrame() { }
-        public virtual void QuaterFrame() { }
+        public virtual void QuarterFrame() { }
         public virtual void StateSave(BinaryWriter writer) { }
         public virtual void StateLoad(BinaryReader reader) { }
     }

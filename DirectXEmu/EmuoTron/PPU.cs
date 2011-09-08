@@ -6,6 +6,14 @@ using System.IO;
 
 namespace EmuoTron
 {
+    public enum AccessType
+    {
+        spriteTile,
+        bgTile,
+        attrTable,
+        nameTable,
+        ppuData
+    }
     public class PPU
     {
         public MemoryStore PPUMemory;
@@ -256,14 +264,12 @@ namespace EmuoTron
                     if ((loopyV & 0x3F00) == 0x3F00)
                     {
                         nextByte = (byte)((PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] & grayScale) | (lastWrite & 0xC0)); //random wiki readings claim gray scale is applied here but have seen no roms that test it or evidence to support it.
-                        readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x3FFF]];
+                        readBuffer = PPURead(PPUMirrorMap[loopyV & 0x3FFF], AccessType.ppuData);
                     }
                     else
                     {
                         nextByte = readBuffer;
-                        readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x3FFF]];
-                        if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
-                            nes.mapper.IRQ(PPUMirrorMap[loopyV & 0x3FFF]);
+                        readBuffer = PPURead(PPUMirrorMap[loopyV & 0x3FFF], AccessType.ppuData);
                     }
                     int oldA12 = (loopyV >> 12) & 1;
                     if (scanline < 240 && (spriteRendering || backgroundRendering)) //Young Indiana Jones fix, http://nesdev.parodius.com/bbs/viewtopic.php?t=6401
@@ -385,7 +391,7 @@ namespace EmuoTron
                     if ((loopyV & 0x3F00) == 0x3F00)
                         PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] = (byte)(value & 0x3F);
                     else
-                        PPUMemory[PPUMirrorMap[loopyV & 0x3FFF]] = value;
+                        PPUWrite(PPUMirrorMap[loopyV & 0x3FFF], value, AccessType.ppuData);
 
                     int writeOldA12 = (loopyV >> 12) & 1;
                     loopyV = ((loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF);
@@ -626,8 +632,6 @@ namespace EmuoTron
                     }
                     else if (scanlineCycle < 320)//Load sprite tiles and counters.
                     {
-                        if(nes.rom.mapper == 0x05 && scanlineCycle == 256)
-                                ((Mappers.m005)nes.mapper).StartSprites(tallSprites);
                         switch (spriteStage)
                         {
                             case 0:
@@ -677,18 +681,14 @@ namespace EmuoTron
                                 break;
                             case 5:
                                 spriteData = secondaryOAM[(currentSprite << 2) + 3];
-                                currentSpritePlane1 = PPUMemory[currentSpriteChrAddress];
-                                if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
-                                    nes.mapper.IRQ(currentSpriteChrAddress);
+                                currentSpritePlane1 = PPURead(currentSpriteChrAddress, AccessType.spriteTile);
                                 break;
                             case 6:
                                 spriteData = secondaryOAM[(currentSprite << 2) + 3];
                                 break;
                             case 7:
                                 spriteData = secondaryOAM[(currentSprite << 2) + 3];
-                                currentSpritePlane2 = PPUMemory[currentSpriteChrAddress + 8];
-                                if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
-                                    nes.mapper.IRQ(currentSpriteChrAddress);
+                                currentSpritePlane2 = PPURead(currentSpriteChrAddress + 8, AccessType.spriteTile);
                                 bool horzFlip = (currentSpriteAttr & 0x40) != 0;
                                 if (!horzFlip)
                                 {
@@ -757,8 +757,6 @@ namespace EmuoTron
                     }
                     else
                     {
-                        if (nes.rom.mapper == 0x05 && scanlineCycle == 320)
-                            ((Mappers.m005)nes.mapper).StartBackground(tallSprites);
                         spriteData = secondaryOAM[0];
                     }
 
@@ -769,22 +767,20 @@ namespace EmuoTron
                         if (shiftCount == 0)
                         {
                             tileAddress = PPUMirrorMap[0x2000 | (loopyV & 0x0FFF)];
-                            tileNumber = PPUMemory[tileAddress];
+                            tileNumber = PPURead(tileAddress, AccessType.nameTable);
                         }
                         else if (shiftCount == 2)
                         {
                             int addrTableLookup = AttrTableLookup[tileAddress & 0x3FF];
-                            paletteLatcher = (PPUMemory[((tileAddress & 0x3C00) + 0x3C0) + (addrTableLookup & 0xFF)] >> (addrTableLookup >> 12)) & 0x3;
+                            paletteLatcher = (PPURead(((tileAddress & 0x3C00) + 0x3C0) + (addrTableLookup & 0xFF), AccessType.attrTable) >> (addrTableLookup >> 12)) & 0x3;
                         }
                         else if (shiftCount == 4)
                         {
-                            tile1Latch = PPUMemory[backgroundTable + (tileNumber << 4) + ((loopyV >> 12) & 7)];
+                            tile1Latch = PPURead(backgroundTable + (tileNumber << 4) + ((loopyV >> 12) & 7), AccessType.bgTile);
                         }
                         else if (shiftCount == 6)
                         {
-                            tile2Latch = PPUMemory[backgroundTable + (tileNumber << 4) + ((loopyV >> 12) & 7) + 8];
-                            if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
-                                nes.mapper.IRQ(backgroundTable + (tileNumber << 4) + ((loopyV >> 12) & 7));
+                            tile2Latch = PPURead(backgroundTable + (tileNumber << 4) + ((loopyV >> 12) & 7) + 8, AccessType.bgTile);
                             HorizontalIncrement();
                         }
                         if (scanlineCycle < 256 && scanline != -1 && (!turbo || (turbo && onSpriteZeroLine && !spriteZeroHit))) //I think this is all I can cut with turbo mode without some messy rewrites : /
@@ -897,6 +893,8 @@ namespace EmuoTron
                     lastUpdate++;
                     scanlineCycle++;
                     shiftCount++;
+                    if (nes.rom.mapper == 5)
+                        nes.mapper.IRQ(1);
                     if (scanline == vblankEnd - 1 && scanlineCycle == 341)
                     {
                         if (lastUpdate - nmiEnableTime <= 1) //Attempting to force an nmi in vblank 1 ppu cycle before the end of vblank will fail.
@@ -929,8 +927,6 @@ namespace EmuoTron
                         if (scanline == 241)
                         {
                             frameComplete = true;
-                            if (nes.rom.mapper == 5)
-                                nes.mapper.IRQ(1);
                             if (vblFlagRead - lastUpdate != -1) //Reading 2002 at the same time as it is set will cause the PPU to never enter vblank
                             {
                                 inVblank = true;
@@ -967,6 +963,23 @@ namespace EmuoTron
                 else
                     lastWrite = 0;
             }
+        }
+        private byte PPURead(int address, AccessType access)
+        {
+            byte value = PPUMemory[address];
+            if (nes.rom.mapper == 5)
+            {
+                value = ((Mappers.m005)nes.mapper).PPURead(address, value, access, tallSprites);
+            }
+            else if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
+            {
+                nes.mapper.IRQ(address);
+            }
+            return value;
+        }
+        private void PPUWrite(int address, byte value, AccessType access)
+        {
+            PPUMemory[address] = value;
         }
         private byte[][,] GenerateNameTables()
         {

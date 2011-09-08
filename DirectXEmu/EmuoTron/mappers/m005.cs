@@ -1,6 +1,4 @@
-﻿// Runs Castlevania 3 (barely) and some demos but nothing else
-// No vert split supported coded in at all and exram mode 1 is
-// wrong
+﻿// Vert split VERY primitive
 
 using System;
 using System.Collections.Generic;
@@ -26,8 +24,7 @@ namespace EmuoTron.Mappers
         byte highChr;
         int chrMode;
         int[] spriteBanks = new int[8];
-        int[] backgroundBanks = new int[8];
-        int[] lastBanks = new int[8];
+        int[] backgroundBanks = new int[4];
         byte[] prgBanks = new byte[5];
         bool[] prgRAMBanks = new bool[5];
         bool tallSprite = false;
@@ -35,6 +32,17 @@ namespace EmuoTron.Mappers
         bool irqEnabled = false;
         byte irqCounter = 0;
         bool irqInFrame = false;
+        bool interrupt;
+        bool inBackground;
+        bool lastWriteBackground;
+        int nextAttrReadAddr;
+        public override bool interruptMapper
+        {
+            get
+            {
+                return (irqEnabled && interrupt) || ((Channels.MMC5)nes.APU.external).interrupt;
+            }
+        }
         public m005(NESCore nes)
         {
             this.nes = nes;
@@ -48,7 +56,7 @@ namespace EmuoTron.Mappers
             irqCounter = 0;
             irqInFrame = false;
             ramReadOnly = true;
-            prgRAMBanks[0] = false;
+            prgRAMBanks[0] = true;
             prgRAMBanks[1] = false;
             prgRAMBanks[2] = false;
             prgRAMBanks[3] = false;
@@ -59,10 +67,20 @@ namespace EmuoTron.Mappers
             prgBanks[2] = 0;
             prgBanks[3] = 0;
             prgBanks[4] = 0xFF;
+            spriteBanks[0] = 0;
+            spriteBanks[1] = 1;
+            spriteBanks[2] = 2;
+            spriteBanks[3] = 3;
+            spriteBanks[4] = 4;
+            spriteBanks[5] = 5;
+            spriteBanks[6] = 6;
+            spriteBanks[7] = 7;
+            backgroundBanks[0] = 0;
+            backgroundBanks[1] = 1;
+            backgroundBanks[2] = 2;
+            backgroundBanks[3] = 3;
             PRGSync();
-            SpriteSync();
-            nes.Memory.SetReadOnly(0x5C00, 1, false);
-            nes.Memory.banks[nes.Memory.memMap[0x5C00 >> 0xA]] = exRAM;
+            CHRSync();
             nes.PPU.PPUMemory.banks[0xA] = exRAM;
             nes.PPU.PPUMemory.banks[0xB] = fillTable;
         }
@@ -73,11 +91,11 @@ namespace EmuoTron.Mappers
             {
                 case 0x5204:
                     value = 0;
-                    if (interruptMapper)
+                    if (interrupt)
                         value |= 0x80;
                     if (irqInFrame)
                         value |= 0x40;
-                    interruptMapper = false;
+                    interrupt = false;
                     break;
                 case 0x5205:
                     value = (byte)((multiplicand * multiplier) & 0xFF);
@@ -90,13 +108,21 @@ namespace EmuoTron.Mappers
             if (address >> 0xA == 0x5C00 >> 0xA)
             {
                 if (exMode == 0 || exMode == 1)
-                    value = (byte)(address - 0x5C00);//open bus
+                    value = (byte)(address & 0x3FF);//open bus
+                else
+                    value = exRAM[address & 0x3FF];
             }
             return value;
         }
         public override void Write(byte value, ushort address)
         {
             nes.APU.external.Write(value, address);
+
+            if (address >> 0xA == 0x5C00 >> 0xA)
+            {
+                if (exMode == 2 || (irqInFrame && (exMode == 0 || exMode == 1)))
+                    exRAM[address & 0x3FF] = value;
+            }
             switch (address)
             {
                 case 0x5100:
@@ -105,20 +131,20 @@ namespace EmuoTron.Mappers
                     break;
                 case 0x5101:
                     chrMode = value & 3;
+                    CHRSync();
                     break;
                 case 0x5102:
-                    ramProtect1 = (value & 3) == 2;
+                    ramProtect1 = (value & 3) != 2;
                     ramReadOnly = ramProtect1 && ramProtect2;
                     PRGSync();
                     break;
                 case 0x5103:
-                    ramProtect2 = (value & 3) == 1;
+                    ramProtect2 = (value & 3) != 1;
                     ramReadOnly = ramProtect1 && ramProtect2;
                     PRGSync();
                     break;
                 case 0x5104:
                     exMode = (byte)(value & 3);
-                    nes.Memory.SetReadOnly(0x5C00, 1, exMode == 3);
                     break;
                 case 0x5105:
                     nes.PPU.PPUMemory.CustomMirroring(0, value & 0x3);
@@ -146,10 +172,6 @@ namespace EmuoTron.Mappers
                 case 0x5113:
                     prgRAMBanks[0] = true;
                     prgBanks[0] = (byte)(value & 7);
-                    // Technically, $5113 should look something like:
-                    // [.... .CPP]
-                    //  C = Chip select
-                    //  P = 8k PRG-RAM page on selected chip
                     PRGSync();
                     break;
                 case 0x5114:
@@ -197,43 +219,38 @@ namespace EmuoTron.Mappers
                     PRGSync();
                     break;
                 case 0x5120:
-                    spriteBanks[0] = lastBanks[0] = value | (highChr << 8);
-                    break;
                 case 0x5121:
-                    spriteBanks[1] = lastBanks[1] = value | (highChr << 8);
-                    break;
                 case 0x5122:
-                    spriteBanks[2] = lastBanks[2] = value | (highChr << 8);
-                    break;
                 case 0x5123:
-                    spriteBanks[3] = lastBanks[3] = value | (highChr << 8);
-                    break;
                 case 0x5124:
-                    spriteBanks[4] = lastBanks[4] = value | (highChr << 8);
-                    break;
                 case 0x5125:
-                    spriteBanks[5] = lastBanks[5] = value | (highChr << 8);
-                    break;
                 case 0x5126:
-                    spriteBanks[6] = lastBanks[6] = value | (highChr << 8);
-                    break;
                 case 0x5127:
-                    spriteBanks[7] = lastBanks[7] = value | (highChr << 8);
+                    lastWriteBackground = false;
+                    spriteBanks[address & 7] = value | (highChr << 8);
+                    CHRSync();
                     break;
                 case 0x5128:
-                    backgroundBanks[0] = backgroundBanks[4] = lastBanks[0] = lastBanks[4] = value | (highChr << 8);
-                    break;
                 case 0x5129:
-                    backgroundBanks[1] = backgroundBanks[5] = lastBanks[1] = lastBanks[5] = value | (highChr << 8);
-                    break;
                 case 0x512A:
-                    backgroundBanks[2] = backgroundBanks[6] = lastBanks[2] = lastBanks[6] = value | (highChr << 8);
-                    break;
                 case 0x512B:
-                    backgroundBanks[3] = backgroundBanks[7] = lastBanks[3] = lastBanks[7] = value | (highChr << 8);
+                    lastWriteBackground = true;
+                    backgroundBanks[address & 3] = value | (highChr << 8);
+                    CHRSync();
                     break;
                 case 0x5130:
                     highChr = (byte)(value & 0x3);
+                    break;
+                case 0x5200:
+                    splitEnable = (value & 0x80) != 0;
+                    splitRightSide = (value & 0x40) != 0;
+                    splitTile = (byte)(value & 0x1F);
+                    break;
+                case 0x5201:
+                    splitYScroll = value;
+                    break;
+                case 0x5202:
+                    splitChrBank = value;
                     break;
                 case 0x5203:
                     irqTarget = value;
@@ -249,26 +266,82 @@ namespace EmuoTron.Mappers
                     break;
             }
         }
+        bool splitEnable;
+        bool splitRightSide;
+        byte splitTile;
+        byte splitYScroll;
+        byte splitChrBank;
+        int splitTileCounter;
+        bool inSplit;
+        public byte PPURead(int address, byte value, AccessType access, bool tallSprites)
+        {
+            inSplit = false;
+            if (splitEnable && (exMode == 0 || exMode == 1))
+            {
+                if (access == AccessType.nameTable)
+                    splitTileCounter++;
+                if ((splitTileCounter < splitTile && !splitRightSide) || (splitTileCounter >= splitTile &&splitRightSide))
+                {
+                    inSplit = true;
+                }
+            }
+            if (access == AccessType.spriteTile)
+            {
+                StartSprites(tallSprites);
+                value = nes.PPU.PPUMemory[address];
+                splitTileCounter = -1;
+            }
+            else if (inSplit)
+            {
+                if (access == AccessType.nameTable || access == AccessType.attrTable)
+                {
+                    value = exRAM[address & 0x3FF];
+                    nes.PPU.PPUMemory.Swap4kROM(0x0000, splitChrBank % (nes.rom.vROM / 4));
+                    nes.PPU.PPUMemory.Swap4kROM(0x1000, splitChrBank % (nes.rom.vROM / 4));
+                }
+            }
+            else
+            {
+                if (exMode != 1)
+                {
+                    if (access == AccessType.bgTile)
+                    {
+                        StartBackground(tallSprites);
+                        value = nes.PPU.PPUMemory[address];
+                    }
+                }
+                else
+                {
+                    if (access == AccessType.nameTable)
+                    {
+                        nextAttrReadAddr = address & 0x3FF;//I could just do the math here and not do the actual bank swap, but that would really be almost duplicating the MemoryStore math.
+                        nes.PPU.PPUMemory.Swap4kROM(0x0000, ((exRAM[address & 0x3FF] & 0x3F) | highChr << 6) % (nes.rom.vROM / 4));
+                        nes.PPU.PPUMemory.Swap4kROM(0x1000, ((exRAM[address & 0x3FF] & 0x3F) | highChr << 6) % (nes.rom.vROM / 4));
+                    }
+                    else if (access == AccessType.attrTable)//This relies on the Attr read for a tile always coming directly after that tiles nametable read, otherwise I would need a lookup table.
+                    {
+                        int attr = (exRAM[nextAttrReadAddr] >> 6) & 3;
+                        value = (byte)(attr | (attr << 2) | (attr << 4) | (attr << 6));
+                    }
+                }
+            }
+            return value;
+        }
         public override void IRQ(int arg)
         {
             if (arg == 0)
             {
-                if (irqCounter > 242)
-                {
-                    int i = 0;
-                    i++;
-                }
                 if (irqInFrame)
                 {
                     irqCounter++;
                     if (irqCounter == irqTarget)
-                        interruptMapper = true;
+                        interrupt = true;
                 }
                 else
                 {
                     irqInFrame = true;
                     irqCounter = 0;
-                    interruptMapper = false;
+                    interrupt = false;
                 }
             }
             else if (arg == 1)
@@ -276,138 +349,182 @@ namespace EmuoTron.Mappers
                 irqInFrame = false;
             }
         }
+        private void CHRSync()
+        {
+            if (inBackground)
+                BackgroundSync();
+            else
+                SpriteSync();
+        }
+        private void SwapBackground()
+        {
+            switch (chrMode)
+            {
+                case 0:
+                    nes.PPU.PPUMemory.Swap4kROM(0x0000, (backgroundBanks[3] * 2) % (nes.rom.vROM / 4));
+                    nes.PPU.PPUMemory.Swap4kROM(0x1000, (backgroundBanks[3] * 2) % (nes.rom.vROM / 4));
+                    break;
+                case 1:
+                    nes.PPU.PPUMemory.Swap4kROM(0x0000, backgroundBanks[3] % (nes.rom.vROM / 4));
+                    nes.PPU.PPUMemory.Swap4kROM(0x1000, backgroundBanks[3] % (nes.rom.vROM / 4));
+                    break;
+                case 2:
+                    nes.PPU.PPUMemory.Swap2kROM(0x0000, backgroundBanks[1] % (nes.rom.vROM / 2));
+                    nes.PPU.PPUMemory.Swap2kROM(0x0800, backgroundBanks[3] % (nes.rom.vROM / 2));
+                    nes.PPU.PPUMemory.Swap2kROM(0x1000, backgroundBanks[1] % (nes.rom.vROM / 2));
+                    nes.PPU.PPUMemory.Swap2kROM(0x1800, backgroundBanks[3] % (nes.rom.vROM / 2));
+                    break;
+                case 3:
+                    nes.PPU.PPUMemory.Swap1kROM(0x0000, backgroundBanks[0] % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM(0x0400, backgroundBanks[1] % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM(0x0800, backgroundBanks[2] % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM(0x0C00, backgroundBanks[3] % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM(0x1000, backgroundBanks[0] % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM(0x1400, backgroundBanks[1] % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM(0x1800, backgroundBanks[2] % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM(0x1C00, backgroundBanks[3] % nes.rom.vROM);
+                    break;
+            }
+        }
+        private void SwapSprites()
+        {
+            switch (chrMode)
+            {
+                case 0:
+                    nes.PPU.PPUMemory.Swap8kROM(0x0000, spriteBanks[7] % (nes.rom.vROM / 8));
+                    break;
+                case 1:
+                    nes.PPU.PPUMemory.Swap4kROM(0x0000, spriteBanks[3] % (nes.rom.vROM / 4));
+                    nes.PPU.PPUMemory.Swap4kROM(0x1000, spriteBanks[7] % (nes.rom.vROM / 4));
+                    break;
+                case 2:
+                    nes.PPU.PPUMemory.Swap2kROM(0x0000, spriteBanks[1] % (nes.rom.vROM / 2));
+                    nes.PPU.PPUMemory.Swap2kROM(0x0800, spriteBanks[3] % (nes.rom.vROM / 2));
+                    nes.PPU.PPUMemory.Swap2kROM(0x1000, spriteBanks[5] % (nes.rom.vROM / 2));
+                    nes.PPU.PPUMemory.Swap2kROM(0x1800, spriteBanks[7] % (nes.rom.vROM / 2));
+                    break;
+                case 3:
+                    nes.PPU.PPUMemory.Swap1kROM(0x0000, spriteBanks[0] % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM(0x0400, spriteBanks[1] % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM(0x0800, spriteBanks[2] % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM(0x0C00, spriteBanks[3] % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM(0x1000, spriteBanks[4] % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM(0x1400, spriteBanks[5] % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM(0x1800, spriteBanks[6] % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM(0x1C00, spriteBanks[7] % nes.rom.vROM);
+                    break;
+            }
+        }
         private void SpriteSync()
         {
-            if (tallSprite)
+            if (tallSprite || !lastWriteBackground)
             {
-                switch (chrMode)
-                {
-                    case 0:
-                        nes.PPU.PPUMemory.Swap8kROM(0x0000, spriteBanks[7] % (nes.rom.vROM / 8)); 
-                        break;
-                    case 1:
-                        nes.PPU.PPUMemory.Swap4kROM(0x0000, spriteBanks[3] % (nes.rom.vROM / 4)); 
-                        nes.PPU.PPUMemory.Swap4kROM(0x1000, spriteBanks[7] % (nes.rom.vROM / 4)); 
-                        break;
-                    case 2:
-                        nes.PPU.PPUMemory.Swap2kROM(0x0000, spriteBanks[1] % (nes.rom.vROM / 2));
-                        nes.PPU.PPUMemory.Swap2kROM(0x0800, spriteBanks[3] % (nes.rom.vROM / 2));
-                        nes.PPU.PPUMemory.Swap2kROM(0x1000, spriteBanks[5] % (nes.rom.vROM / 2));
-                        nes.PPU.PPUMemory.Swap2kROM(0x1800, spriteBanks[7] % (nes.rom.vROM / 2));
-                        break;
-                    case 3:
-                        nes.PPU.PPUMemory.Swap1kROM(0x0000, spriteBanks[0] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x0400, spriteBanks[1] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x0800, spriteBanks[2] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x0C00, spriteBanks[3] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x1000, spriteBanks[4] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x1400, spriteBanks[5] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x1800, spriteBanks[6] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x1C00, spriteBanks[7] % nes.rom.vROM);
-                        break;
-                }
+                SwapSprites();
             }
             else
             {
-                switch (chrMode)
-                {
-                    case 0:
-                        nes.PPU.PPUMemory.Swap8kROM(0x0000, lastBanks[7] % (nes.rom.vROM / 8));
-                        break;
-                    case 1:
-                        nes.PPU.PPUMemory.Swap4kROM(0x0000, lastBanks[3] % (nes.rom.vROM / 4));
-                        nes.PPU.PPUMemory.Swap4kROM(0x1000, lastBanks[7] % (nes.rom.vROM / 4));
-                        break;
-                    case 2:
-                        nes.PPU.PPUMemory.Swap2kROM(0x0000, lastBanks[1] % (nes.rom.vROM / 2));
-                        nes.PPU.PPUMemory.Swap2kROM(0x0800, lastBanks[3] % (nes.rom.vROM / 2));
-                        nes.PPU.PPUMemory.Swap2kROM(0x1000, lastBanks[5] % (nes.rom.vROM / 2));
-                        nes.PPU.PPUMemory.Swap2kROM(0x1800, lastBanks[7] % (nes.rom.vROM / 2));
-                        break;
-                    case 3:
-                        nes.PPU.PPUMemory.Swap1kROM(0x0000, lastBanks[0] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x0400, lastBanks[1] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x0800, lastBanks[2] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x0C00, lastBanks[3] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x1000, lastBanks[4] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x1400, lastBanks[5] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x1800, lastBanks[6] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x1C00, lastBanks[7] % nes.rom.vROM);
-                        break;
-                }
+                SwapBackground();
             }
         }
         private void BackgroundSync()
         {
-            if (tallSprite)
+            if (tallSprite || lastWriteBackground)
             {
-                switch (chrMode)
-                {
-                    case 0:
-                        nes.PPU.PPUMemory.Swap4kROM(0x0000, (backgroundBanks[7] * 2) % (nes.rom.vROM / 4));
-                        nes.PPU.PPUMemory.Swap4kROM(0x1000, (backgroundBanks[7] * 2) % (nes.rom.vROM / 4));
-                        break;
-                    case 1:
-                        nes.PPU.PPUMemory.Swap4kROM(0x0000, backgroundBanks[3] % (nes.rom.vROM / 4));
-                        nes.PPU.PPUMemory.Swap4kROM(0x1000, backgroundBanks[7] % (nes.rom.vROM / 4));
-                        break;
-                    case 2:
-                        nes.PPU.PPUMemory.Swap2kROM(0x0000, backgroundBanks[1] % (nes.rom.vROM / 2));
-                        nes.PPU.PPUMemory.Swap2kROM(0x0800, backgroundBanks[3] % (nes.rom.vROM / 2));
-                        nes.PPU.PPUMemory.Swap2kROM(0x1000, backgroundBanks[5] % (nes.rom.vROM / 2));
-                        nes.PPU.PPUMemory.Swap2kROM(0x1800, backgroundBanks[7] % (nes.rom.vROM / 2));
-                        break;
-                    case 3:
-                        nes.PPU.PPUMemory.Swap1kROM(0x0000, backgroundBanks[0] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x0400, backgroundBanks[1] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x0800, backgroundBanks[2] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x0C00, backgroundBanks[3] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x1000, backgroundBanks[4] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x1400, backgroundBanks[5] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x1800, backgroundBanks[6] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x1C00, backgroundBanks[7] % nes.rom.vROM);
-                        break;
-                }
+                SwapBackground();
             }
             else
             {
-                switch (chrMode)
-                {
-                    case 0:
-                        nes.PPU.PPUMemory.Swap8kROM(0x0000, lastBanks[7] % (nes.rom.vROM / 8));
-                        break;
-                    case 1:
-                        nes.PPU.PPUMemory.Swap4kROM(0x0000, lastBanks[3] % (nes.rom.vROM / 4));
-                        nes.PPU.PPUMemory.Swap4kROM(0x1000, lastBanks[7] % (nes.rom.vROM / 4));
-                        break;
-                    case 2:
-                        nes.PPU.PPUMemory.Swap2kROM(0x0000, lastBanks[1] % (nes.rom.vROM / 2));
-                        nes.PPU.PPUMemory.Swap2kROM(0x0800, lastBanks[3] % (nes.rom.vROM / 2));
-                        nes.PPU.PPUMemory.Swap2kROM(0x1000, lastBanks[5] % (nes.rom.vROM / 2));
-                        nes.PPU.PPUMemory.Swap2kROM(0x1800, lastBanks[7] % (nes.rom.vROM / 2));
-                        break;
-                    case 3:
-                        nes.PPU.PPUMemory.Swap1kROM(0x0000, lastBanks[0] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x0400, lastBanks[1] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x0800, lastBanks[2] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x0C00, lastBanks[3] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x1000, lastBanks[4] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x1400, lastBanks[5] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x1800, lastBanks[6] % nes.rom.vROM);
-                        nes.PPU.PPUMemory.Swap1kROM(0x1C00, lastBanks[7] % nes.rom.vROM);
-                        break;
-                }
+                SwapSprites();
             }
         }
         public void StartBackground(bool tallSprites)
         {
+            inBackground = true;
             this.tallSprite = tallSprites;
-            BackgroundSync();
+            CHRSync();
         }
         public void StartSprites(bool tallSprites)
         {
+            inBackground = false;
             this.tallSprite = tallSprites;
-            SpriteSync();
+            CHRSync();
+        }
+        private void SwapPrg(ushort addr, int size, int bank, bool ramBank, bool ramProtect)
+        {
+            if (ramBank)
+            {
+                if (ramProtect)
+                {
+                    switch (size)
+                    {
+                        case 32:
+                            nes.Memory.Swap32kROM(addr, (bank >> 2) + (nes.rom.prgROM / 32)); //The addition here moves the bank into the 64kb I appended to the end of the memory store for mmc5.
+                            break;
+                        case 16:
+                            nes.Memory.Swap16kROM(addr, (bank >> 1) + (nes.rom.prgROM / 16));
+                            break;
+                        case 8:
+                            nes.Memory.Swap8kROM(addr, bank + (nes.rom.prgROM / 8));
+                            break;
+                    }
+                }
+                else
+                {
+                    switch (size)
+                    {
+                        case 32:
+                            nes.Memory.Swap32kRAM(addr, (bank >> 2) + (nes.rom.prgROM / 32));
+                            break;
+                        case 16:
+                            nes.Memory.Swap16kRAM(addr, (bank >> 1) + (nes.rom.prgROM / 16));
+                            break;
+                        case 8:
+                            nes.Memory.Swap8kRAM(addr, bank + (nes.rom.prgROM / 8));
+                            break;
+                    }
+                }
+            }
+            else
+            {
+                switch (size)
+                {
+
+                    case 32:
+                        nes.Memory.Swap32kROM(addr, (bank >> 2) % (nes.rom.prgROM / 32));
+                        break;
+                    case 16:
+                        nes.Memory.Swap16kROM(addr, (bank >> 1) % (nes.rom.prgROM / 16));
+                        break;
+                    case 8:
+                        nes.Memory.Swap8kROM(addr, bank % (nes.rom.prgROM / 8));
+                        break;
+                }
+            }
+        }
+        private void PRGSync()
+        {
+            SwapPrg(0x6000, 8, prgBanks[0], prgRAMBanks[0], ramReadOnly);
+            switch (prgMode)
+            {
+                case 0:
+                    SwapPrg(0x8000, 32, prgBanks[4], prgRAMBanks[4], ramReadOnly);
+                    break;
+                case 1:
+                    SwapPrg(0x8000, 16, prgBanks[2], prgRAMBanks[2], ramReadOnly);
+                    SwapPrg(0xC000, 16, prgBanks[4], prgRAMBanks[4], ramReadOnly);
+                    break;
+                case 2:
+                    SwapPrg(0x8000, 16, prgBanks[2], prgRAMBanks[2], ramReadOnly);
+                    SwapPrg(0xC000, 8, prgBanks[3], prgRAMBanks[3], ramReadOnly);
+                    SwapPrg(0xE000, 8, prgBanks[4], prgRAMBanks[4], ramReadOnly);
+                    break;
+                case 3:
+                    SwapPrg(0x8000, 8, prgBanks[1], prgRAMBanks[1], ramReadOnly);
+                    SwapPrg(0xA000, 8, prgBanks[2], prgRAMBanks[2], ramReadOnly);
+                    SwapPrg(0xC000, 8, prgBanks[3], prgRAMBanks[3], ramReadOnly);
+                    SwapPrg(0xE000, 8, prgBanks[4], prgRAMBanks[4], ramReadOnly);
+                    break;
+            }
         }
         public override void StateSave(BinaryWriter writer)
         {
@@ -434,18 +551,6 @@ namespace EmuoTron.Mappers
             writer.Write(backgroundBanks[1]);
             writer.Write(backgroundBanks[2]);
             writer.Write(backgroundBanks[3]);
-            writer.Write(backgroundBanks[4]);
-            writer.Write(backgroundBanks[5]);
-            writer.Write(backgroundBanks[6]);
-            writer.Write(backgroundBanks[7]);
-            writer.Write(lastBanks[0]);
-            writer.Write(lastBanks[1]);
-            writer.Write(lastBanks[2]);
-            writer.Write(lastBanks[3]);
-            writer.Write(lastBanks[4]);
-            writer.Write(lastBanks[5]);
-            writer.Write(lastBanks[6]);
-            writer.Write(lastBanks[7]);
             writer.Write(prgBanks[0]);
             writer.Write(prgBanks[1]);
             writer.Write(prgBanks[2]);
@@ -461,6 +566,9 @@ namespace EmuoTron.Mappers
             writer.Write(irqEnabled);
             writer.Write(irqCounter);
             writer.Write(irqInFrame);
+            writer.Write(inBackground);
+            writer.Write(lastWriteBackground);
+            writer.Write(nextAttrReadAddr);
         }
         public override void StateLoad(BinaryReader reader)
         {
@@ -487,18 +595,6 @@ namespace EmuoTron.Mappers
             backgroundBanks[1] = reader.ReadInt32();
             backgroundBanks[2] = reader.ReadInt32();
             backgroundBanks[3] = reader.ReadInt32();
-            backgroundBanks[4] = reader.ReadInt32();
-            backgroundBanks[5] = reader.ReadInt32();
-            backgroundBanks[6] = reader.ReadInt32();
-            backgroundBanks[7] = reader.ReadInt32();
-            lastBanks[0] = reader.ReadInt32();
-            lastBanks[1] = reader.ReadInt32();
-            lastBanks[2] = reader.ReadInt32();
-            lastBanks[3] = reader.ReadInt32();
-            lastBanks[4] = reader.ReadInt32();
-            lastBanks[5] = reader.ReadInt32();
-            lastBanks[6] = reader.ReadInt32();
-            lastBanks[7] = reader.ReadInt32();
             prgBanks[0] = reader.ReadByte();
             prgBanks[1] = reader.ReadByte();
             prgBanks[2] = reader.ReadByte();
@@ -514,136 +610,9 @@ namespace EmuoTron.Mappers
             irqEnabled = reader.ReadBoolean();
             irqCounter = reader.ReadByte();
             irqInFrame = reader.ReadBoolean();
-        }
-        private void PRGSync()
-        {
-            int swapBank;
-            if (!ramReadOnly)
-            {
-                nes.Memory.Swap8kRAM(0x6000, (nes.rom.prgROM / 8) + prgBanks[0]);
-                switch (prgMode)
-                {
-                    case 0:
-                        swapBank = (prgBanks[4] % (nes.rom.prgROM / 8)) & 0xFC;
-                        nes.Memory.Swap8kROM(0x8000, swapBank);
-                        nes.Memory.Swap8kROM(0xA000, swapBank + 1);
-                        nes.Memory.Swap8kROM(0xC000, swapBank + 2);
-                        nes.Memory.Swap8kROM(0xE000, swapBank + 3);
-                        break;
-                    case 1:
-                        swapBank = (prgBanks[2] % (nes.rom.prgROM / 8)) & 0xFE;
-                        if (prgRAMBanks[2])
-                        {
-                            nes.Memory.Swap8kRAM(0x8000, (nes.rom.prgROM / 8) + swapBank);
-                            nes.Memory.Swap8kRAM(0xA000, (nes.rom.prgROM / 8) + swapBank + 1);
-                        }
-                        else
-                        {
-                            nes.Memory.Swap8kROM(0x8000, swapBank);
-                            nes.Memory.Swap8kROM(0xA000, swapBank + 1);
-                        }
-                        swapBank = (prgBanks[4] % (nes.rom.prgROM / 8)) & 0xFE;
-                        nes.Memory.Swap8kROM(0xC000, swapBank);
-                        nes.Memory.Swap8kROM(0xE000, swapBank + 1);
-                        break;
-                    case 2:
-                        swapBank = (prgBanks[2] % (nes.rom.prgROM / 8)) & 0xFE;
-                        if (prgRAMBanks[2])
-                        {
-                            nes.Memory.Swap8kRAM(0x8000, (nes.rom.prgROM / 8) + swapBank);
-                            nes.Memory.Swap8kRAM(0xA000, (nes.rom.prgROM / 8) + swapBank + 1);
-                        }
-                        else
-                        {
-                            nes.Memory.Swap8kROM(0x8000, swapBank);
-                            nes.Memory.Swap8kROM(0xA000, swapBank + 1);
-                        }
-                        if (prgRAMBanks[3])
-                            nes.Memory.Swap8kRAM(0xC000, (nes.rom.prgROM / 8) + (prgBanks[3]));
-                        else
-                            nes.Memory.Swap8kROM(0xC000, prgBanks[3] % (nes.rom.prgROM / 8));
-                        nes.Memory.Swap8kROM(0xE000, prgBanks[4] % (nes.rom.prgROM / 8));
-                        break;
-                    case 3:
-                        if (prgRAMBanks[1])
-                            nes.Memory.Swap8kRAM(0x8000, (nes.rom.prgROM / 8) + (prgBanks[1]));
-                        else
-                            nes.Memory.Swap8kROM(0x8000, prgBanks[1] % (nes.rom.prgROM / 8));
-                        if (prgRAMBanks[2])
-                            nes.Memory.Swap8kRAM(0xA000, (nes.rom.prgROM / 8) + (prgBanks[2]));
-                        else
-                            nes.Memory.Swap8kROM(0xA000, prgBanks[2] % (nes.rom.prgROM / 8));
-                        if (prgRAMBanks[3])
-                            nes.Memory.Swap8kRAM(0xC000, (nes.rom.prgROM / 8) + (prgBanks[3]));
-                        else
-                            nes.Memory.Swap8kROM(0xC000, prgBanks[3] % (nes.rom.prgROM / 8));
-                        nes.Memory.Swap8kROM(0xE000, prgBanks[4] % (nes.rom.prgROM / 8));
-                        break;
-                }
-            }
-            else
-            {
-                nes.Memory.Swap8kROM(0x6000, (nes.rom.prgROM / 8) + prgBanks[0]);
-                switch (prgMode)
-                {
-                    case 0:
-                        swapBank = (prgBanks[4] % (nes.rom.prgROM / 8)) & 0xFC;
-                        nes.Memory.Swap8kROM(0x8000, swapBank);
-                        nes.Memory.Swap8kROM(0xA000, swapBank + 1);
-                        nes.Memory.Swap8kROM(0xC000, swapBank + 2);
-                        nes.Memory.Swap8kROM(0xE000, swapBank + 3);
-                        break;
-                    case 1:
-                        swapBank = (prgBanks[2] % (nes.rom.prgROM / 8)) & 0xFE;
-                        if (prgRAMBanks[2])
-                        {
-                            nes.Memory.Swap8kROM(0x8000, (nes.rom.prgROM / 8) + swapBank);
-                            nes.Memory.Swap8kROM(0xA000, (nes.rom.prgROM / 8) + swapBank + 1);
-                        }
-                        else
-                        {
-                            nes.Memory.Swap8kROM(0x8000, swapBank);
-                            nes.Memory.Swap8kROM(0xA000, swapBank + 1);
-                        }
-                        swapBank = (prgBanks[4] % (nes.rom.prgROM / 8)) & 0xFE;
-                        nes.Memory.Swap8kROM(0xC000, swapBank);
-                        nes.Memory.Swap8kROM(0xE000, swapBank + 1);
-                        break;
-                    case 2:
-                        swapBank = (prgBanks[2] % (nes.rom.prgROM / 8)) & 0xFE;
-                        if (prgRAMBanks[2])
-                        {
-                            nes.Memory.Swap8kROM(0x8000, (nes.rom.prgROM / 8) + swapBank);
-                            nes.Memory.Swap8kROM(0xA000, (nes.rom.prgROM / 8) + swapBank + 1);
-                        }
-                        else
-                        {
-                            nes.Memory.Swap8kROM(0x8000, swapBank);
-                            nes.Memory.Swap8kROM(0xA000, swapBank + 1);
-                        }
-                        if (prgRAMBanks[3])
-                            nes.Memory.Swap8kROM(0xC000, (nes.rom.prgROM / 8) + (prgBanks[3]));
-                        else
-                            nes.Memory.Swap8kROM(0xC000, prgBanks[3] % (nes.rom.prgROM / 8));
-                        nes.Memory.Swap8kROM(0xE000, prgBanks[4] % (nes.rom.prgROM / 8));
-                        break;
-                    case 3:
-                        if (prgRAMBanks[1])
-                            nes.Memory.Swap8kROM(0x8000, (nes.rom.prgROM / 8) + (prgBanks[1]));
-                        else
-                            nes.Memory.Swap8kROM(0x8000, prgBanks[1] % (nes.rom.prgROM / 8));
-                        if (prgRAMBanks[2])
-                            nes.Memory.Swap8kROM(0xA000, (nes.rom.prgROM / 8) + (prgBanks[2]));
-                        else
-                            nes.Memory.Swap8kROM(0xA000, prgBanks[2] % (nes.rom.prgROM / 8));
-                        if (prgRAMBanks[3])
-                            nes.Memory.Swap8kROM(0xC000, (nes.rom.prgROM / 8) + (prgBanks[3]));
-                        else
-                            nes.Memory.Swap8kROM(0xC000, prgBanks[3] % (nes.rom.prgROM / 8));
-                        nes.Memory.Swap8kROM(0xE000, prgBanks[4] % (nes.rom.prgROM / 8));
-                        break;
-                }
-            }
+            inBackground = reader.ReadBoolean();
+            lastWriteBackground = reader.ReadBoolean();
+            nextAttrReadAddr = reader.ReadInt32();
         }
     }
 }

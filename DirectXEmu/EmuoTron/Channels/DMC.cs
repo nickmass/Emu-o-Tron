@@ -24,7 +24,7 @@ namespace EmuoTron.Channels
         private int[] rates;
         public byte[] buffer;
         public int ptr;
-        private bool delay;
+        private bool silenced;
 
         public DMC(NESCore nes, int bufferSize)
         {
@@ -55,7 +55,7 @@ namespace EmuoTron.Channels
             switch (reg)
             {
                 case 0: //DMC Flags and Freq
-                    rate =rates[value & 0xF];
+                    rate = rates[value & 0xF];
                     divider = rate;
                     loop = (value & 0x40) != 0;
                     interruptEnable = (value & 0x80) != 0;
@@ -83,17 +83,43 @@ namespace EmuoTron.Channels
                     break;
             }
         }
-        public override int Cycle()
+        public override byte Cycle()
         {
-            if (sampleBufferEmpty && !delay)
+            divider--;
+            if (divider == 0)
+            {
+                divider = rate;
+                if (!silenced)
+                {
+                    if ((shiftReg & 1) != 0 && deltaCounter > 1)
+                        deltaCounter -= 2;
+                    else if ((shiftReg & 1) == 0 && deltaCounter < 126)
+                        deltaCounter += 2;
+                    shiftReg >>= 1;
+                    shiftCount--;
+                }
+                if (shiftCount <= 0)
+                {
+                    if (!sampleBufferEmpty)
+                    {
+                        shiftReg = sampleBuffer;
+                        sampleBufferEmpty = true;
+                        silenced = false;
+                        shiftCount = 8;
+                    }
+                    else
+                    {
+                        silenced = true;
+                    }
+                }
+            }
+            if (sampleBufferEmpty)
             {
                 if (bytesRemaining != 0)
                 {
                     sampleBuffer = nes.Memory[sampleCurrentAddress];
                     sampleBufferEmpty = false;
-                    delay = true;
                     nes.AddCycles(4);
-                    delay = false;
                     sampleCurrentAddress++;
                     if (sampleCurrentAddress > 0xFFFF)
                         sampleCurrentAddress = 0x8000;
@@ -106,38 +132,14 @@ namespace EmuoTron.Channels
                             sampleCurrentAddress = sampleAddress;
                         }
                         else if (interruptEnable)
+                        {
                             interrupt = true;
+                        }
                     }
                 }
             }
-            divider--;
-            if (divider == 0)
-            {
-                if (shiftCount > 0)
-                {
-                    if ((shiftReg & 1) != 0 && deltaCounter > 1)
-                        deltaCounter -= 2;
-                    else if ((shiftReg & 1) == 0 && deltaCounter < 126)
-                        deltaCounter += 2;
-                    shiftReg >>= 1;
-                    shiftCount--;
-                }
-                else if (!sampleBufferEmpty)
-                {
-                    shiftReg = sampleBuffer;
-                    sampleBufferEmpty = true;
-                    shiftCount = 8;
-                    if ((shiftReg & 1) != 0 && deltaCounter > 1)
-                        deltaCounter -= 2;
-                    else if ((shiftReg & 1) == 0 && deltaCounter < 126)
-                        deltaCounter += 2;
-                    shiftReg >>= 1;
-                    shiftCount--;
-                }
-                divider = rate;
-            }
             buffer[ptr++] = deltaCounter;
-            return 0;
+            return deltaCounter;
         }
         public override void StateSave(System.IO.BinaryWriter writer)
         {
@@ -155,7 +157,7 @@ namespace EmuoTron.Channels
             writer.Write(sampleBufferEmpty);
             writer.Write(shiftCount);
             writer.Write(shiftReg);
-            writer.Write(delay);
+            writer.Write(silenced);
         }
         public override void StateLoad(System.IO.BinaryReader reader)
         {
@@ -173,7 +175,7 @@ namespace EmuoTron.Channels
             sampleBufferEmpty = reader.ReadBoolean();
             shiftCount = reader.ReadInt32();
             shiftReg = reader.ReadByte();
-            delay = reader.ReadBoolean();
+            silenced = reader.ReadBoolean();
         }
     }
 }

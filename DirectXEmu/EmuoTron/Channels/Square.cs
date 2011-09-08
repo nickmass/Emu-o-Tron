@@ -98,11 +98,11 @@ namespace EmuoTron.Channels
                 Sweep();
             LengthCounter();
         }
-        public override void QuaterFrame()
+        public override void QuarterFrame()
         {
             Envelope();
         }
-        public override int Cycle()
+        public override byte Cycle()
         {
             divider--;
             if (divider == 0)

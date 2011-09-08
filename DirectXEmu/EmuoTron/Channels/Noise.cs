@@ -74,7 +74,7 @@ namespace EmuoTron.Channels
         {
             LengthCounter();
         }
-        public override void QuaterFrame()
+        public override void QuarterFrame()
         {
             Envelope();
         }
@@ -104,7 +104,7 @@ namespace EmuoTron.Channels
             if (!haltFlag && lengthCounter != 0)
                 lengthCounter--;
         }
-        public override int Cycle()
+        public override byte Cycle()
         {
             divider--;
             if (divider == 0)

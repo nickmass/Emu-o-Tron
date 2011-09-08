@@ -223,6 +223,7 @@
     <Compile Include="EmuoTron\Channels\Channel.cs" />
     <Compile Include="EmuoTron\Channels\DMC.cs" />
     <Compile Include="EmuoTron\Channels\External.cs" />
+    <Compile Include="EmuoTron\Channels\FDS.cs" />
     <Compile Include="EmuoTron\Channels\FME7.cs" />
     <Compile Include="EmuoTron\Channels\MMC5.cs" />
     <Compile Include="EmuoTron\Channels\N163.cs" />
