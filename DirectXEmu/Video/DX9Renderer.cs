@@ -56,47 +56,54 @@ namespace DirectXEmu
         }
         public void Reset()
         {
-            pps.BackBufferWidth = renderTarget.Width;
-            pps.BackBufferHeight = renderTarget.Height;
-            if (device != null)
-                device.Dispose();
-            if (texture != null)
-                texture.Dispose();
-            if (vertexBuffer != null)
-                vertexBuffer.Dispose();
-            device = new SlimDX.Direct3D9.Device(d3d, 0, SlimDX.Direct3D9.DeviceType.Hardware, renderTarget.Handle, CreateFlags.HardwareVertexProcessing, pps);
-            texture = new Texture(device, imageScaler.ResizedX, imageScaler.ResizedY, 0, Usage.Dynamic, Format.X8R8G8B8, Pool.Default);
-            LoadCharSheet();
-            vertexBuffer = new VertexBuffer(device, 4 * Marshal.SizeOf(typeof(Vertex)), Usage.WriteOnly, VertexFormat.PositionRhw | VertexFormat.Texture1, Pool.Managed);
+            try
+            {
+                pps.BackBufferWidth = renderTarget.Width;
+                pps.BackBufferHeight = renderTarget.Height;
+                if (device != null)
+                    device.Dispose();
+                if (texture != null)
+                    texture.Dispose();
+                if (vertexBuffer != null)
+                    vertexBuffer.Dispose();
+                device = new SlimDX.Direct3D9.Device(d3d, 0, SlimDX.Direct3D9.DeviceType.Hardware, renderTarget.Handle, CreateFlags.HardwareVertexProcessing, pps);
+                texture = new Texture(device, imageScaler.ResizedX, imageScaler.ResizedY, 0, Usage.Dynamic, Format.X8R8G8B8, Pool.Default);
+                LoadCharSheet();
+                vertexBuffer = new VertexBuffer(device, 4 * Marshal.SizeOf(typeof(Vertex)), Usage.WriteOnly, VertexFormat.PositionRhw | VertexFormat.Texture1, Pool.Managed);
 
-            DataStream stream = vertexBuffer.Lock(0, 0, LockFlags.None);
-            Vertex[] vertexData = new Vertex[4];
+                DataStream stream = vertexBuffer.Lock(0, 0, LockFlags.None);
+                Vertex[] vertexData = new Vertex[4];
 
-            vertexData[0].PositionRhw = new Vector4(renderTarget.Width, renderTarget.Height, 0f, 1f);
-            vertexData[0].Texture1 = new Vector2(1f, 1f);
+                vertexData[0].PositionRhw = new Vector4(renderTarget.Width, renderTarget.Height, 0f, 1f);
+                vertexData[0].Texture1 = new Vector2(1f, 1f);
 
-            vertexData[1].PositionRhw = new Vector4(0f, renderTarget.Height, 0f, 1f);
-            vertexData[1].Texture1 = new Vector2(0f, 1f);
+                vertexData[1].PositionRhw = new Vector4(0f, renderTarget.Height, 0f, 1f);
+                vertexData[1].Texture1 = new Vector2(0f, 1f);
 
-            vertexData[2].PositionRhw = new Vector4(renderTarget.Width, 0f, 0f, 1f);
-            vertexData[2].Texture1 = new Vector2(1f, 0f);
+                vertexData[2].PositionRhw = new Vector4(renderTarget.Width, 0f, 0f, 1f);
+                vertexData[2].Texture1 = new Vector2(1f, 0f);
 
-            vertexData[3].PositionRhw = new Vector4(0f, 0f, 0f, 1f);
-            vertexData[3].Texture1 = new Vector2(0f, 0f);
+                vertexData[3].PositionRhw = new Vector4(0f, 0f, 0f, 1f);
+                vertexData[3].Texture1 = new Vector2(0f, 0f);
 
-            stream.WriteRange(vertexData);
-            vertexBuffer.Unlock();
+                stream.WriteRange(vertexData);
+                vertexBuffer.Unlock();
 
-            device.VertexFormat = VertexFormat.PositionRhw | VertexFormat.Texture1;
-            device.SetStreamSource(0, vertexBuffer, 0, Marshal.SizeOf(typeof(Vertex)));
-            if (smoothOutput)
-                device.SetSamplerState(0, SamplerState.MagFilter, TextureFilter.Linear);
-            else
-                device.SetSamplerState(0, SamplerState.MagFilter, TextureFilter.Point);
-            device.SetSamplerState(0, SamplerState.AddressU, TextureAddress.Clamp);
-            device.SetSamplerState(0, SamplerState.AddressV, TextureAddress.Clamp);
-            device.SetSamplerState(0, SamplerState.AddressW, TextureAddress.Clamp);
-            device.SetTexture(0, texture);
+                device.VertexFormat = VertexFormat.PositionRhw | VertexFormat.Texture1;
+                device.SetStreamSource(0, vertexBuffer, 0, Marshal.SizeOf(typeof(Vertex)));
+                if (smoothOutput)
+                    device.SetSamplerState(0, SamplerState.MagFilter, TextureFilter.Linear);
+                else
+                    device.SetSamplerState(0, SamplerState.MagFilter, TextureFilter.Point);
+                device.SetSamplerState(0, SamplerState.AddressU, TextureAddress.Clamp);
+                device.SetSamplerState(0, SamplerState.AddressV, TextureAddress.Clamp);
+                device.SetSamplerState(0, SamplerState.AddressW, TextureAddress.Clamp);
+                device.SetTexture(0, texture);
+            }
+            catch (Direct3D9Exception e)
+            {
+                device = null;
+            }
         }
 
         public void MainLoop(bool newScreen)

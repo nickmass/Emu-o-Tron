@@ -200,8 +200,8 @@ namespace DirectXEmu
                         }
                         else if (cpu.APU.curFPS < cpu.APU.FPS)
                             cpu.APU.curFPS++;
-                        //cpu.APU.SetFPS(cpu.APU.curFPS);
-                         */
+                        cpu.APU.SetFPS(cpu.APU.curFPS);
+                        */
                         if (stopWAVToolStripMenuItem.Enabled)
                         {
                             cpu.APU.SetFPS(cpu.APU.FPS);
@@ -1800,7 +1800,7 @@ namespace DirectXEmu
             this.memoryViewer = new MemoryViewer();
             this.memoryViewer.Show();
             if(cpu != null)
-                memoryViewer.updateMemory(cpu.Memory, cpu.MirrorMap, 0x10000);
+                memoryViewer.updateMemory(cpu.Memory, 0x10000);
             this.memoryViewer.Text = "Memory Viewer";
 
         }
@@ -1809,7 +1809,7 @@ namespace DirectXEmu
             this.memoryViewer = new MemoryViewer();
             this.memoryViewer.Show();
             if (cpu != null)
-                memoryViewer.updateMemory(cpu.PPU.PPUMemory, cpu.PPU.PPUMirrorMap, 0x4000);
+                memoryViewer.updateMemory(cpu.PPU.PPUMemory, 0x4000);
             this.memoryViewer.Text = "PPU Memory Viewer";
 
         }

@@ -142,10 +142,7 @@ namespace EmuoTron.Channels
         {
             if ((address & 0xFFC0) == 0x4040)
             {
-                if (writeMode)
-                {
-                    value = (byte)(waveform[address & 0x3F] | 0x40);
-                }
+                value = (byte)(waveform[address & 0x3F] | 0x40);
             }
             else if (address == 0x4090)
             {
@@ -248,7 +245,7 @@ namespace EmuoTron.Channels
                     mainAddr++;
                     mainAddr &= 0x3F;
                 }
-                outVolume = (byte)((waveform[mainAddr] << 1) * (volume / 20.0) * (masterVolume / 30.0)); //waveform could be shifted over 2, but that is just far too loud.
+                outVolume = (byte)((waveform[mainAddr]) * (volume / 20.0) * (masterVolume / 30.0)); //waveform could be shifted over 2, but that is just far too loud.
             }
             return outVolume;
         }

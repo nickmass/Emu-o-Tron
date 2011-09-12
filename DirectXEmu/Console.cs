@@ -66,7 +66,7 @@ namespace DirectXEmu
         StringBuilder output;
         StringBuilder outputClean;
         TestSuite testSuite;
-        string openFirst = @"C:\Users\NickMass\Documents\Visual Studio 2010\Projects\DirectXEmu\DirectXEmu\Test\test.xml";
+        string openFirst = @"C:\Users\NickMass\Documents\Visual Studio 2010\Projects\emu-o-tron\DirectXEmu\Test\test.xml";
         bool running;
         bool close = false;
         public Console()

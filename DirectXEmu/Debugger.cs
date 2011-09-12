@@ -6,11 +6,21 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
+using System.Collections;
 
 namespace DirectXEmu
 {
     public partial class Debugger : Form
     {
+        struct Breakpoint
+        {
+            public bool enabled;
+            public int smallAddr;
+            public int largeAddr;
+            public byte type;
+            public int listIndex;
+        }
+        List<Breakpoint> breakpointsList = new List<Breakpoint>();
         EmuoTron.Debug debug;
         public bool updated = false;
         public bool smartUpdate = false;
@@ -45,6 +55,10 @@ namespace DirectXEmu
             txtLastExec.Text = debug.LogOp(debug.lastExec);
             txtScanline.Text = debug.Scanline.ToString();
             txtCycle.Text = debug.Cycle.ToString();
+            chkNMI.Checked = debug.NMIInterrupt;
+            chkAPU.Checked = debug.APUInterrupt;
+            chkDMC.Checked = debug.DMCInterrupt;
+            chkMapper.Checked = debug.MapperInterrupt;
             lstStack.Items.Clear();
             string[] stackItems = new string[0x100];
             for (int i = 0x00; i < 0x100; i++)
@@ -129,7 +143,7 @@ namespace DirectXEmu
             scrlLog.Value = logStart;
             StringBuilder log = new StringBuilder();
             int j = logStart;
-            for (int i = 0; i < 27; i++)
+            for (int i = 0; i < 31; i++)
             {
                 if (j < 0xFFFF)
                 {
@@ -180,40 +194,54 @@ namespace DirectXEmu
                 }
             }
         }
-        Dictionary<int, int> breakpoints = new Dictionary<int,int>();
         private void UpdateBreakpoints()
         {
-            breakpoints.Clear();
             lstBreak.Items.Clear();
-            for (int addr = 0; addr < 0x10000; addr++)
+            for (int i = 0; i < 0x10000; i++)
+                debug.breakPoints[i] = 0;
+            for(int i = 0; i < breakpointsList.Count; i++)
             {
-                switch(debug.breakPoints[addr])
+                Breakpoint bp = breakpointsList[i];
+                if (bp.enabled)
+                {
+                    for (int j = bp.smallAddr; j <= bp.largeAddr; j++)
+                    {
+                        debug.breakPoints[j] |= bp.type;
+                    }
+                }
+                string typeString = "";
+                switch (bp.type)
                 {
                     default:
                     case 0:
                         break;
                     case 1:
-                        breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\tR--"), (1 << 16) | addr);
+                        typeString = "R--";
                         break;
                     case 2:
-                        breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\t-W-"), (2 << 16) | addr);
+                        typeString = "-W-";
                         break;
                     case 3:
-                        breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\tRW-"), (3 << 16) | addr);
+                        typeString = "RW-";
                         break;
                     case 4:
-                        breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\t--X"), (4 << 16) | addr);
+                        typeString = "--X";
                         break;
                     case 5:
-                        breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\tR-X"), (5 << 16) | addr);
+                        typeString = "R-X";
                         break;
                     case 6:
-                        breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\t-WX"), (6 << 16) | addr);
+                        typeString = "-WX";
                         break;
                     case 7:
-                        breakpoints.Add(lstBreak.Items.Add(addr.ToString("X4") + "\tRWX"), (7 << 16) | addr);
+                        typeString = "RWX";
                         break;
                 }
+                if (bp.smallAddr != bp.largeAddr)
+                    bp.listIndex = lstBreak.Items.Add((bp.enabled? "+ " : "- ") + bp.smallAddr.ToString("X4") + "-" + bp.largeAddr.ToString("X4") + "\t" + typeString);
+                else
+                    bp.listIndex = lstBreak.Items.Add((bp.enabled? "+ " : "- ") + bp.smallAddr.ToString("X4") + "     \t" + typeString);
+                breakpointsList[i] = bp;
             }
         }
         private void btnAddBreak_Click(object sender, EventArgs e)
@@ -221,7 +249,13 @@ namespace DirectXEmu
             AddBreakpoint addBreak = new AddBreakpoint();
             if (addBreak.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                debug.breakPoints[addBreak.address & 0xFFFF] = (byte)(addBreak.type | debug.breakPoints[addBreak.address & 0xFFFF]);
+                Breakpoint newBreak;
+                newBreak.enabled = addBreak.enabled;
+                newBreak.type = addBreak.type;
+                newBreak.smallAddr = Math.Min(addBreak.break1, addBreak.break2);
+                newBreak.largeAddr = Math.Max(addBreak.break1, addBreak.break2);
+                newBreak.listIndex = -1;
+                breakpointsList.Add(newBreak);
                 UpdateBreakpoints();
             }
         }
@@ -230,21 +264,49 @@ namespace DirectXEmu
         {
             if (lstBreak.SelectedIndex != -1)
             {
-                debug.breakPoints[breakpoints[lstBreak.SelectedIndex] & 0xFFFF] = 0;
+                for (int i = 0; i < breakpointsList.Count; i++)
+                {
+                    if (breakpointsList[i].listIndex == lstBreak.SelectedIndex)
+                    {
+                        breakpointsList.RemoveAt(i);
+                        break;
+                    }
+                }
                 UpdateBreakpoints();
             }
-
         }
 
         private void btnEditBreak_Click(object sender, EventArgs e)
         {
             if (lstBreak.SelectedIndex != -1)
             {
-                AddBreakpoint addBreak = new AddBreakpoint(breakpoints[lstBreak.SelectedIndex] >> 16, breakpoints[lstBreak.SelectedIndex] & 0xFFFF);
+                Breakpoint bp;
+                bp.enabled = true;
+                bp.type = 0;
+                bp.smallAddr = 0;
+                bp.largeAddr = 0;
+                bp.listIndex = -1;
+                int oldLoc = -1;
+                for (int i = 0; i < breakpointsList.Count; i++)
+                {
+                    if (breakpointsList[i].listIndex == lstBreak.SelectedIndex)
+                    {
+                        oldLoc = i;
+                        break;
+                    }
+                }
+                bp = breakpointsList[oldLoc];
+                AddBreakpoint addBreak = new AddBreakpoint(bp.enabled, bp.type, bp.smallAddr, bp.largeAddr);
                 if (addBreak.ShowDialog() == System.Windows.Forms.DialogResult.OK)
                 {
-                    debug.breakPoints[breakpoints[lstBreak.SelectedIndex] & 0xFFFF] = 0;
-                    debug.breakPoints[addBreak.address & 0xFFFF] = (byte)(addBreak.type | debug.breakPoints[addBreak.address & 0xFFFF]);
+                    breakpointsList.RemoveAt(oldLoc);
+                    Breakpoint newBreak;
+                    newBreak.enabled = addBreak.enabled;
+                    newBreak.type = addBreak.type;
+                    newBreak.smallAddr = Math.Min(addBreak.break1, addBreak.break2);
+                    newBreak.largeAddr = Math.Max(addBreak.break1, addBreak.break2);
+                    newBreak.listIndex = -1;
+                    breakpointsList.Add(newBreak);
                     UpdateBreakpoints();
                 }
             }

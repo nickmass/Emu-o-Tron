@@ -17,7 +17,6 @@ namespace EmuoTron
     public class PPU
     {
         public MemoryStore PPUMemory;
-        public ushort[] PPUMirrorMap = new ushort[0x8000];
         public byte[] SPRMemory = new byte[0x100];
         public byte[] PalMemory = new byte[0x20];
 
@@ -101,6 +100,23 @@ namespace EmuoTron
         private long vblankEndTime;
         private long nmiEnableTime;
 
+        byte spriteData = 0;
+        int secondaryOAMFillPtr = 0;
+        int spriteF = 0;
+        int secondaryOAMPtr = 0;
+        int spriteN = 0;
+        int spriteM = 0;
+        int spriteE = 0;
+        int currentSprite = 0;
+        int spriteStage = 0;
+        int currentSpriteY = 0;
+        int currentSpriteTileNum = 0;
+        int currentSpriteAttr = 0;
+        int currentSpriteX = 0;
+        byte currentSpritePlane1 = 0;
+        byte currentSpritePlane2 = 0;
+        int currentSpriteChrAddress = 0;
+
         public PPU(NESCore nes)
         {
             this.nes = nes;
@@ -114,13 +130,17 @@ namespace EmuoTron
                 PPUMemory.SetReadOnly(0x0000, 8, false);
             }
             PPUMemory.swapOffset = 0x20;
+            PPUMemory.memMap[0x2000 >> 0xA] = PPUMemory.memMap[0x2000 >> 0xA];
+            PPUMemory.memMap[0x2400 >> 0xA] = PPUMemory.memMap[0x2400 >> 0xA];
+            PPUMemory.memMap[0x2800 >> 0xA] = PPUMemory.memMap[0x2800 >> 0xA];
+            PPUMemory.memMap[0x2C00 >> 0xA] = PPUMemory.memMap[0x2C00 >> 0xA];
+            PPUMemory.memMap[0x3000 >> 0xA] = PPUMemory.memMap[0x2000 >> 0xA];
+            PPUMemory.memMap[0x3400 >> 0xA] = PPUMemory.memMap[0x2400 >> 0xA];
+            PPUMemory.memMap[0x3800 >> 0xA] = PPUMemory.memMap[0x2800 >> 0xA];
+            PPUMemory.memMap[0x3C00 >> 0xA] = PPUMemory.memMap[0x2C00 >> 0xA];
             PPUMemory.SetReadOnly(0x2000, 8, false); //Nametables
-            for (ushort i = 0; i < 0x8000; i++)
-                PPUMirrorMap[i] = i;
             for (uint i = 0; i < 0x200; i++)
                 colorChart[i] = i;
-            PPUMirror(0x2000, 0x3000, 0x1000, 1);
-            PPUMirror(0x0000, 0x4000, 0x4000, 1);
 
             switch (nes.nesRegion)
             {
@@ -206,12 +226,6 @@ namespace EmuoTron
             readBuffer = 0;
             addrLatch = false;
         }
-        private void PPUMirror(ushort address, ushort mirrorAddress, ushort length, int repeat)
-        {
-            for (int j = 0; j < repeat; j++)
-                for (int i = 0; i < length; i++)
-                    PPUMirrorMap[mirrorAddress + i + (j * length)] = (ushort)(PPUMirrorMap[address + i]);
-        }
         public byte Read(ushort address)
         {
             byte nextByte = 0;
@@ -264,12 +278,12 @@ namespace EmuoTron
                     if ((loopyV & 0x3F00) == 0x3F00)
                     {
                         nextByte = (byte)((PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] & grayScale) | (lastWrite & 0xC0)); //random wiki readings claim gray scale is applied here but have seen no roms that test it or evidence to support it.
-                        readBuffer = PPURead(PPUMirrorMap[loopyV & 0x3FFF], AccessType.ppuData);
+                        readBuffer = PPURead(loopyV, AccessType.ppuData);
                     }
                     else
                     {
                         nextByte = readBuffer;
-                        readBuffer = PPURead(PPUMirrorMap[loopyV & 0x3FFF], AccessType.ppuData);
+                        readBuffer = PPURead(loopyV, AccessType.ppuData);
                     }
                     int oldA12 = (loopyV >> 12) & 1;
                     if (scanline < 240 && (spriteRendering || backgroundRendering)) //Young Indiana Jones fix, http://nesdev.parodius.com/bbs/viewtopic.php?t=6401
@@ -282,7 +296,7 @@ namespace EmuoTron
                     else
                         loopyV = (loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF;
                     if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                        nes.mapper.IRQ(scanline);
+                        nes.mapper.IRQ(0);
                     lastWrite = nextByte;
                     lastWriteDecay = lastWriteDecayTime;
                     break;
@@ -352,7 +366,7 @@ namespace EmuoTron
                 case 0x4014: //Sprite DMA
                     int startAddress = value << 8;
                     for (int i = 0; i < 0x100; i++)
-                        SPRMemory[(spriteAddr + i) & 0xFF] = nes.Memory[nes.MirrorMap[(startAddress + i) & 0xFFFF]];
+                        SPRMemory[(spriteAddr + i) & 0xFF] = nes.Memory[(startAddress + i) & 0xFFFF];
                     if ((nes.counter & 1) == 0) //Sprite DMA always ends on even cycles.
                         nes.AddCycles(514);
                     else
@@ -381,7 +395,7 @@ namespace EmuoTron
                         int oldA12 = ((loopyV >> 12) & 1); ;
                         loopyV = loopyT;
                         if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && oldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                            nes.mapper.IRQ(scanline);
+                            nes.mapper.IRQ(0);
                     }
                     addrLatch = !addrLatch;
                     lastWrite = value;
@@ -391,12 +405,12 @@ namespace EmuoTron
                     if ((loopyV & 0x3F00) == 0x3F00)
                         PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] = (byte)(value & 0x3F);
                     else
-                        PPUWrite(PPUMirrorMap[loopyV & 0x3FFF], value, AccessType.ppuData);
+                        PPUWrite(loopyV, value, AccessType.ppuData);
 
                     int writeOldA12 = (loopyV >> 12) & 1;
                     loopyV = ((loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF);
                     if ((nes.rom.mapper == 4 || nes.rom.mapper == 48) && writeOldA12 == 0 && ((loopyV >> 12) & 1) == 1)
-                        nes.mapper.IRQ(scanline);
+                        nes.mapper.IRQ(0);
                     lastWrite = value;
                     lastWriteDecay = lastWriteDecayTime;
                     break;
@@ -448,23 +462,6 @@ namespace EmuoTron
             }
             Update();
         }
-        byte spriteData = 0;
-        int secondaryOAMFillPtr = 0;
-        int spriteF = 0;
-        int secondaryOAMPtr = 0;
-        int spriteN = 0;
-        int spriteM = 0;
-        int spriteE = 0;
-        int currentSprite = 0;
-        int spriteStage = 0;
-        int currentSpriteY = 0;
-        int currentSpriteTileNum = 0;
-        int currentSpriteAttr = 0;
-        int currentSpriteX = 0;
-        byte currentSpritePlane1 = 0;
-        byte currentSpritePlane2 = 0;
-        int currentSpriteChrAddress = 0;
-
 
         private void Update()
         {
@@ -669,11 +666,11 @@ namespace EmuoTron
                                     }
                                     else if (vertFlip)
                                         flipper = vertFlipTable[spriteY & 7] + 16;
-                                    currentSpriteChrAddress = PPUMirrorMap[(spriteTable | (currentSpriteTileNum << 4) | (spriteY & 7)) + flipper];
+                                    currentSpriteChrAddress = (spriteTable | (currentSpriteTileNum << 4) | (spriteY & 7)) + flipper;
                                 }
                                 else
                                 {
-                                    currentSpriteChrAddress = PPUMirrorMap[(this.spriteTable | (currentSpriteTileNum << 4) | (spriteY & 7)) + (vertFlip ? vertFlipTable[spriteY & 7] : 0)];
+                                    currentSpriteChrAddress = (this.spriteTable | (currentSpriteTileNum << 4) | (spriteY & 7)) + (vertFlip ? vertFlipTable[spriteY & 7] : 0);
                                 }
                                 break;
                             case 4:
@@ -744,13 +741,13 @@ namespace EmuoTron
                                 }
                                 if (!horzFlip)
                                 {
-                                    spriteTileShift1[i] = horzFlipTable[PPUMemory[PPUMirrorMap[chrAddress]]];
-                                    spriteTileShift2[i] = horzFlipTable[PPUMemory[PPUMirrorMap[chrAddress + 8]]];
+                                    spriteTileShift1[i] = horzFlipTable[PPUMemory[chrAddress]];
+                                    spriteTileShift2[i] = horzFlipTable[PPUMemory[chrAddress + 8]];
                                 }
                                 else
                                 {
-                                    spriteTileShift1[i] = PPUMemory[PPUMirrorMap[chrAddress]];
-                                    spriteTileShift2[i] = PPUMemory[PPUMirrorMap[chrAddress + 8]];
+                                    spriteTileShift1[i] = PPUMemory[chrAddress];
+                                    spriteTileShift2[i] = PPUMemory[chrAddress + 8];
                                 }
                             }
                         }
@@ -766,7 +763,7 @@ namespace EmuoTron
                     {
                         if (shiftCount == 0)
                         {
-                            tileAddress = PPUMirrorMap[0x2000 | (loopyV & 0x0FFF)];
+                            tileAddress = 0x2000 | (loopyV & 0x0FFF);
                             tileNumber = PPURead(tileAddress, AccessType.nameTable);
                         }
                         else if (shiftCount == 2)
@@ -837,11 +834,11 @@ namespace EmuoTron
                     if (nes.rom.mapper == 4 || nes.rom.mapper == 48)
                     {
                         if(scanlineCycle == 264 && spriteTable == 0x1000 && backgroundTable == 0x0000)
-                            nes.mapper.IRQ(scanline);
+                            nes.mapper.IRQ(0);
                         if (scanlineCycle == 8 && scanline == -1 && spriteTable == 0x0000 && backgroundTable == 0x1000) //This table config has a seperate scanline trigger at the start of the frame.
-                            nes.mapper.IRQ(scanline);
+                            nes.mapper.IRQ(0);
                         else if (scanlineCycle == 328 && spriteTable == 0x0000 && backgroundTable == 0x1000)
-                            nes.mapper.IRQ(scanline);
+                            nes.mapper.IRQ(0);
 
                     }
                     lastUpdate++;
@@ -933,7 +930,7 @@ namespace EmuoTron
                                 if (nmiEnable)
                                 {
                                     nmiPendingSet = lastUpdate;
-                                    pendingNMI = 6;
+                                    pendingNMI = 3;
                                 }
                             }
                         }
@@ -964,8 +961,9 @@ namespace EmuoTron
                     lastWrite = 0;
             }
         }
-        private byte PPURead(int address, AccessType access)
+        private byte PPURead(int addr, AccessType access)
         {
+            ushort address = (ushort)addr;
             byte value = PPUMemory[address];
             if (nes.rom.mapper == 5)
             {
@@ -977,8 +975,9 @@ namespace EmuoTron
             }
             return value;
         }
-        private void PPUWrite(int address, byte value, AccessType access)
+        private void PPUWrite(int addr, byte value, AccessType access)
         {
+            ushort address = (ushort)addr;
             PPUMemory[address] = value;
         }
         private byte[][,] GenerateNameTables()
@@ -1007,7 +1006,7 @@ namespace EmuoTron
                     for (int tile = 0; tile < 32; tile++)//each tile on line
                     {
                        
-                        int tileAddr = PPUMirrorMap[nameTableOffset + ((line / 8) * 32) + tile];
+                        int tileAddr = nameTableOffset + ((line / 8) * 32) + tile;
                         int tileNumber = PPUMemory[tileAddr];
                         int addrTableLookup = AttrTableLookup[tileAddr & 0x3FF];
                         int palette = (PPUMemory[((tileAddr & 0x3C00) + 0x3C0) + (addrTableLookup & 0xFF)] >> (addrTableLookup >> 12)) & 0x03;

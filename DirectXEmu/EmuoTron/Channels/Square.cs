@@ -43,6 +43,18 @@ namespace EmuoTron.Channels
             this.negate = negate;
             this.sweep = sweep; //Allows for reuse as MMC5 square
         }
+        public override void Power()
+        {
+            Write(0, 0);
+            Write(0, 1);
+            Write(0, 2);
+            Write(0, 3);
+            Write(0, 4);
+        }
+        public override void Reset()
+        {
+            Write(0, 4);
+        }
         public override byte Read(byte value, ushort address)
         {
             if (lengthCounter != 0)
@@ -56,6 +68,7 @@ namespace EmuoTron.Channels
             {
                 case 0: //Duty
                     envelope = (byte)(value & 0xF);
+                    envelopeDivider = envelope + 1;
                     constantVolume = (value & 0x10) != 0;
                     haltFlag = (value & 0x20) != 0;
                     duty = (byte)(value >> 6);

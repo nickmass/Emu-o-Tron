@@ -24,6 +24,18 @@ namespace EmuoTron.Channels
         {
             this.nes = nes;
         }
+        public override void Power()
+        {
+            Write(0, 0);
+            Write(0, 1);
+            Write(0, 2);
+            Write(0, 3);
+            Write(0, 4);
+        }
+        public override void Reset()
+        {
+            Write(0, 4);
+        }
         public override byte Read(byte value, ushort address)
         {
             if (lengthCounter != 0)
@@ -72,7 +84,7 @@ namespace EmuoTron.Channels
             divider--;
             if (divider == 0)
             {
-                if (timer <= 1) //Filter ultra-high freq. channel
+                if (timer <= 1) //Filter ultra-high freq.
                     volume = 7;
                 else
                     volume = sequence[sequenceCounter % 32];

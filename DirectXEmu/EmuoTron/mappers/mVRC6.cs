@@ -33,11 +33,25 @@ namespace EmuoTron.Mappers
         }
         public override void Power()
         {
-            nes.Memory.Swap8kROM(0x8000, 0);
-            nes.Memory.Swap8kROM(0xA000, 1);
-            nes.Memory.Swap8kROM(0xC000, (nes.rom.prgROM / 8) - 2);
-            nes.Memory.Swap8kROM(0xE000, (nes.rom.prgROM / 8) - 1);
-            nes.PPU.PPUMemory.Swap8kROM(0x0000, 0);
+            prgReg0 = 0;
+            prgReg1 = 1;
+            chrReg[0] = 0;
+            chrReg[1] = 0;
+            chrReg[2] = 0;
+            chrReg[3] = 0;
+            chrReg[4] = 0;
+            chrReg[5] = 0;
+            chrReg[6] = 0;
+            chrReg[7] = 0;
+            irqReload = 0;
+            irqMode = false;
+            irqEnable = false;
+            irqAckEnable = false;
+            irqCounter = 0;
+            irqScanlineCounter = 341;
+            interruptMapper = false;
+            SyncPrg();
+            SyncChr();
         }
         public override void Write(byte value, ushort address)
         {

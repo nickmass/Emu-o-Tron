@@ -141,6 +141,34 @@ namespace EmuoTron
                 return ((nes.FlagSign >> 7) != 0);
             }
         }
+        public bool NMIInterrupt
+        {
+            get
+            {
+                return nes.PPU.interruptNMI;
+            }
+        }
+        public bool APUInterrupt
+        {
+            get
+            {
+                return nes.APU.frameIRQ;
+            }
+        }
+        public bool DMCInterrupt
+        {
+            get
+            {
+                return nes.APU.dmc.interrupt;
+            }
+        }
+        public bool MapperInterrupt
+        {
+            get
+            {
+                return nes.mapper.interruptMapper;
+            }
+        }
         public Debug(NESCore nes)
         {
             this.nes = nes;
@@ -445,7 +473,7 @@ namespace EmuoTron
         public byte Peek(int address)
         {
             address = address & 0xFFFF;
-            byte nextByte = nes.Memory[nes.MirrorMap[address]];
+            byte nextByte = nes.Memory[address];
             return nextByte;
         }
         public int PeekWord(int address)
@@ -457,10 +485,6 @@ namespace EmuoTron
         {
             int highAddress = (address & 0xFF00) + ((address + 1) & 0xFF);
             return (Peek(address) + (Peek(highAddress) << 8)) & 0xFFFF;
-        }
-        public ushort PeekMirror(ushort address)
-        {
-            return nes.MirrorMap[address];
         }
     }
 }

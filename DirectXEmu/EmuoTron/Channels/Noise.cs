@@ -36,6 +36,18 @@ namespace EmuoTron.Channels
                     break;
             }
         }
+        public override void Power()
+        {
+            Write(0, 0);
+            Write(0, 1);
+            Write(0, 2);
+            Write(0, 3);
+            Write(0, 4);
+        }
+        public override void Reset()
+        {
+            Write(0, 4);
+        }
         public override byte Read(byte value, ushort address)
         {
             if (lengthCounter != 0)

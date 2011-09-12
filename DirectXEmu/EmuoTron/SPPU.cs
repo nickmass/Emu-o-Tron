@@ -266,7 +266,7 @@ namespace EmuoTron
                 case 0x4014: //Sprite DMA
                     int startAddress = value << 8;
                     for (int i = 0; i < 0x100; i++)
-                        SPRMemory[(spriteAddr + i) & 0xFF] = nes.Memory[nes.MirrorMap[(startAddress + i) & 0xFFFF]];
+                        SPRMemory[(spriteAddr + i) & 0xFF] = nes.Memory[(startAddress + i) & 0xFFFF];
                     if ((nes.counter & 1) == 0) //Sprite DMA always ends on even cycles.
                         nes.AddCycles(514);
                     else

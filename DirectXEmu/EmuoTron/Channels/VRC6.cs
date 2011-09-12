@@ -51,6 +51,31 @@ namespace EmuoTron.Channels
             regAddr[2] = reg3;
             regAddr[3] = reg4;
         }
+        public override void Power()
+        {
+            square1Digitized = false;
+            square2Digitized = false;
+            square1Volume = 0;
+            square2Volume = 0;
+            square1Duty = 0;
+            square2Duty = 0;
+            square1DutyCounter = 0;
+            square2DutyCounter = 0;
+            square1Freq = 0;
+            square2Freq = 0;
+            square1Counter = 0;
+            square2Counter = 0;
+            square1Enable = false;
+            square2Enable = false;
+            sawEnable = false;
+            sawAccumRate = 0;
+            sawAccum = 0;
+            sawAccumCounter = 0;
+            sawCounter = 0;
+            sawFreq = 0;
+            sawOddClock = false;
+            
+        }
         public override void Write(byte value, ushort address)
         {
             byte highAddr = (byte)(address >> 8);

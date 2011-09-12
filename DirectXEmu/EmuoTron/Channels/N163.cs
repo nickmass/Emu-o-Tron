@@ -106,9 +106,9 @@ namespace EmuoTron.Channels
                 if (chanVolume[i] != 0)
                 {
                     if ((chanAddr[i] & 1) == 0)
-                        volume += (byte)((soundRam[chanAddr[i] >> 1] & 0x0F) * (chanVolume[i] / 7.0)); //Really don't like this volume clac, but will have to do.
+                        volume += (byte)((soundRam[chanAddr[i] >> 1] & 0x0F) * (chanVolume[i] / 15.0) * 2); //Really don't like this volume clac, but will have to do.
                     else
-                        volume += (byte)(((soundRam[chanAddr[i] >> 1] >> 4) & 0x0F) * (chanVolume[i] / 7.0));
+                        volume += (byte)(((soundRam[chanAddr[i] >> 1] >> 4) & 0x0F) * (chanVolume[i] / 15.0) * 2); //Should perfectly fill the volume avaliable if all 8 channels are maxed.
                 }
             }
             return volume;

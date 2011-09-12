@@ -13,7 +13,6 @@ namespace DirectXEmu
     public partial class MemoryViewer : Form
     {
         MemoryStore memory;
-        ushort[] mirrormap;
         bool updated = false;
         int max = 0;
         public MemoryViewer()
@@ -21,10 +20,9 @@ namespace DirectXEmu
             InitializeComponent();
 
         }
-        public void updateMemory(MemoryStore memory, ushort[] mirrorMap, int max)
+        public void updateMemory(MemoryStore memory, int max)
         {
             this.memory = memory;
-            this.mirrormap = mirrorMap;
             this.updated = true;
             this.max = max;
         }
@@ -36,7 +34,7 @@ namespace DirectXEmu
                 byte[] data = new byte[max];
                 for (int i = 0; i < max; i++)
                 {
-                    data[i] = memory[mirrormap[i]];
+                    data[i] = memory[i];
                 }
                 memPane.Data = data;
                 memPane.DrawMemory();
@@ -47,7 +45,7 @@ namespace DirectXEmu
                 byte[] data = new byte[max];
                 for (int i = 0; i < max; i++)
                 {
-                    data[i] = memory[mirrormap[i]];
+                    data[i] = memory[i];
                 }
                 memPane.Data = data;
             }

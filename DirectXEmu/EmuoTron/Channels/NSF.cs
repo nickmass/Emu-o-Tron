@@ -138,7 +138,17 @@ namespace EmuoTron.Channels
             N163.Power();
             FME7.Power();
         }
-
+        
+        public override void Reset()
+        {
+            VRC6.Reset();
+            VRC7.Reset();
+            FDS.Reset();
+            MMC5.Reset();
+            N163.Reset();
+            FME7.Reset();
+        }
+        
         public override void HalfFrame()
         {
             VRC6.HalfFrame();

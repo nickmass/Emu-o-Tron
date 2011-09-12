@@ -25,10 +25,9 @@ namespace EmuoTron
 
         public SoundVolume volume;
 
-        private int cycles;
+        private int currentTime;
         private int lastUpdateCycle;
-        private int lastCycleClock;
-        private bool frameIRQ;
+        public bool frameIRQ;
         private int frameCounter;
         private int timeToClock;
         private int modeZeroDelay;
@@ -60,7 +59,7 @@ namespace EmuoTron
         private Channels.Square square2;
         private Channels.Triangle triangle;
         private Channels.Noise noise;
-        private Channels.DMC dmc;
+        public Channels.DMC dmc;
         public Channels.Channel external;
 
         public bool interruptAPU
@@ -123,59 +122,51 @@ namespace EmuoTron
             dmc = new Channels.DMC(nes, CPUClock);
             external = new Channels.External();
         }
-        public void Power() //4017_written.nes gives different results on initial load vs. power emulation, MUST fix.
+        public void SetFPS(double FPS)
         {
-            frameIRQ = false;
-            Write(00, 0x4000); //Start-up values
-            Write(00, 0x4001);
-            Write(00, 0x4002);
-            Write(00, 0x4003);
-            Write(00, 0x4004);
-            Write(00, 0x4005);
-            Write(00, 0x4006);
-            Write(00, 0x4007);
-            Write(00, 0x4008);
-            Write(00, 0x4009);
-            Write(00, 0x400A);
-            Write(00, 0x400B);
-            Write(00, 0x400C);
-            Write(00, 0x400D);
-            Write(00, 0x400E);
-            Write(00, 0x400F);
-            Write(00, 0x4010);
-            Write(00, 0x4011);
-            Write(00, 0x4012);
-            Write(00, 0x4013);
-            Write(00, 0x4015);
-            Write(00, 0x4017);
+            curFPS = FPS;
+            sampleDivider = (CPUClock / ((double)this.FPS)) / ((sampleRate * 1.0) / ((double)FPS));
+        }
+        public void Power()
+        {
+            square1.Power();
+            square2.Power();
+            triangle.Power();
+            noise.Power();
+            dmc.Power();
+            external.Power();
+            mode = false;
+            frameIRQInhibit = false;
+            frameCounter = 0;
             timeToClock = modeZeroDelay - 10;
+            frameIRQ = false;
             if (nes.nsfPlayer)
             {
                 Write(0x10, 0x4010);
                 Write(0x0F, 0x4015);
             }
+            Update();
+            currentTime = 0;
+            lastUpdateCycle = 0;
         }
         public void Reset()
         {
-            Write(00, 0x4015);
             Update();
-            if (frameIRQInhibit)
-                frameIRQ = false;
+            square1.Reset();
+            square2.Reset();
+            triangle.Reset();
+            noise.Reset();
+            dmc.Reset();
+            external.Reset();
             frameCounter = 0;
-            lastCycleClock = cycles;
             if (mode)
                 timeToClock = modeOneDelay;
             else
                 timeToClock = modeZeroDelay;
-            if (cycles % 2 == 0) //jitter, apu_test 4-jitter.nes
+            if (currentTime % 2 == 0) //jitter, apu_test 4-jitter.nes
                 timeToClock++;
             timeToClock -= 12;
             frameIRQ = false;
-        }
-        public void SetFPS(double FPS)
-        {
-            curFPS = FPS;
-            sampleDivider = (CPUClock / ((double)this.FPS)) / ((sampleRate * 1.0) / ((double)FPS));
         }
         public byte Read()
         {
@@ -212,29 +203,30 @@ namespace EmuoTron
                     case 0x4010:
                         dmc.Write(value, (ushort)(address & 0x3));
                         break;
-                }
-                switch (address)
-                {
-                    case 0x4015:
-                        square1.Write((byte)(value & 1), 4);
-                        square2.Write((byte)(value & 2), 4);
-                        triangle.Write((byte)(value & 4), 4);
-                        noise.Write((byte)(value & 8), 4);
-                        dmc.Write((byte)(value & 0x10), 4);
-                        break;
-                    case 0x4017://APU Frame rate/ IRQ control
-                        mode = (value & 0x80) != 0;
-                        frameIRQInhibit = (value & 0x40) != 0;
-                        if (frameIRQInhibit)
-                            frameIRQ = false;
-                        frameCounter = 0;
-                        lastCycleClock = cycles;
-                        if (mode)
-                            timeToClock = modeOneDelay;
-                        else
-                            timeToClock = modeZeroDelay;
-                        if (cycles % 2 == 0) //jitter, apu_test 4-jitter.nes
-                            timeToClock++;
+                    default:
+                        switch (address)
+                        {
+                            case 0x4015:
+                                square1.Write((byte)(value & 1), 4);
+                                square2.Write((byte)(value & 2), 4);
+                                triangle.Write((byte)(value & 4), 4);
+                                noise.Write((byte)(value & 8), 4);
+                                dmc.Write((byte)(value & 0x10), 4);
+                                break;
+                            case 0x4017://APU Frame rate/ IRQ control
+                                mode = (value & 0x80) != 0;
+                                frameIRQInhibit = (value & 0x40) != 0;
+                                if (frameIRQInhibit)
+                                    frameIRQ = false;
+                                frameCounter = 0;
+                                if (mode)
+                                    timeToClock = modeOneDelay;
+                                else
+                                    timeToClock = modeZeroDelay;
+                                if (currentTime % 2 == 1) //jitter, apu_test 4-jitter.nes
+                                    timeToClock++;
+                                break;
+                        }
                         break;
                 }
             }
@@ -264,17 +256,18 @@ namespace EmuoTron
         }
         public void AddCycles(int cycles)
         {
-            this.cycles += cycles;
+            currentTime += cycles;
             for (int i = 0; i < cycles; i++)
                 dmc.Cycle();
-            if (this.cycles - lastCycleClock >= timeToClock)
+
+            timeToClock -= cycles;
+            if (timeToClock <= 0)
             {
-                lastCycleClock += timeToClock;
                 Update();
                 if (!mode) //Mode 0
                 {
-                    timeToClock = modeZeroFrameLengths[frameCounter % 4];
                     int step = frameCounter % 4;
+                    timeToClock += modeZeroFrameLengths[step];
                     if (step == 0)
                         QuarterFrame();
                     else if (step == 1)
@@ -284,14 +277,14 @@ namespace EmuoTron
                     else if (step == 3)
                     {
                         HalfFrame();
-                        if (!mode && !frameIRQInhibit)
+                        if (!frameIRQInhibit)
                             frameIRQ = true;
                     }
                 }
                 else
                 {
-                    timeToClock = modeOneFrameLengths[frameCounter % 5];
                     int step = frameCounter % 5;
+                    timeToClock += modeOneFrameLengths[step];
                     if (step == 0)
                         HalfFrame();
                     else if (step == 1)
@@ -308,7 +301,7 @@ namespace EmuoTron
         {
             if (mute || turbo)
             {
-                for (int updateCycle = lastUpdateCycle; updateCycle < cycles; updateCycle++)
+                for (int updateCycle = lastUpdateCycle; updateCycle < currentTime; updateCycle++)
                 {
                     sampleRateDivider--;
                     if (sampleRateDivider <= 0)
@@ -318,10 +311,10 @@ namespace EmuoTron
                         sampleRateDivider += sampleDivider;
                     }
                 }
-                lastUpdateCycle = cycles;
+                lastUpdateCycle = currentTime;
                 return;
             }
-            for (int updateCycle = lastUpdateCycle; updateCycle < cycles; updateCycle++)
+            for (int updateCycle = lastUpdateCycle; updateCycle < currentTime; updateCycle++)
             {
                 byte square1Volume = (byte)(square1.Cycle() * volume.square1);
                 byte square2Volume = (byte)(square2.Cycle() * volume.square2);
@@ -348,13 +341,12 @@ namespace EmuoTron
                     sampleCount = 0;
                 }
             }
-            lastUpdateCycle = cycles;
+            lastUpdateCycle = currentTime;
         }
         public void StateSave(BinaryWriter writer)
         {
-            writer.Write(cycles);
+            writer.Write(currentTime);
             writer.Write(lastUpdateCycle);
-            writer.Write(lastCycleClock);
             writer.Write(frameIRQ);
             writer.Write(frameCounter);
             writer.Write(mode);
@@ -369,9 +361,8 @@ namespace EmuoTron
         }
         public void StateLoad(BinaryReader reader)
         {
-            cycles = reader.ReadInt32();
+            currentTime = reader.ReadInt32();
             lastUpdateCycle = reader.ReadInt32();
-            lastCycleClock = reader.ReadInt32();
             frameIRQ = reader.ReadBoolean();
             frameCounter = reader.ReadInt32();
             mode = reader.ReadBoolean();

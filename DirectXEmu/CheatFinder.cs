@@ -32,32 +32,24 @@ namespace DirectXEmu
                     case -1:
                         return;
                     case 0:
-                        for (ushort i = 0; i < 0xFFFF; i++)
-                            if (debug.Peek(i) == value && debug.PeekMirror(i) == i)
-                                results.Add(i);
-                        if (debug.Peek(0xFFFF) == value && debug.PeekMirror(0xFFFF) == 0xFFFF)
-                            results.Add(0xFFFF);
+                        for (int i = 0; i <= 0xFFFF; i++)
+                            if (debug.Peek(i) == value)
+                                results.Add((ushort)i);
                         break;
                     case 1:
-                        for (ushort i = 0; i < 0xFFFF; i++)
-                            if (debug.Peek(i) != value && debug.PeekMirror(i) == i)
-                                results.Add(i);
-                        if (debug.Peek(0xFFFF) != value && debug.PeekMirror(0xFFFF) == 0xFFFF)
-                            results.Add(0xFFFF);
+                        for (int i = 0; i <= 0xFFFF; i++)
+                            if (debug.Peek(i) != value)
+                                results.Add((ushort)i);
                         break;
                     case 2:
-                        for (ushort i = 0; i < 0xFFFF; i++)
-                            if (debug.Peek(i) > value && debug.PeekMirror(i) == i)
-                                results.Add(i);
-                        if (debug.Peek(0xFFFF) > value && debug.PeekMirror(0xFFFF) == 0xFFFF)
-                            results.Add(0xFFFF);
+                        for (int i = 0; i <= 0xFFFF; i++)
+                            if (debug.Peek(i) > value)
+                                results.Add((ushort)i);
                         break;
                     case 3:
-                        for (ushort i = 0; i < 0xFFFF; i++)
-                            if (debug.Peek(i) < value && debug.PeekMirror(i) == i)
-                                results.Add(i);
-                        if (debug.Peek(0xFFFF) < value && debug.PeekMirror(0xFFFF) == 0xFFFF)
-                            results.Add(0xFFFF);
+                        for (int i = 0; i <= 0xFFFF; i++)
+                            if (debug.Peek(i) < value)
+                                results.Add((ushort)i);
                         break;
                 }
                 lstResults.Items.Clear();
@@ -126,11 +118,8 @@ namespace DirectXEmu
         private void btnUnkSearch_Click(object sender, EventArgs e)
         {
             unkownResults.Clear();
-            for (ushort i = 0; i < 0xFFFF; i++)
-                if (debug.PeekMirror(i) == i)
-                    unkownResults.Add(i, debug.Peek(i));
-            if (debug.PeekMirror(0xFFFF) == 0xFFFF)
-                unkownResults.Add(0xFFFF, debug.Peek(0xFFFF));
+            for (int i = 0; i <= 0xFFFF; i++)
+                unkownResults.Add((ushort)i, debug.Peek(i));
             lstResults.Items.Clear();
             if (unkownResults.Count > 500)
                 lstResults.Items.Add(unkownResults.Count.ToString() + " results");

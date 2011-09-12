@@ -133,6 +133,10 @@ namespace EmuoTron
             memMap[0x9] = 0x8;
             memMap[0xA] = 0x9;
             memMap[0xB] = 0x9;
+            memMap[0xC] = memMap[0x8];
+            memMap[0xD] = memMap[0x9];
+            memMap[0xE] = memMap[0xA];
+            memMap[0xF] = memMap[0xB];
         }
         public void VerticalMirroring()
         {
@@ -142,6 +146,10 @@ namespace EmuoTron
             memMap[0x9] = 0x9;
             memMap[0xA] = 0x8;
             memMap[0xB] = 0x9;
+            memMap[0xC] = memMap[0x8];
+            memMap[0xD] = memMap[0x9];
+            memMap[0xE] = memMap[0xA];
+            memMap[0xF] = memMap[0xB];
         }
         public void FourScreenMirroring()
         {
@@ -151,6 +159,10 @@ namespace EmuoTron
             memMap[0x9] = 0x9;
             memMap[0xA] = 0xA;
             memMap[0xB] = 0xB;
+            memMap[0xC] = memMap[0x8];
+            memMap[0xD] = memMap[0x9];
+            memMap[0xE] = memMap[0xA];
+            memMap[0xF] = memMap[0xB];
         }
         public void ScreenOneMirroring()
         {
@@ -160,6 +172,10 @@ namespace EmuoTron
             memMap[0x9] = 0x8;
             memMap[0xA] = 0x8;
             memMap[0xB] = 0x8;
+            memMap[0xC] = memMap[0x8];
+            memMap[0xD] = memMap[0x9];
+            memMap[0xE] = memMap[0xA];
+            memMap[0xF] = memMap[0xB];
         }
         public void ScreenTwoMirroring()
         {
@@ -169,6 +185,10 @@ namespace EmuoTron
             memMap[0x9] = 0x9;
             memMap[0xA] = 0x9;
             memMap[0xB] = 0x9;
+            memMap[0xC] = memMap[0x8];
+            memMap[0xD] = memMap[0x9];
+            memMap[0xE] = memMap[0xA];
+            memMap[0xF] = memMap[0xB];
         }
         public void ScreenThreeMirroring()
         {
@@ -178,6 +198,10 @@ namespace EmuoTron
             memMap[0x9] = 0xA;
             memMap[0xA] = 0xA;
             memMap[0xB] = 0xA;
+            memMap[0xC] = memMap[0x8];
+            memMap[0xD] = memMap[0x9];
+            memMap[0xE] = memMap[0xA];
+            memMap[0xF] = memMap[0xB];
         }
         public void ScreenFourMirroring()
         {
@@ -187,10 +211,18 @@ namespace EmuoTron
             memMap[0x9] = 0xB;
             memMap[0xA] = 0xB;
             memMap[0xB] = 0xB;
+            memMap[0xC] = memMap[0x8];
+            memMap[0xD] = memMap[0x9];
+            memMap[0xE] = memMap[0xA];
+            memMap[0xF] = memMap[0xB];
         }
         public void CustomMirroring(int nameTable, int bank) // 0 1 2 3
         {
             memMap[nameTable + 0x8] = bank + 0x8;
+            memMap[0xC] = memMap[0x8];
+            memMap[0xD] = memMap[0x9];
+            memMap[0xE] = memMap[0xA];
+            memMap[0xF] = memMap[0xB];
         }
         public void StateSave(BinaryWriter writer)
         {

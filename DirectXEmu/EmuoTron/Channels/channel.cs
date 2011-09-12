@@ -10,6 +10,7 @@ namespace EmuoTron.Channels
     {
         protected NESCore nes;
         public virtual void Power() { }
+        public virtual void Reset() { }
         public virtual byte Read(byte value, ushort address) { return value; }
         public virtual void Write(byte value, ushort address) { }
         public virtual byte Cycle() { return 0; }

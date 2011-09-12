@@ -68,6 +68,10 @@
             this.txtScanline = new System.Windows.Forms.TextBox();
             this.chkSpriteHit = new System.Windows.Forms.CheckBox();
             this.chkSpriteOverflow = new System.Windows.Forms.CheckBox();
+            this.chkAPU = new System.Windows.Forms.CheckBox();
+            this.chkNMI = new System.Windows.Forms.CheckBox();
+            this.chkDMC = new System.Windows.Forms.CheckBox();
+            this.chkMapper = new System.Windows.Forms.CheckBox();
             this.SuspendLayout();
             // 
             // txtLog
@@ -77,7 +81,7 @@
             this.txtLog.Multiline = true;
             this.txtLog.Name = "txtLog";
             this.txtLog.ReadOnly = true;
-            this.txtLog.Size = new System.Drawing.Size(337, 370);
+            this.txtLog.Size = new System.Drawing.Size(337, 419);
             this.txtLog.TabIndex = 21;
             // 
             // scrlLog
@@ -86,13 +90,13 @@
             this.scrlLog.Location = new System.Drawing.Point(330, 38);
             this.scrlLog.Maximum = 65535;
             this.scrlLog.Name = "scrlLog";
-            this.scrlLog.Size = new System.Drawing.Size(19, 370);
+            this.scrlLog.Size = new System.Drawing.Size(19, 419);
             this.scrlLog.TabIndex = 1;
             this.scrlLog.Scroll += new System.Windows.Forms.ScrollEventHandler(this.scrlLog_Scroll);
             // 
             // btnOk
             // 
-            this.btnOk.Location = new System.Drawing.Point(540, 385);
+            this.btnOk.Location = new System.Drawing.Point(540, 430);
             this.btnOk.Name = "btnOk";
             this.btnOk.Size = new System.Drawing.Size(75, 23);
             this.btnOk.TabIndex = 2;
@@ -232,9 +236,9 @@
             // 
             this.lstStack.Font = new System.Drawing.Font("Consolas", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lstStack.FormattingEnabled = true;
-            this.lstStack.Location = new System.Drawing.Point(529, 197);
+            this.lstStack.Location = new System.Drawing.Point(355, 319);
             this.lstStack.Name = "lstStack";
-            this.lstStack.Size = new System.Drawing.Size(86, 173);
+            this.lstStack.Size = new System.Drawing.Size(110, 134);
             this.lstStack.TabIndex = 16;
             // 
             // lstBreak
@@ -243,12 +247,12 @@
             this.lstBreak.FormattingEnabled = true;
             this.lstBreak.Location = new System.Drawing.Point(355, 229);
             this.lstBreak.Name = "lstBreak";
-            this.lstBreak.Size = new System.Drawing.Size(87, 82);
+            this.lstBreak.Size = new System.Drawing.Size(174, 82);
             this.lstBreak.TabIndex = 17;
             // 
             // btnAddBreak
             // 
-            this.btnAddBreak.Location = new System.Drawing.Point(448, 229);
+            this.btnAddBreak.Location = new System.Drawing.Point(540, 229);
             this.btnAddBreak.Name = "btnAddBreak";
             this.btnAddBreak.Size = new System.Drawing.Size(75, 23);
             this.btnAddBreak.TabIndex = 18;
@@ -258,7 +262,7 @@
             // 
             // btnEditBreak
             // 
-            this.btnEditBreak.Location = new System.Drawing.Point(448, 258);
+            this.btnEditBreak.Location = new System.Drawing.Point(540, 258);
             this.btnEditBreak.Name = "btnEditBreak";
             this.btnEditBreak.Size = new System.Drawing.Size(75, 23);
             this.btnEditBreak.TabIndex = 19;
@@ -268,7 +272,7 @@
             // 
             // btnRemoveBreak
             // 
-            this.btnRemoveBreak.Location = new System.Drawing.Point(448, 287);
+            this.btnRemoveBreak.Location = new System.Drawing.Point(540, 287);
             this.btnRemoveBreak.Name = "btnRemoveBreak";
             this.btnRemoveBreak.Size = new System.Drawing.Size(75, 23);
             this.btnRemoveBreak.TabIndex = 20;
@@ -397,7 +401,7 @@
             // label6
             // 
             this.label6.AutoSize = true;
-            this.label6.Location = new System.Drawing.Point(413, 392);
+            this.label6.Location = new System.Drawing.Point(532, 203);
             this.label6.Name = "label6";
             this.label6.Size = new System.Drawing.Size(29, 13);
             this.label6.TabIndex = 34;
@@ -406,7 +410,7 @@
             // label7
             // 
             this.label7.AutoSize = true;
-            this.label7.Location = new System.Drawing.Point(394, 366);
+            this.label7.Location = new System.Drawing.Point(434, 200);
             this.label7.Name = "label7";
             this.label7.Size = new System.Drawing.Size(48, 13);
             this.label7.TabIndex = 35;
@@ -414,7 +418,7 @@
             // 
             // txtCycle
             // 
-            this.txtCycle.Location = new System.Drawing.Point(448, 389);
+            this.txtCycle.Location = new System.Drawing.Point(567, 200);
             this.txtCycle.Name = "txtCycle";
             this.txtCycle.ReadOnly = true;
             this.txtCycle.Size = new System.Drawing.Size(47, 20);
@@ -422,7 +426,7 @@
             // 
             // txtScanline
             // 
-            this.txtScanline.Location = new System.Drawing.Point(448, 363);
+            this.txtScanline.Location = new System.Drawing.Point(482, 197);
             this.txtScanline.Name = "txtScanline";
             this.txtScanline.ReadOnly = true;
             this.txtScanline.Size = new System.Drawing.Size(47, 20);
@@ -431,7 +435,7 @@
             // chkSpriteHit
             // 
             this.chkSpriteHit.AutoSize = true;
-            this.chkSpriteHit.Location = new System.Drawing.Point(355, 317);
+            this.chkSpriteHit.Location = new System.Drawing.Point(471, 319);
             this.chkSpriteHit.Name = "chkSpriteHit";
             this.chkSpriteHit.Size = new System.Drawing.Size(140, 17);
             this.chkSpriteHit.TabIndex = 38;
@@ -442,7 +446,7 @@
             // chkSpriteOverflow
             // 
             this.chkSpriteOverflow.AutoSize = true;
-            this.chkSpriteOverflow.Location = new System.Drawing.Point(355, 340);
+            this.chkSpriteOverflow.Location = new System.Drawing.Point(471, 342);
             this.chkSpriteOverflow.Name = "chkSpriteOverflow";
             this.chkSpriteOverflow.Size = new System.Drawing.Size(144, 17);
             this.chkSpriteOverflow.TabIndex = 39;
@@ -450,11 +454,59 @@
             this.chkSpriteOverflow.UseVisualStyleBackColor = true;
             this.chkSpriteOverflow.CheckedChanged += new System.EventHandler(this.chkSpriteOverflow_CheckedChanged);
             // 
+            // chkAPU
+            // 
+            this.chkAPU.AutoCheck = false;
+            this.chkAPU.AutoSize = true;
+            this.chkAPU.Location = new System.Drawing.Point(471, 397);
+            this.chkAPU.Name = "chkAPU";
+            this.chkAPU.Size = new System.Drawing.Size(48, 17);
+            this.chkAPU.TabIndex = 40;
+            this.chkAPU.Text = "APU";
+            this.chkAPU.UseVisualStyleBackColor = true;
+            // 
+            // chkNMI
+            // 
+            this.chkNMI.AutoCheck = false;
+            this.chkNMI.AutoSize = true;
+            this.chkNMI.Location = new System.Drawing.Point(471, 374);
+            this.chkNMI.Name = "chkNMI";
+            this.chkNMI.Size = new System.Drawing.Size(46, 17);
+            this.chkNMI.TabIndex = 41;
+            this.chkNMI.Text = "NMI";
+            this.chkNMI.UseVisualStyleBackColor = true;
+            // 
+            // chkDMC
+            // 
+            this.chkDMC.AutoCheck = false;
+            this.chkDMC.AutoSize = true;
+            this.chkDMC.Location = new System.Drawing.Point(548, 397);
+            this.chkDMC.Name = "chkDMC";
+            this.chkDMC.Size = new System.Drawing.Size(50, 17);
+            this.chkDMC.TabIndex = 42;
+            this.chkDMC.Text = "DMC";
+            this.chkDMC.UseVisualStyleBackColor = true;
+            // 
+            // chkMapper
+            // 
+            this.chkMapper.AutoCheck = false;
+            this.chkMapper.AutoSize = true;
+            this.chkMapper.Location = new System.Drawing.Point(548, 374);
+            this.chkMapper.Name = "chkMapper";
+            this.chkMapper.Size = new System.Drawing.Size(62, 17);
+            this.chkMapper.TabIndex = 43;
+            this.chkMapper.Text = "Mapper";
+            this.chkMapper.UseVisualStyleBackColor = true;
+            // 
             // Debugger
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(627, 420);
+            this.ClientSize = new System.Drawing.Size(627, 472);
+            this.Controls.Add(this.chkMapper);
+            this.Controls.Add(this.chkDMC);
+            this.Controls.Add(this.chkNMI);
+            this.Controls.Add(this.chkAPU);
             this.Controls.Add(this.chkSpriteOverflow);
             this.Controls.Add(this.chkSpriteHit);
             this.Controls.Add(this.txtScanline);
@@ -548,5 +600,9 @@
         private System.Windows.Forms.TextBox txtScanline;
         private System.Windows.Forms.CheckBox chkSpriteHit;
         private System.Windows.Forms.CheckBox chkSpriteOverflow;
+        private System.Windows.Forms.CheckBox chkAPU;
+        private System.Windows.Forms.CheckBox chkNMI;
+        private System.Windows.Forms.CheckBox chkDMC;
+        private System.Windows.Forms.CheckBox chkMapper;
     }
 }

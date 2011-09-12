@@ -24,7 +24,6 @@ namespace EmuoTron
         public Debug debug;
 
         public MemoryStore Memory;
-        public ushort[] MirrorMap = new ushort[0x10000];
         public int RegA = 0;
         public int RegX = 0;
         public int RegY = 0;
@@ -860,7 +859,7 @@ namespace EmuoTron
                                 if((RegY + temp) <= 0xFF)
                                     Write(addr, value);
                                 else
-                                    Write(addr, Memory[MirrorMap[addr]]); //Not sure what to do for this cycle :(
+                                    Write(addr, Memory[addr]); //Not sure what to do for this cycle :(
                                 break;
                             case OpInfo.IllInstrSHY: //Passes Tests but may be wrong in some minute detail
                                 value = (RegY & ((addr >> 8) + 1)) & 0xFF;
@@ -868,7 +867,7 @@ namespace EmuoTron
                                 if ((RegX + temp) <= 0xFF)
                                     Write(addr, value);
                                 else
-                                    Write(addr, Memory[MirrorMap[addr]]);
+                                    Write(addr, Memory[addr]);
                                 break;
                             case OpInfo.IllInstrSLO:
                                 value = Read(addr);
@@ -974,7 +973,6 @@ namespace EmuoTron
             PPU.generatePatternTables = false;
             APU.Update();
         }
-        int i = 0;
         public NESCore(string input, int sampleRate, bool ignoreFileCheck = false) //NSF Load
         {
             nsfPlayer = true;
@@ -1042,7 +1040,15 @@ namespace EmuoTron
             int specialChip = inputStream.ReadByte();
             Memory = new MemoryStore(0x20 + 32, true);
             Memory.swapOffset = 0x20;
-            Memory.SetReadOnly(0, 2, false);
+            Memory.memMap[0x0000 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
+            Memory.memMap[0x0400 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
+            Memory.memMap[0x0800 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
+            Memory.memMap[0x0C00 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
+            Memory.memMap[0x1000 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
+            Memory.memMap[0x1400 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
+            Memory.memMap[0x1800 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
+            Memory.memMap[0x1C00 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
+            Memory.SetReadOnly(0, 8, false);
             APU = new APU(this, sampleRate);
 #if SCANLINE_PPU
             PPU = new SPPU(this);
@@ -1116,12 +1122,6 @@ namespace EmuoTron
             ((Mappers.mNSF)mapper).songName = songName;
             ((Mappers.mNSF)mapper).artist = artist;
             ((Mappers.mNSF)mapper).copyright = copyright;
-            for (int i = 0; i < 0x10000; i++)
-            {
-                MirrorMap[i] = (ushort)i;
-            }
-            CPUMirror(0x0000, 0x0800, 0x0800, 3);
-            CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
             Power();
         }
         public NESCore(SystemType region, String input, String fdsImage, String cartDBLocation, int sampleRate, bool ignoreFileCheck = false) //FDS Load
@@ -1138,7 +1138,15 @@ namespace EmuoTron
             rom.mapper = 20;
             Memory = new MemoryStore(0x40, true);
             Memory.swapOffset = 0x20;
-            Memory.SetReadOnly(0, 2, false);
+            Memory.memMap[0x0000 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
+            Memory.memMap[0x0400 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
+            Memory.memMap[0x0800 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
+            Memory.memMap[0x0C00 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
+            Memory.memMap[0x1000 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
+            Memory.memMap[0x1400 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
+            Memory.memMap[0x1800 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
+            Memory.memMap[0x1C00 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
+            Memory.SetReadOnly(0, 8, false);
             APU = new APU(this, sampleRate);
 #if SCANLINE_PPU
             PPU = new SPPU(this);
@@ -1162,12 +1170,6 @@ namespace EmuoTron
             rom.crc = ((Mappers.m020)mapper).crc; //I don't like this.
             debug.LogInfo("ROM CRC32: " + rom.crc.ToString("X8"));
             diskStream.Close();
-            for (int i = 0; i < 0x10000; i++)
-            {
-                MirrorMap[i] = (ushort)i;
-            }
-            CPUMirror(0x0000, 0x0800, 0x0800, 3);
-            CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
             Power();
 
         }
@@ -1215,7 +1217,15 @@ namespace EmuoTron
             else
                 Memory = new MemoryStore(0x20 + rom.prgROM, true);
             Memory.swapOffset = 0x20;
-            Memory.SetReadOnly(0, 2, false);
+            Memory.memMap[0x0000 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
+            Memory.memMap[0x0400 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
+            Memory.memMap[0x0800 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
+            Memory.memMap[0x0C00 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
+            Memory.memMap[0x1000 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
+            Memory.memMap[0x1400 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
+            Memory.memMap[0x1800 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
+            Memory.memMap[0x1C00 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
+            Memory.SetReadOnly(0, 8, false);
             APU = new APU(this, sampleRate);
 #if SCANLINE_PPU
             PPU = new SPPU(this);
@@ -1297,6 +1307,7 @@ namespace EmuoTron
                 string board = "";
                 string dbMapper = "";
                 string system = "";
+                string horz = "", vert = "";
                 bool done = false;
                 bool match = false;
                 XmlReader xmlReader = XmlReader.Create(File.OpenRead(Path.Combine(cartDBLocation, "NesCarts.xml")));
@@ -1324,10 +1335,10 @@ namespace EmuoTron
                                             if (xmlReader.Value == rom.crc.ToString("X8"))
                                                 match = true;
                                     }
-                                    while ((!(xmlReader.NodeType == XmlNodeType.EndElement && xmlReader.Name == "cartridge")) && !done)
+                                    while ((!(xmlReader.NodeType == XmlNodeType.EndElement && xmlReader.Name == "cartridge")) && !done && match)
                                     {
                                         xmlReader.Read();
-                                        if (xmlReader.NodeType == XmlNodeType.Element && xmlReader.Name == "board" && match)
+                                        if (xmlReader.NodeType == XmlNodeType.Element && xmlReader.Name == "board")
                                         {
                                             while (xmlReader.MoveToNextAttribute())
                                             {
@@ -1337,7 +1348,22 @@ namespace EmuoTron
                                                     dbMapper = xmlReader.Value;
 
                                             }
-                                            done = true;
+                                            while ((!(xmlReader.NodeType == XmlNodeType.EndElement && xmlReader.Name == "board")) && !done)
+                                            {
+                                                xmlReader.Read();
+                                                if (xmlReader.NodeType == XmlNodeType.Element && xmlReader.Name == "pad")
+                                                {
+                                                    while (xmlReader.MoveToNextAttribute())
+                                                    {
+                                                        if (xmlReader.Name == "h")
+                                                            horz = xmlReader.Value;
+                                                        if (xmlReader.Name == "v")
+                                                            vert = xmlReader.Value;
+
+                                                    }
+                                                }
+                                                done = true;
+                                            }
                                         }
                                     }
                                 }
@@ -1354,6 +1380,16 @@ namespace EmuoTron
                     debug.LogInfo("Name: " + rom.title);
                     debug.LogInfo("Board: " + board);
                     debug.LogInfo("Mapper: " + rom.mapper);
+                    if (horz == "1" && vert == "0")
+                    {
+                        PPU.PPUMemory.VerticalMirroring();
+                        rom.mirroring = Mirroring.vertical;debug.LogInfo("Mirroring: Vertical");
+                    }
+                    if (horz == "0" && vert == "1")
+                    {
+                        PPU.PPUMemory.HorizontalMirroring();
+                        rom.mirroring = Mirroring.horizontal; debug.LogInfo("Mirroring: Horizontal");
+                    }
                     switch (system)
                     {
                         case "Famicom":
@@ -1533,12 +1569,6 @@ namespace EmuoTron
 
             }
             #endregion
-            for (int i = 0; i < 0x10000; i++)
-            {
-                MirrorMap[i] = (ushort)i;
-            }
-            CPUMirror(0x0000, 0x0800, 0x0800, 3);
-            CPUMirror(0x2000, 0x2008, 0x08, 0x3FF);
             Power();
 #if nestest
             RegPC = 0xC000;
@@ -1546,7 +1576,19 @@ namespace EmuoTron
         }
         public byte Read(int addr)
         {
-            ushort address = MirrorMap[addr & 0xFFFF];
+            AddCycles(1);
+            if (APU.dmc.fetching && !APU.dmc.reading)
+            {
+                while (APU.dmc.idleCycles > 0)
+                {
+                    APU.dmc.Fetch(false, -1);
+                    AddCycles(1);
+                }
+                APU.dmc.reading = true;
+                APU.dmc.Fetch(false, Read(APU.dmc.sampleCurrentAddress));
+                APU.dmc.reading = false;
+            }
+            ushort address = (ushort)addr;
             byte nextByte = Memory[address];
             if ((address & 0xF000) == 0x4000 && (address < 0x4018))
             {
@@ -1572,9 +1614,9 @@ namespace EmuoTron
                         break;
                 }
             }
-            else if ((address & 0xF000) == 0x2000 && !nsfPlayer)
+            else if ((address & 0xE000) == 0x2000 && !nsfPlayer)
             {
-                nextByte = PPU.Read(address);
+                nextByte = PPU.Read((ushort)(address & 0x2007));
             }
             nextByte = mapper.Read(nextByte, address);
 #if DEBUGGER
@@ -1582,7 +1624,6 @@ namespace EmuoTron
 #endif
             nextByte = GameGenie(nextByte, address);
             lastRead = nextByte;
-            AddCycles(1);
             return nextByte;
         }
         private int ReadWord(int address)
@@ -1597,7 +1638,10 @@ namespace EmuoTron
         }
         private void Write(int addr, int val)
         {
-            ushort address = MirrorMap[addr & 0xFFFF];
+            AddCycles(1);
+            if (APU.dmc.fetching)
+                APU.dmc.Fetch(true, -1);
+            ushort address = (ushort)addr;
             byte value = (byte)val;
 
             if ((address & 0xF000) == 0x4000)
@@ -1608,12 +1652,13 @@ namespace EmuoTron
                     PortOne.Write(value, address);
                     PortTwo.Write(value, address);
                     Expansion.Write(value, address);
-                    PPU.Write(value, address);//Need this in here for sprite DMA
+                    if(address == 0x4014)
+                        PPU.Write(value, address);//Need this in here for sprite DMA
                 }
             }
-            else if ((address & 0xF000) == 0x2000 && !nsfPlayer)
+            else if ((address & 0xE000) == 0x2000 && !nsfPlayer)
             {
-                PPU.Write(value, address);
+                PPU.Write(value, (ushort)(address & 0x2007));
             }
 
             mapper.Write(value, address);
@@ -1621,7 +1666,6 @@ namespace EmuoTron
             debug.Write(value, address);
 #endif
             Memory[address] = value;
-            AddCycles(1);
         }
         public void PushWordStack(int value)
         {
@@ -1669,12 +1713,6 @@ namespace EmuoTron
 #if DEBUGGER
             debug.AddCycles(value);
 #endif
-        }
-        private void CPUMirror(ushort address, ushort mirrorAddress, ushort length, int repeat)
-        {
-            for (int j = 0; j < repeat; j++)
-                for (int i = 0; i < length; i++)
-                    MirrorMap[mirrorAddress + i + (j * length)] = MirrorMap[address + i];
         }
         public void EjectDisk(bool diskInserted)
         {

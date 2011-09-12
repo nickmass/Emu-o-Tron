@@ -5,7 +5,7 @@ using System.Text;
 
 namespace EmuoTron.Channels
 {
-    class DMC : Channel
+    public class DMC : Channel
     {
         public bool interrupt;
         private bool interruptEnable;
@@ -13,7 +13,7 @@ namespace EmuoTron.Channels
         private int rate;
         private int divider;
         private int sampleAddress;
-        private int sampleCurrentAddress;
+        public int sampleCurrentAddress;
         private int sampleLength;
         private byte deltaCounter;
         private int bytesRemaining;
@@ -25,6 +25,10 @@ namespace EmuoTron.Channels
         public byte[] buffer;
         public int ptr;
         private bool silenced;
+
+        public bool fetching;
+        public int idleCycles;
+        public bool reading;
 
         public DMC(NESCore nes, int bufferSize)
         {
@@ -40,6 +44,23 @@ namespace EmuoTron.Channels
                     break;
             }
             buffer = new byte[bufferSize];
+        }
+        public override void Power()
+        {
+            Write(0, 0);
+            Write(0, 1);
+            Write(0, 2);
+            Write(0, 3);
+            Write(0, 4);
+            fetching = false;
+            idleCycles = 0;
+            reading = false;
+            shiftReg = 0;
+            shiftCount = 0;
+        }
+        public override void Reset()
+        {
+            Write(0, 4);
         }
         public override byte Read(byte value, ushort address)
         {
@@ -113,13 +134,30 @@ namespace EmuoTron.Channels
                     }
                 }
             }
-            if (sampleBufferEmpty)
+            if (sampleBufferEmpty && !fetching)
             {
                 if (bytesRemaining != 0)
                 {
-                    sampleBuffer = nes.Memory[sampleCurrentAddress];
+                    fetching = true;
+                    idleCycles = 3;
+                }
+            }
+            buffer[ptr++] = deltaCounter;
+            return deltaCounter;
+        }
+        public void Fetch(bool write, int nextSample)
+        {
+            if (write && idleCycles > 0)
+                idleCycles--;
+            else if (!write)
+            {
+                if (idleCycles > 0)
+                    idleCycles--;
+                else
+                {
+                    fetching = false;
+                    sampleBuffer = (byte)(nextSample & 0xFF);
                     sampleBufferEmpty = false;
-                    nes.AddCycles(4);
                     sampleCurrentAddress++;
                     if (sampleCurrentAddress > 0xFFFF)
                         sampleCurrentAddress = 0x8000;
@@ -138,8 +176,6 @@ namespace EmuoTron.Channels
                     }
                 }
             }
-            buffer[ptr++] = deltaCounter;
-            return deltaCounter;
         }
         public override void StateSave(System.IO.BinaryWriter writer)
         {
@@ -158,6 +194,9 @@ namespace EmuoTron.Channels
             writer.Write(shiftCount);
             writer.Write(shiftReg);
             writer.Write(silenced);
+            writer.Write(fetching);
+            writer.Write(idleCycles);
+            writer.Write(reading);
         }
         public override void StateLoad(System.IO.BinaryReader reader)
         {
@@ -176,6 +215,9 @@ namespace EmuoTron.Channels
             shiftCount = reader.ReadInt32();
             shiftReg = reader.ReadByte();
             silenced = reader.ReadBoolean();
+            fetching = reader.ReadBoolean();
+            idleCycles = reader.ReadInt32();
+            reading = reader.ReadBoolean();
         }
     }
 }
