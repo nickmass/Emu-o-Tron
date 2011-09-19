@@ -17,7 +17,7 @@ namespace EmuoTron.Mappers
         {
             nes.Memory.Swap16kROM(0x8000, 0);
             nes.Memory.Swap16kROM(0xC000, (nes.rom.prgROM / 16) - 1);
-            nes.PPU.PPUMemory.Swap8kRAM(0x0000, 0);
+            nes.PPU.PPUMemory.Swap8kRAM(0x0000, 0, false);
         }
         public override void Write(byte value, ushort address)
         {
@@ -45,13 +45,13 @@ namespace EmuoTron.Mappers
         {
             if (prgMode == 0)
             {
-                nes.Memory.Swap16kROM(0x8000, (prgBank & 0xFE) % (nes.rom.prgROM / 16));
-                nes.Memory.Swap16kROM(0xC000, ((prgBank & 0xFE)+1) % (nes.rom.prgROM / 16));
+                nes.Memory.Swap16kROM(0x8000, prgBank & 0xFE);
+                nes.Memory.Swap16kROM(0xC000, (prgBank & 0xFE) | 1);
             }
             else
             {
-                nes.Memory.Swap16kROM(0x8000, (prgBank) % (nes.rom.prgROM / 16));
-                nes.Memory.Swap16kROM(0xC000, (prgBank) % (nes.rom.prgROM / 16));
+                nes.Memory.Swap16kROM(0x8000, prgBank);
+                nes.Memory.Swap16kROM(0xC000, prgBank);
             }
         }
         public override void StateSave(BinaryWriter writer)

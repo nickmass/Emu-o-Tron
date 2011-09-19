@@ -68,15 +68,15 @@ namespace EmuoTron.Mappers
         }
         private void SyncPrg()
         {
-            nes.Memory.Swap8kROM(0x8000, prgReg0 % (nes.rom.prgROM / 8));
-            nes.Memory.Swap8kROM(0xA000, prgReg1 % (nes.rom.prgROM / 8));
-            nes.Memory.Swap8kROM(0xC000, prgReg2 % (nes.rom.prgROM / 8));
+            nes.Memory.Swap8kROM(0x8000, prgReg0);
+            nes.Memory.Swap8kROM(0xA000, prgReg1);
+            nes.Memory.Swap8kROM(0xC000, prgReg2);
             nes.Memory.Swap8kROM(0xE000, (nes.rom.prgROM / 8) - 1);
         }
         private void SyncChr()
         {
-            nes.PPU.PPUMemory.Swap4kROM(0x0000, chrReg0 % (nes.rom.vROM / 4));
-            nes.PPU.PPUMemory.Swap4kROM(0x1000, chrReg1 % (nes.rom.vROM / 4));
+            nes.PPU.PPUMemory.Swap4kROM(0x0000, chrReg0);
+            nes.PPU.PPUMemory.Swap4kROM(0x1000, chrReg1);
         }
         public override void StateSave(BinaryWriter writer)
         {

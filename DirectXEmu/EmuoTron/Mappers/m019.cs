@@ -21,9 +21,9 @@ namespace EmuoTron.Mappers
         }
         public override void Power()
         {
-            nes.Memory.Swap8kROM(0x8000, 0 % (nes.rom.prgROM / 8));
-            nes.Memory.Swap8kROM(0xA000, 1 % (nes.rom.prgROM / 8));
-            nes.Memory.Swap8kROM(0xC000, 2 % (nes.rom.prgROM / 8));
+            nes.Memory.Swap8kROM(0x8000, 0);
+            nes.Memory.Swap8kROM(0xA000, 1);
+            nes.Memory.Swap8kROM(0xC000, 2);
             nes.Memory.Swap8kROM(0xE000, (nes.rom.prgROM / 8) - 1);
             nes.PPU.PPUMemory.Swap8kROM(0x0000, 0);
         }
@@ -69,55 +69,51 @@ namespace EmuoTron.Mappers
                         interruptMapper = false;
                         break;
                     case 0xE000:
-                        nes.Memory.Swap8kROM(0x8000, (value & 0x3F) % (nes.rom.prgROM / 8));
+                        nes.Memory.Swap8kROM(0x8000, value & 0x3F);
                         break;
                     case 0xE800:
-                        nes.Memory.Swap8kROM(0xA000, (value & 0x3F) % (nes.rom.prgROM / 8));
+                        nes.Memory.Swap8kROM(0xA000, value & 0x3F);
                         disableLowChrRAM = (value & 0x40) != 0;
                         disableHighChrRAM = (value & 0x80) != 0;
                         SyncChr();
                         break;
                     case 0xF000:
-                        nes.Memory.Swap8kROM(0xC000, (value & 0x3F) % (nes.rom.prgROM / 8));
+                        nes.Memory.Swap8kROM(0xC000, value & 0x3F);
                         break;
                     case 0xC000:
                         if (nes.rom.mapper == 19)
                         {
                             if (value < 0xE0)
-                                nes.PPU.PPUMemory.memMap[0x8] = nes.PPU.PPUMemory.swapOffset + (value % nes.rom.vROM);
+                                nes.PPU.PPUMemory.ExternalROMMirroring(0, value);
                             else
                                 nes.PPU.PPUMemory.CustomMirroring(0, value & 1);
-                            nes.PPU.PPUMemory.SetReadOnly(0x2000, 1, value < 0xE0);
                         }
                         break;
                     case 0xC800:
                         if (nes.rom.mapper == 19)
                         {
                             if (value < 0xE0)
-                                nes.PPU.PPUMemory.memMap[0x9] = nes.PPU.PPUMemory.swapOffset + (value % nes.rom.vROM);
+                                nes.PPU.PPUMemory.ExternalROMMirroring(1, value);
                             else
                                 nes.PPU.PPUMemory.CustomMirroring(1, value & 1);
-                            nes.PPU.PPUMemory.SetReadOnly(0x2400, 1, value < 0xE0);
                         }
                         break;
                     case 0xD000:
                         if (nes.rom.mapper == 19)
                         {
                             if (value < 0xE0)
-                                nes.PPU.PPUMemory.memMap[0xA] = nes.PPU.PPUMemory.swapOffset + (value % nes.rom.vROM);
+                                nes.PPU.PPUMemory.ExternalROMMirroring(2, value);
                             else
                                 nes.PPU.PPUMemory.CustomMirroring(2, value & 1);
-                            nes.PPU.PPUMemory.SetReadOnly(0x2800, 1, value < 0xE0);
                         }
                         break;
                     case 0xD800:
                         if (nes.rom.mapper == 19)
                         {
                             if (value < 0xE0)
-                                nes.PPU.PPUMemory.memMap[0xB] = nes.PPU.PPUMemory.swapOffset + (value % nes.rom.vROM);
+                                nes.PPU.PPUMemory.ExternalROMMirroring(3, value);
                             else
                                 nes.PPU.PPUMemory.CustomMirroring(3, value & 1);
-                            nes.PPU.PPUMemory.SetReadOnly(0x2C00, 1, value < 0xE0);
                         }
                         break;
                     case 0x8000:
@@ -160,9 +156,9 @@ namespace EmuoTron.Mappers
             for (int i = 0; i < 8; i++)
             {
                 if (chrBanks[i] < 0xE0 || (i < 4 && disableLowChrRAM) || (i >= 4 && disableHighChrRAM))
-                    nes.PPU.PPUMemory.Swap1kROM((ushort)(i * 0x400), chrBanks[i] % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM((ushort)(i * 0x400), chrBanks[i]);
                 else
-                    nes.PPU.PPUMemory.Swap1kRAM((ushort)(i * 0x400), ((chrBanks[i] - 0xE0) & 7) + nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kRAM((ushort)(i * 0x400), (chrBanks[i] - 0xE0) & 7, false);
             }
         }
         public override void IRQ(int arg)

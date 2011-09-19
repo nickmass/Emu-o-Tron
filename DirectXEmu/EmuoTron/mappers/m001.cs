@@ -24,6 +24,8 @@ namespace EmuoTron.Mappers
 		    regs[3] = 0x00;
             latch = 0;
             latchPos = 0;
+            if (nes.rom.prgRAM > 8)
+                nes.rom.board = "NES-SXROM";
             Sync();
         }
 
@@ -96,27 +98,30 @@ namespace EmuoTron.Mappers
         private void Sync()
         {
             //Ignored in MMC1A, defaults to enabled in MMC1B, defaults to disabled in MMC1C
-            nes.Memory.SetReadOnly(0x6000, 8, ((regs[3] & 0x10) != 0));
+            if(nes.rom.prgRAM > 0)
+                nes.Memory.Swap8kRAM(0x6000, 0, ((regs[3] & 0x10) != 0));
 
             if (nes.rom.board == "NES-SUROM" || nes.rom.board == "NES-SXROM")
             {
                 nes.Memory.Swap16kROM(0x8000, (PrgLow() & 0xF) | (ChrLow() & 0x10));
                 nes.Memory.Swap16kROM(0xC000, (PrgHigh() & 0xF) | (ChrLow() & 0x10));
+                if( nes.rom.board == "NES-SXROM")
+                    nes.Memory.Swap8kRAM(0x6000, (ChrLow() >> 2) & 3, false);
             }
             else
             {
-                nes.Memory.Swap16kROM(0x8000, PrgLow() % (nes.rom.prgROM / 16));
-                nes.Memory.Swap16kROM(0xC000, PrgHigh() % (nes.rom.prgROM / 16));
+                nes.Memory.Swap16kROM(0x8000, PrgLow());
+                nes.Memory.Swap16kROM(0xC000, PrgHigh());
             }
             if (nes.rom.vROM == 0)
             {
-                nes.PPU.PPUMemory.Swap4kRAM(0x0000, ChrLow() % 8);
-                nes.PPU.PPUMemory.Swap4kRAM(0x1000, ChrHigh() % 8);
+                nes.PPU.PPUMemory.Swap4kRAM(0x0000, ChrLow(), false);
+                nes.PPU.PPUMemory.Swap4kRAM(0x1000, ChrHigh(), false);
             }
             else
             {
-                nes.PPU.PPUMemory.Swap4kROM(0x0000, ChrLow() % (nes.rom.vROM / 4));
-                nes.PPU.PPUMemory.Swap4kROM(0x1000, ChrHigh() % (nes.rom.vROM / 4));
+                nes.PPU.PPUMemory.Swap4kROM(0x0000, ChrLow());
+                nes.PPU.PPUMemory.Swap4kROM(0x1000, ChrHigh());
             }
             switch (regs[0] & 3)
             {

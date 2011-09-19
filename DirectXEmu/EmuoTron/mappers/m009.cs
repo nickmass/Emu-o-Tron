@@ -45,35 +45,30 @@ namespace EmuoTron.Mappers
                 }
                 else if (address >= 0xE000)
                 {
-                    value = (byte)(value % (nes.rom.vROM / 4)); //0xFE
                     fe1 = value;
                     if(latch1)
                         nes.PPU.PPUMemory.Swap4kROM(0x1000, fe1);
                 }
                 else if (address >= 0xD000)
                 {
-                    value = (byte)(value % (nes.rom.vROM / 4)); //0xFD
                     fd1 = value;
                     if (!latch1)
                         nes.PPU.PPUMemory.Swap4kROM(0x1000, fd1);
                 }
                 else if (address >= 0xC000)
                 {
-                    value = (byte)(value % (nes.rom.vROM / 4)); //0xFE
                     fe0 = value;
                     if (latch0)
                         nes.PPU.PPUMemory.Swap4kROM(0x0000, fe0);
                 }
                 else if (address >= 0xB000)
                 {
-                    value = (byte)(value % (nes.rom.vROM / 4)); //0xFD
                     fd0 = value;
                     if (!latch0)
                         nes.PPU.PPUMemory.Swap4kROM(0x0000, fd0);
                 }
                 else
                 {
-                    value = (byte)(value % (nes.rom.prgROM / 8));
                     nes.Memory.Swap8kROM(0x8000, value);
                 }
             }

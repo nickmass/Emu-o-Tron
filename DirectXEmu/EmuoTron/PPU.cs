@@ -120,25 +120,10 @@ namespace EmuoTron
         public PPU(NESCore nes)
         {
             this.nes = nes;
-            if (nes.rom.mapper == 19 || nes.rom.mapper == 210)
-                PPUMemory = new MemoryStore(0x20 + (nes.rom.vROM) + 8, true);
-            else if (nes.rom.vROM > 0)
-                PPUMemory = new MemoryStore(0x20 + (nes.rom.vROM), true);
-            else
-            {
-                PPUMemory = new MemoryStore(0x20 + (4 * 0x08), true);
-                PPUMemory.SetReadOnly(0x0000, 8, false);
-            }
-            PPUMemory.swapOffset = 0x20;
-            PPUMemory.memMap[0x2000 >> 0xA] = PPUMemory.memMap[0x2000 >> 0xA];
-            PPUMemory.memMap[0x2400 >> 0xA] = PPUMemory.memMap[0x2400 >> 0xA];
-            PPUMemory.memMap[0x2800 >> 0xA] = PPUMemory.memMap[0x2800 >> 0xA];
-            PPUMemory.memMap[0x2C00 >> 0xA] = PPUMemory.memMap[0x2C00 >> 0xA];
-            PPUMemory.memMap[0x3000 >> 0xA] = PPUMemory.memMap[0x2000 >> 0xA];
-            PPUMemory.memMap[0x3400 >> 0xA] = PPUMemory.memMap[0x2400 >> 0xA];
-            PPUMemory.memMap[0x3800 >> 0xA] = PPUMemory.memMap[0x2800 >> 0xA];
-            PPUMemory.memMap[0x3C00 >> 0xA] = PPUMemory.memMap[0x2C00 >> 0xA];
-            PPUMemory.SetReadOnly(0x2000, 8, false); //Nametables
+            int vRAM = 0;
+            if (nes.rom.vROM == 0 || nes.rom.mapper == 19 || nes.rom.mapper == 210)
+                vRAM += 8;
+            PPUMemory = new MemoryStore(4, nes.rom.vROM, vRAM, true); //4 hardwired to make doing extra nametables less insane.
             for (uint i = 0; i < 0x200; i++)
                 colorChart[i] = i;
 
@@ -176,6 +161,24 @@ namespace EmuoTron
         }
         public void Power()
         {
+            PPUMemory.memMap[0x2000 >> 0xA] = 0;
+            PPUMemory.memMap[0x2400 >> 0xA] = 1;
+            PPUMemory.memMap[0x2800 >> 0xA] = PPUMemory.memMap[0x2800 >> 0xA];
+            PPUMemory.memMap[0x2C00 >> 0xA] = PPUMemory.memMap[0x2C00 >> 0xA];
+            PPUMemory.memMap[0x3000 >> 0xA] = PPUMemory.memMap[0x2000 >> 0xA];
+            PPUMemory.memMap[0x3400 >> 0xA] = PPUMemory.memMap[0x2400 >> 0xA];
+            PPUMemory.memMap[0x3800 >> 0xA] = PPUMemory.memMap[0x2800 >> 0xA];
+            PPUMemory.memMap[0x3C00 >> 0xA] = PPUMemory.memMap[0x2C00 >> 0xA];
+            PPUMemory.SetReadOnly(0x2000, 8, false); //Nametables
+            if (nes.rom.mirroring == Mirroring.fourScreen)
+            {
+                PPUMemory.FourScreenMirroring();
+                PPUMemory.hardwired = true;
+            }
+            else if (nes.rom.mirroring == Mirroring.vertical)
+                PPUMemory.VerticalMirroring();
+            else
+                PPUMemory.HorizontalMirroring();
             for (int i = 0; i < 0x100; i++)
                 SPRMemory[i] = 0;
             for (int i = 0x2000; i < 0x2800; i++)
@@ -963,7 +966,7 @@ namespace EmuoTron
         }
         private byte PPURead(int addr, AccessType access)
         {
-            ushort address = (ushort)addr;
+            ushort address = (ushort)(addr & 0x3FFF);
             byte value = PPUMemory[address];
             if (nes.rom.mapper == 5)
             {
@@ -977,7 +980,7 @@ namespace EmuoTron
         }
         private void PPUWrite(int addr, byte value, AccessType access)
         {
-            ushort address = (ushort)addr;
+            ushort address = (ushort)(addr & 0x3FFF);
             PPUMemory[address] = value;
         }
         private byte[][,] GenerateNameTables()

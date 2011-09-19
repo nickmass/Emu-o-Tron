@@ -22,7 +22,7 @@ namespace EmuoTron.Mappers
         {
             if (address >= 0x6000 && address < 0x8000)
             {
-                nes.PPU.PPUMemory.Swap8kROM(0, (((value & 1) << 1) | ((value & 2) >> 1)) % (nes.rom.vROM / 8));
+                nes.PPU.PPUMemory.Swap8kROM(0, ((value & 1) << 1) | ((value & 2) >> 1));
             }
         }
     }

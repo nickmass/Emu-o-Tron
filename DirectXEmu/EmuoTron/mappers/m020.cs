@@ -80,11 +80,11 @@ namespace EmuoTron.Mappers
         public override void Power()
         {
             nes.Memory.Swap8kROM(0xE000, 0);
-            nes.Memory.Swap8kRAM(0x8000, 1);
-            nes.Memory.Swap8kRAM(0xA000, 2);
-            nes.Memory.Swap8kRAM(0xC000, 3);
-            nes.Memory.SetReadOnly(0x6000, 8, false);
-            nes.PPU.PPUMemory.Swap8kRAM(0, 0);
+            nes.Memory.Swap8kRAM(0x6000, 0, false);
+            nes.Memory.Swap8kRAM(0x8000, 1, false);
+            nes.Memory.Swap8kRAM(0xA000, 2, false);
+            nes.Memory.Swap8kRAM(0xC000, 3, false);
+            nes.PPU.PPUMemory.Swap8kRAM(0, 0, false);
             diskOperationCounter = diskOperationTime;
         }
         public override void Write(byte value, ushort address)

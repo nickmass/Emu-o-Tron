@@ -23,8 +23,8 @@ namespace EmuoTron.Mappers
             {
                 if (nes.Memory[address] == value)
                 {
-                    nes.Memory.Swap32kROM(0x8000, (value & 0x03) % (nes.rom.prgROM / 32));
-                    nes.PPU.PPUMemory.Swap8kROM(0, ((value >> 4) & 0x0F) % (nes.rom.vROM / 8));
+                    nes.Memory.Swap32kROM(0x8000, (value & 0x03));
+                    nes.PPU.PPUMemory.Swap8kROM(0, ((value >> 4) & 0x0F));
                 }
             }
         }

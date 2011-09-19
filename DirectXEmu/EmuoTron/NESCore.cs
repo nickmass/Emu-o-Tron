@@ -927,7 +927,6 @@ namespace EmuoTron
                     if (pendingFlagIRQ2 == 0)
                         delayedFlagIRQ = pendingFlagIRQValue2;
                 }
-#if !nestest
                 if (PPU.interruptNMI)
                 {
                     ReadWord(RegPC);//Supposedly takes 7 cycles and is the same pattern as BRK
@@ -963,7 +962,6 @@ namespace EmuoTron
                     APU.Reset();
                     PPU.Reset();
                 }
-#endif
             }
             if (debug.debugInterrupt && (PPU.scanlineCycle < 256 && PPU.scanline > -1 && PPU.scanline < 240))
                 PPU.screen[PPU.scanline, PPU.scanlineCycle] ^= 0x00FFFFFF;
@@ -1038,17 +1036,7 @@ namespace EmuoTron
             int region = inputStream.ReadByte();
             int PBRATE;
             int specialChip = inputStream.ReadByte();
-            Memory = new MemoryStore(0x20 + 32, true);
-            Memory.swapOffset = 0x20;
-            Memory.memMap[0x0000 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
-            Memory.memMap[0x0400 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
-            Memory.memMap[0x0800 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
-            Memory.memMap[0x0C00 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
-            Memory.memMap[0x1000 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
-            Memory.memMap[0x1400 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
-            Memory.memMap[0x1800 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
-            Memory.memMap[0x1C00 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
-            Memory.SetReadOnly(0, 8, false);
+            Memory = new MemoryStore(2, 32, 0, true);
             APU = new APU(this, sampleRate);
 #if SCANLINE_PPU
             PPU = new SPPU(this);
@@ -1136,17 +1124,7 @@ namespace EmuoTron
             rom.filePath = fdsImage;
             rom.fileName = Path.GetFileNameWithoutExtension(rom.filePath);
             rom.mapper = 20;
-            Memory = new MemoryStore(0x40, true);
-            Memory.swapOffset = 0x20;
-            Memory.memMap[0x0000 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
-            Memory.memMap[0x0400 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
-            Memory.memMap[0x0800 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
-            Memory.memMap[0x0C00 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
-            Memory.memMap[0x1000 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
-            Memory.memMap[0x1400 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
-            Memory.memMap[0x1800 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
-            Memory.memMap[0x1C00 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
-            Memory.SetReadOnly(0, 8, false);
+            Memory = new MemoryStore(2, 8, 32, true);
             APU = new APU(this, sampleRate);
 #if SCANLINE_PPU
             PPU = new SPPU(this);
@@ -1212,20 +1190,36 @@ namespace EmuoTron
             rom.PC10 = ((highMapper & 0x02) != 0);
             rom.vsUnisystem = ((highMapper & 0x01) != 0);
             rom.mapper = (lowMapper >> 4) | (highMapper & 0xF0);
-            if (rom.mapper == 5)
-                Memory = new MemoryStore(0x20 + rom.prgROM + 64, true); //give mmc5 64kb prgram to simplify things
+            bool iNes2 = ((highMapper >> 2) & 3) == 2;
+            if (iNes2)
+            {
+                int higherMapper = inputStream.ReadByte();
+                int highPrgChrRom = inputStream.ReadByte();
+                int prgRam = inputStream.ReadByte();
+                int batteryBackedPrgRam = prgRam & 0xF;
+                if (batteryBackedPrgRam != 0)
+                {
+                    batteryBackedPrgRam = (int)(Math.Pow(2, batteryBackedPrgRam + 6)) / 1024;
+                    if (batteryBackedPrgRam == 0)
+                        batteryBackedPrgRam = 1;
+                }
+                int unbackedPrgRam = (prgRam >> 4) & 0xF;
+                if (unbackedPrgRam != 0)
+                {
+                    unbackedPrgRam = (int)(Math.Pow(2, unbackedPrgRam + 6)) / 1024;
+                    if (unbackedPrgRam == 0)
+                        unbackedPrgRam = 1;
+                }
+                int chrRam = inputStream.ReadByte();
+                int tvSystem = inputStream.ReadByte();
+                int vsSystem = inputStream.ReadByte();
+                rom.prgRAM = (rom.mapper == 5 ? 64 : unbackedPrgRam + batteryBackedPrgRam);
+            }
             else
-                Memory = new MemoryStore(0x20 + rom.prgROM, true);
-            Memory.swapOffset = 0x20;
-            Memory.memMap[0x0000 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
-            Memory.memMap[0x0400 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
-            Memory.memMap[0x0800 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
-            Memory.memMap[0x0C00 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
-            Memory.memMap[0x1000 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
-            Memory.memMap[0x1400 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
-            Memory.memMap[0x1800 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
-            Memory.memMap[0x1C00 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
-            Memory.SetReadOnly(0, 8, false);
+            {
+                rom.prgRAM = (rom.mapper == 5 ? 64 : 8);//Screw it everything gets atleast 8kb ram
+            }
+            Memory = new MemoryStore(2, rom.prgROM, rom.prgRAM, true);
             APU = new APU(this, sampleRate);
 #if SCANLINE_PPU
             PPU = new SPPU(this);
@@ -1241,11 +1235,8 @@ namespace EmuoTron
             debug.LogInfo("Mirroring: " + (rom.mirroring == Mirroring.fourScreen ? "Four-screen" : (rom.mirroring == Mirroring.vertical ? "Vertical" : "Horizontal")));
             if(rom.vsUnisystem)
                 debug.LogInfo("VS Unisystem Game");
-            if (rom.sRAM)
-            {
-                debug.LogInfo("SRAM Present");
-                Memory.SetReadOnly(0x6000, 8, false);
-            }
+            if(iNes2)
+                debug.LogInfo("NES 2.0 marker found in header.");
             inputStream.Position = 0x10;
             if (rom.trainer)
             {
@@ -1288,19 +1279,6 @@ namespace EmuoTron
                 debug.LogInfo("Name: " + rom.title);
             inputStream.Close();
 
-            if (rom.mirroring == Mirroring.fourScreen)
-            {
-                PPU.PPUMemory.FourScreenMirroring();
-                PPU.PPUMemory.hardwired = true;
-            }
-            else if (rom.mirroring == Mirroring.vertical)
-            {
-                PPU.PPUMemory.VerticalMirroring();
-            }
-            else
-            {
-                PPU.PPUMemory.HorizontalMirroring();
-            }
             if (File.Exists(Path.Combine(cartDBLocation, "NesCarts.xml")))
             {
                 string gameName = "";
@@ -1309,66 +1287,21 @@ namespace EmuoTron
                 string system = "";
                 string horz = "", vert = "";
                 bool done = false;
-                bool match = false;
                 XmlReader xmlReader = XmlReader.Create(File.OpenRead(Path.Combine(cartDBLocation, "NesCarts.xml")));
-                while (xmlReader.Read() && !done)
+                while (!done && xmlReader.ReadToFollowing("game"))
                 {
-                    if (xmlReader.NodeType == XmlNodeType.Element)
+                    gameName = xmlReader.GetAttribute("name");
+                    xmlReader.ReadToDescendant("cartridge");
+                    system = xmlReader.GetAttribute("system");
+                    if (xmlReader.GetAttribute("crc") == rom.crc.ToString("X8"))
                     {
-                        if (xmlReader.Name == "game")
-                        {
-                            while (xmlReader.MoveToNextAttribute())
-                            {
-                                if (xmlReader.Name == "name")
-                                    gameName = xmlReader.Value;
-                            }
-                            while ((!(xmlReader.NodeType == XmlNodeType.EndElement && xmlReader.Name == "game")) && !done)
-                            {
-                                xmlReader.Read();
-                                if (xmlReader.NodeType == XmlNodeType.Element && xmlReader.Name == "cartridge")
-                                {
-                                    while (xmlReader.MoveToNextAttribute())
-                                    {
-                                        if (xmlReader.Name == "system")
-                                            system = xmlReader.Value;
-                                        if (xmlReader.Name == "crc")
-                                            if (xmlReader.Value == rom.crc.ToString("X8"))
-                                                match = true;
-                                    }
-                                    while ((!(xmlReader.NodeType == XmlNodeType.EndElement && xmlReader.Name == "cartridge")) && !done && match)
-                                    {
-                                        xmlReader.Read();
-                                        if (xmlReader.NodeType == XmlNodeType.Element && xmlReader.Name == "board")
-                                        {
-                                            while (xmlReader.MoveToNextAttribute())
-                                            {
-                                                if (xmlReader.Name == "type")
-                                                    board = xmlReader.Value;
-                                                if (xmlReader.Name == "mapper")
-                                                    dbMapper = xmlReader.Value;
-
-                                            }
-                                            while ((!(xmlReader.NodeType == XmlNodeType.EndElement && xmlReader.Name == "board")) && !done)
-                                            {
-                                                xmlReader.Read();
-                                                if (xmlReader.NodeType == XmlNodeType.Element && xmlReader.Name == "pad")
-                                                {
-                                                    while (xmlReader.MoveToNextAttribute())
-                                                    {
-                                                        if (xmlReader.Name == "h")
-                                                            horz = xmlReader.Value;
-                                                        if (xmlReader.Name == "v")
-                                                            vert = xmlReader.Value;
-
-                                                    }
-                                                }
-                                                done = true;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        xmlReader.ReadToDescendant("board");
+                        board = xmlReader.GetAttribute("type");
+                        dbMapper = xmlReader.GetAttribute("mapper");
+                        xmlReader.ReadToDescendant("pad");
+                        horz = xmlReader.GetAttribute("h");
+                        vert = xmlReader.GetAttribute("v");
+                        done = true;
                     }
                 }
                 if (done)
@@ -1570,9 +1503,6 @@ namespace EmuoTron
             }
             #endregion
             Power();
-#if nestest
-            RegPC = 0xC000;
-#endif
         }
         public byte Read(int addr)
         {
@@ -1895,6 +1825,20 @@ namespace EmuoTron
         }
         public void Power()
         {
+            Memory.memMap[0x0000 >> 0xA] = 0;
+            Memory.memMap[0x0400 >> 0xA] = 1;
+            Memory.memMap[0x0800 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
+            Memory.memMap[0x0C00 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
+            Memory.memMap[0x1000 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
+            Memory.memMap[0x1400 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
+            Memory.memMap[0x1800 >> 0xA] = Memory.memMap[0x0000 >> 0xA];
+            Memory.memMap[0x1C00 >> 0xA] = Memory.memMap[0x0400 >> 0xA];
+            Memory.SetReadOnly(0, 8, false);
+            if (rom.sRAM)
+            {
+                debug.LogInfo("SRAM Present");
+                Memory.Swap8kRAM(0x6000, 0, false);
+            }
             RegA = 0;
             RegX = 0;
             RegY = 0;
@@ -1918,9 +1862,9 @@ namespace EmuoTron
                 Memory[i] = 0;
             }
             interruptReset = false;
-            mapper.Power();
             PPU.Power();
             APU.Power();
+            mapper.Power();
             RegPC = ReadWord(0xFFFC);//entry point
             if (nsfPlayer)
             {
@@ -2006,6 +1950,7 @@ namespace EmuoTron
         public string fileName;
         public string filePath;
         public string title;
+        public int prgRAM;
         public int prgROM;
         public int vROM;
         public bool sRAM;

@@ -46,7 +46,7 @@ namespace EmuoTron.Mappers
             latch = 0;
             latchPos = 0;
             initialized = false;
-            nes.PPU.PPUMemory.Swap8kRAM(0x0000, 0);
+            nes.PPU.PPUMemory.Swap8kRAM(0x0000, 0, false);
             Sync();
         }
 
@@ -106,8 +106,8 @@ namespace EmuoTron.Mappers
                 }
                 else
                 {
-                    nes.Memory.Swap16kROM(0x8000, (PrgLow() % ((nes.rom.prgROM / 2) / 16)) + 8);//Second 128k
-                    nes.Memory.Swap16kROM(0xC000, (PrgHigh() % ((nes.rom.prgROM / 2) / 16)) + 8);
+                    nes.Memory.Swap16kROM(0x8000, PrgLow() + 8);//Second 128k
+                    nes.Memory.Swap16kROM(0xC000, PrgHigh() + 8);
                 }
             }
             else

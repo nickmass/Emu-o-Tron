@@ -191,20 +191,20 @@ namespace EmuoTron.Mappers
         }
         private void PrgSync()
         {
-            nes.Memory.Swap8kROM(0x8000, prgBanks[0] % (nes.rom.prgROM / 8));
-            nes.Memory.Swap8kROM(0xA000, prgBanks[1] % (nes.rom.prgROM / 8));
-            nes.Memory.Swap8kROM(0xC000, prgBanks[2] % (nes.rom.prgROM / 8));
+            nes.Memory.Swap8kROM(0x8000, prgBanks[0]);
+            nes.Memory.Swap8kROM(0xA000, prgBanks[1]);
+            nes.Memory.Swap8kROM(0xC000, prgBanks[2]);
         }
         private void ChrSync()
         {
-            nes.PPU.PPUMemory.Swap1kROM(0x0000, chrBanks[0] % nes.rom.vROM);
-            nes.PPU.PPUMemory.Swap1kROM(0x0400, chrBanks[1] % nes.rom.vROM);
-            nes.PPU.PPUMemory.Swap1kROM(0x0800, chrBanks[2] % nes.rom.vROM);
-            nes.PPU.PPUMemory.Swap1kROM(0x0C00, chrBanks[3] % nes.rom.vROM);
-            nes.PPU.PPUMemory.Swap1kROM(0x1000, chrBanks[4] % nes.rom.vROM);
-            nes.PPU.PPUMemory.Swap1kROM(0x1400, chrBanks[5] % nes.rom.vROM);
-            nes.PPU.PPUMemory.Swap1kROM(0x1800, chrBanks[6] % nes.rom.vROM);
-            nes.PPU.PPUMemory.Swap1kROM(0x1C00, chrBanks[7] % nes.rom.vROM);
+            nes.PPU.PPUMemory.Swap1kROM(0x0000, chrBanks[0]);
+            nes.PPU.PPUMemory.Swap1kROM(0x0400, chrBanks[1]);
+            nes.PPU.PPUMemory.Swap1kROM(0x0800, chrBanks[2]);
+            nes.PPU.PPUMemory.Swap1kROM(0x0C00, chrBanks[3]);
+            nes.PPU.PPUMemory.Swap1kROM(0x1000, chrBanks[4]);
+            nes.PPU.PPUMemory.Swap1kROM(0x1400, chrBanks[5]);
+            nes.PPU.PPUMemory.Swap1kROM(0x1800, chrBanks[6]);
+            nes.PPU.PPUMemory.Swap1kROM(0x1C00, chrBanks[7]);
         }
         public override void IRQ(int cycles)
         {

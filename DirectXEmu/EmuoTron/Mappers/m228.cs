@@ -48,20 +48,20 @@ namespace EmuoTron.Mappers
                     nes.PPU.PPUMemory.VerticalMirroring();
                 else
                     nes.PPU.PPUMemory.HorizontalMirroring();
-                nes.PPU.PPUMemory.Swap8kROM(0x0000, chrBank % (nes.rom.vROM / 8));
+                nes.PPU.PPUMemory.Swap8kROM(0x0000, chrBank);
                 if (prgChip == 1)//No chip 2 so this becomes weird. Each chip is 512kb, 512 / 16kb banks = 32
                     prgBank += 32;
                 else if (prgChip == 3)
                     prgBank += 64;
                 if (prgMode == 0)
                 {
-                    nes.Memory.Swap16kROM(0x8000, (prgBank & 0xFE) % (nes.rom.prgROM / 16));
-                    nes.Memory.Swap16kROM(0xC000, ((prgBank & 0xFE) + 1) % (nes.rom.prgROM / 16));
+                    nes.Memory.Swap16kROM(0x8000, prgBank & 0xFE);
+                    nes.Memory.Swap16kROM(0xC000, (prgBank & 0xFE) | 1);
                 }
                 else
                 {
-                    nes.Memory.Swap16kROM(0x8000, (prgBank) % (nes.rom.prgROM / 16));
-                    nes.Memory.Swap16kROM(0xC000, (prgBank) % (nes.rom.prgROM / 16));
+                    nes.Memory.Swap16kROM(0x8000, prgBank);
+                    nes.Memory.Swap16kROM(0xC000, prgBank);
                 }
             }
             else if (address >= 0x4020 && address < 0x6000)

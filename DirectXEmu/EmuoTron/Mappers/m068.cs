@@ -29,16 +29,16 @@ namespace EmuoTron.Mappers
                 switch (address & 0xF000)
                 {
                     case 0x8000:
-                        nes.PPU.PPUMemory.Swap2kROM(0x0000, value % (nes.rom.vROM / 2));
+                        nes.PPU.PPUMemory.Swap2kROM(0x0000, value);
                         break;
                     case 0x9000:
-                        nes.PPU.PPUMemory.Swap2kROM(0x0800, value % (nes.rom.vROM / 2));
+                        nes.PPU.PPUMemory.Swap2kROM(0x0800, value);
                         break;
                     case 0xA000:
-                        nes.PPU.PPUMemory.Swap2kROM(0x1000, value % (nes.rom.vROM / 2));
+                        nes.PPU.PPUMemory.Swap2kROM(0x1000, value);
                         break;
                     case 0xB000:
-                        nes.PPU.PPUMemory.Swap2kROM(0x1800, value % (nes.rom.vROM / 2));
+                        nes.PPU.PPUMemory.Swap2kROM(0x1800, value);
                         break;
                     case 0xC000:
                         ntReg1 = (byte)((value & 0x7F) | 0x80);
@@ -54,7 +54,7 @@ namespace EmuoTron.Mappers
                         SyncMirroring();
                         break;
                     case 0xF000:
-                        nes.Memory.Swap16kROM(0x8000, value % (nes.rom.vROM / 16));
+                        nes.Memory.Swap16kROM(0x8000, value);
                         break;
                 }
             }
@@ -65,17 +65,17 @@ namespace EmuoTron.Mappers
             {
                 if (mirroring)
                 {//Vert
-                    nes.PPU.PPUMemory.memMap[0x8] = nes.PPU.PPUMemory.swapOffset + (ntReg1 % nes.rom.vROM);
-                    nes.PPU.PPUMemory.memMap[0x9] = nes.PPU.PPUMemory.swapOffset + (ntReg2 % nes.rom.vROM);
-                    nes.PPU.PPUMemory.memMap[0xA] = nes.PPU.PPUMemory.swapOffset + (ntReg1 % nes.rom.vROM);
-                    nes.PPU.PPUMemory.memMap[0xB] = nes.PPU.PPUMemory.swapOffset + (ntReg2 % nes.rom.vROM);
+                    nes.PPU.PPUMemory.ExternalROMMirroring(0, ntReg1);
+                    nes.PPU.PPUMemory.ExternalROMMirroring(1, ntReg2);
+                    nes.PPU.PPUMemory.ExternalROMMirroring(2, ntReg1);
+                    nes.PPU.PPUMemory.ExternalROMMirroring(3, ntReg2);
                 }
                 else
                 {//Horz
-                    nes.PPU.PPUMemory.memMap[0x8] = nes.PPU.PPUMemory.swapOffset + (ntReg1 % nes.rom.vROM);
-                    nes.PPU.PPUMemory.memMap[0x9] = nes.PPU.PPUMemory.swapOffset + (ntReg1 % nes.rom.vROM);
-                    nes.PPU.PPUMemory.memMap[0xA] = nes.PPU.PPUMemory.swapOffset + (ntReg2 % nes.rom.vROM);
-                    nes.PPU.PPUMemory.memMap[0xB] = nes.PPU.PPUMemory.swapOffset + (ntReg2 % nes.rom.vROM);
+                    nes.PPU.PPUMemory.ExternalROMMirroring(0, ntReg1);
+                    nes.PPU.PPUMemory.ExternalROMMirroring(1, ntReg1);
+                    nes.PPU.PPUMemory.ExternalROMMirroring(2, ntReg2);
+                    nes.PPU.PPUMemory.ExternalROMMirroring(3, ntReg2);
                 }
             }
             else

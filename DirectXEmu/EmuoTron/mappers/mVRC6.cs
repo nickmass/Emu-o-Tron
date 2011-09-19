@@ -124,15 +124,15 @@ namespace EmuoTron.Mappers
         }
         private void SyncPrg()
         {
-            nes.Memory.Swap16kROM(0x8000, prgReg0 % (nes.rom.prgROM / 16));
-            nes.Memory.Swap8kROM(0xC000, prgReg1 % (nes.rom.prgROM / 8));
+            nes.Memory.Swap16kROM(0x8000, prgReg0);
+            nes.Memory.Swap8kROM(0xC000, prgReg1);
             nes.Memory.Swap8kROM(0xE000, (nes.rom.prgROM / 8) - 1);
         }
         private void SyncChr()
         {
             for (int i = 0; i < 8; i++)
             {
-                nes.PPU.PPUMemory.Swap1kROM((ushort)(i << 10), (chrReg[i]) % nes.rom.vROM);
+                nes.PPU.PPUMemory.Swap1kROM((ushort)(i << 10), chrReg[i]);
             }
         }
         public override void IRQ(int cycles)

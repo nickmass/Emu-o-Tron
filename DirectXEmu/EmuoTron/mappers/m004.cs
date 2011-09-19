@@ -13,6 +13,7 @@ namespace EmuoTron.Mappers
         private byte irqLatch;
         private bool irqReload;
         private bool irqEnable;
+        private bool writeProtect;
 
         private byte[] chrBanks = new byte[8];
         private byte[] prgBanks = new byte[2];
@@ -28,6 +29,7 @@ namespace EmuoTron.Mappers
             for (int i = 0; i < 8; i++)
                 chrBanks[i] = 0;
             bankSelect = 0;
+            writeProtect = false;
             Sync();
             irqCounter = 0;
             irqLatch = 0;
@@ -79,7 +81,8 @@ namespace EmuoTron.Mappers
                     }
                     else if (address >= 0xA000) //PRG RAM protect
                     {
-                        nes.Memory.SetReadOnly(0x6000, 8, ((value & 0x40) != 0) | ((value & 0x80) == 0));
+                        writeProtect = ((value & 0x40) != 0) | ((value & 0x80) == 0);
+                        Sync();
                     }
                     else //Bank data
                     {
@@ -128,46 +131,47 @@ namespace EmuoTron.Mappers
             {
                 if ((bankSelect & 0x80) == 0)
                 {
-                    nes.PPU.PPUMemory.Swap1kROM(0x0000, chrBanks[0] % nes.rom.vROM);
-                    nes.PPU.PPUMemory.Swap1kROM(0x0400, chrBanks[1] % nes.rom.vROM);
-                    nes.PPU.PPUMemory.Swap1kROM(0x0800, chrBanks[2] % nes.rom.vROM);
-                    nes.PPU.PPUMemory.Swap1kROM(0x0C00, chrBanks[3] % nes.rom.vROM);
-                    nes.PPU.PPUMemory.Swap1kROM(0x1000, chrBanks[4] % nes.rom.vROM);
-                    nes.PPU.PPUMemory.Swap1kROM(0x1400, chrBanks[5] % nes.rom.vROM);
-                    nes.PPU.PPUMemory.Swap1kROM(0x1800, chrBanks[6] % nes.rom.vROM);
-                    nes.PPU.PPUMemory.Swap1kROM(0x1C00, chrBanks[7] % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM(0x0000, chrBanks[0]);
+                    nes.PPU.PPUMemory.Swap1kROM(0x0400, chrBanks[1]);
+                    nes.PPU.PPUMemory.Swap1kROM(0x0800, chrBanks[2]);
+                    nes.PPU.PPUMemory.Swap1kROM(0x0C00, chrBanks[3]);
+                    nes.PPU.PPUMemory.Swap1kROM(0x1000, chrBanks[4]);
+                    nes.PPU.PPUMemory.Swap1kROM(0x1400, chrBanks[5]);
+                    nes.PPU.PPUMemory.Swap1kROM(0x1800, chrBanks[6]);
+                    nes.PPU.PPUMemory.Swap1kROM(0x1C00, chrBanks[7]);
                 }
                 else
                 {
-                    nes.PPU.PPUMemory.Swap1kROM(0x0000, chrBanks[4] % nes.rom.vROM);
-                    nes.PPU.PPUMemory.Swap1kROM(0x0400, chrBanks[5] % nes.rom.vROM);
-                    nes.PPU.PPUMemory.Swap1kROM(0x0800, chrBanks[6] % nes.rom.vROM);
-                    nes.PPU.PPUMemory.Swap1kROM(0x0C00, chrBanks[7] % nes.rom.vROM);
-                    nes.PPU.PPUMemory.Swap1kROM(0x1000, chrBanks[0] % nes.rom.vROM);
-                    nes.PPU.PPUMemory.Swap1kROM(0x1400, chrBanks[1] % nes.rom.vROM);
-                    nes.PPU.PPUMemory.Swap1kROM(0x1800, chrBanks[2] % nes.rom.vROM);
-                    nes.PPU.PPUMemory.Swap1kROM(0x1C00, chrBanks[3] % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM(0x0000, chrBanks[4]);
+                    nes.PPU.PPUMemory.Swap1kROM(0x0400, chrBanks[5]);
+                    nes.PPU.PPUMemory.Swap1kROM(0x0800, chrBanks[6]);
+                    nes.PPU.PPUMemory.Swap1kROM(0x0C00, chrBanks[7]);
+                    nes.PPU.PPUMemory.Swap1kROM(0x1000, chrBanks[0]);
+                    nes.PPU.PPUMemory.Swap1kROM(0x1400, chrBanks[1]);
+                    nes.PPU.PPUMemory.Swap1kROM(0x1800, chrBanks[2]);
+                    nes.PPU.PPUMemory.Swap1kROM(0x1C00, chrBanks[3]);
                 }
             }
             else
             {
-                nes.PPU.PPUMemory.Swap8kRAM(0x0000, 0);
+                nes.PPU.PPUMemory.Swap8kRAM(0x0000, 0, false);
             }
         }
         private void SyncPrg()
         {
+            nes.Memory.Swap8kRAM(0x6000, 0, writeProtect);
             if ((bankSelect & 0x40) == 0)
             {
-                nes.Memory.Swap8kROM(0x8000, prgBanks[0] % (nes.rom.prgROM / 8));
-                nes.Memory.Swap8kROM(0xA000, prgBanks[1] % (nes.rom.prgROM / 8));
+                nes.Memory.Swap8kROM(0x8000, prgBanks[0]);
+                nes.Memory.Swap8kROM(0xA000, prgBanks[1]);
                 nes.Memory.Swap8kROM(0xC000, (nes.rom.prgROM / 8) - 2);
                 nes.Memory.Swap8kROM(0xE000, (nes.rom.prgROM / 8) - 1);
             }
             else
             {
                 nes.Memory.Swap8kROM(0x8000, (nes.rom.prgROM / 8) - 2);
-                nes.Memory.Swap8kROM(0xA000, prgBanks[1] % (nes.rom.prgROM / 8));
-                nes.Memory.Swap8kROM(0xC000, prgBanks[0] % (nes.rom.prgROM / 8));
+                nes.Memory.Swap8kROM(0xA000, prgBanks[1]);
+                nes.Memory.Swap8kROM(0xC000, prgBanks[0]);
                 nes.Memory.Swap8kROM(0xE000, (nes.rom.prgROM / 8) - 1);
             }
         }
@@ -217,6 +221,7 @@ namespace EmuoTron.Mappers
                 writer.Write(prgBanks[i]);
             for (int i = 0; i < 8; i++)
                 writer.Write(chrBanks[i]);
+            writer.Write(writeProtect);
         }
         public override void StateLoad(BinaryReader reader)
         {
@@ -229,6 +234,7 @@ namespace EmuoTron.Mappers
                 prgBanks[i] = reader.ReadByte();
             for (int i = 0; i < 8; i++)
                 chrBanks[i] = reader.ReadByte();
+            writeProtect = reader.ReadBoolean();
         }
     }
 }

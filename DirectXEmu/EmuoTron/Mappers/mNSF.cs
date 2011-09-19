@@ -98,14 +98,14 @@ namespace EmuoTron.Mappers
         {
             if (bankSwitching)
             {
-                nes.Memory.Swap4kROM(0x8000, banks[0] % 8);
-                nes.Memory.Swap4kROM(0x9000, banks[1] % 8);
-                nes.Memory.Swap4kROM(0xA000, banks[2] % 8);
-                nes.Memory.Swap4kROM(0xB000, banks[3] % 8);
-                nes.Memory.Swap4kROM(0xC000, banks[4] % 8);
-                nes.Memory.Swap4kROM(0xD000, banks[5] % 8);
-                nes.Memory.Swap4kROM(0xE000, banks[6] % 8);
-                nes.Memory.Swap4kROM(0xF000, banks[7] % 8);
+                nes.Memory.Swap4kROM(0x8000, banks[0]);
+                nes.Memory.Swap4kROM(0x9000, banks[1]);
+                nes.Memory.Swap4kROM(0xA000, banks[2]);
+                nes.Memory.Swap4kROM(0xB000, banks[3]);
+                nes.Memory.Swap4kROM(0xC000, banks[4]);
+                nes.Memory.Swap4kROM(0xD000, banks[5]);
+                nes.Memory.Swap4kROM(0xE000, banks[6]);
+                nes.Memory.Swap4kROM(0xF000, banks[7]);
             }
         }
         public override void IRQ(int cycles)

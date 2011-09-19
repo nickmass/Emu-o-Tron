@@ -9,7 +9,6 @@ namespace EmuoTron
     public class SPPU
     {
         public MemoryStore PPUMemory;
-        public ushort[] PPUMirrorMap = new ushort[0x8000];
         public byte[] SPRMemory = new byte[0x100];
         public byte[] PalMemory = new byte[0x20];
 
@@ -80,26 +79,10 @@ namespace EmuoTron
         public SPPU(NESCore nes)
         {
             this.nes = nes;
-            if (nes.rom.mapper == 19 || nes.rom.mapper == 210)
-                PPUMemory = new MemoryStore(0x20 + (nes.rom.vROM) + 8, true);
-            else if (nes.rom.vROM > 0)
-                PPUMemory = new MemoryStore(0x20 + (nes.rom.vROM), true);
-            else
-            {
-                PPUMemory = new MemoryStore(0x20 + (4 * 0x08), true);
-                PPUMemory.SetReadOnly(0x0000, 8, false);
-            }
-            PPUMemory.swapOffset = 0x20;
-            PPUMemory.SetReadOnly(0x2000, 4, false); //Nametables
-            PPUMemory.SetReadOnly(0x3C00, 1, false); //Palette area + some mirrored ram
-            for (ushort i = 0; i < 0x8000; i++)
-                PPUMirrorMap[i] = i;
-            PPUMirror(0x3F00, 0x3F10, 1, 1);
-            PPUMirror(0x3F04, 0x3F14, 1, 1);
-            PPUMirror(0x3F08, 0x3F18, 1, 1);
-            PPUMirror(0x3F0C, 0x3F1C, 1, 1);
-            PPUMirror(0x2000, 0x3000, 0x0F00, 1);
-            PPUMirror(0x3F00, 0x3F20, 0x20, 7);
+            int vRAM = 0;
+            if (nes.rom.vROM == 0 || nes.rom.mapper == 19 || nes.rom.mapper == 210)
+                vRAM += 8;
+            PPUMemory = new MemoryStore(4, nes.rom.vROM, vRAM, true); //4 hardwired to make doing extra nametables less insane.
 
             for (int i = 0; i < 256; i++)
                 zeroGray[i] = 0x3F;
@@ -118,6 +101,24 @@ namespace EmuoTron
         }
         public void Power()
         {
+            PPUMemory.memMap[0x2000 >> 0xA] = 0;
+            PPUMemory.memMap[0x2400 >> 0xA] = 1;
+            PPUMemory.memMap[0x2800 >> 0xA] = PPUMemory.memMap[0x2800 >> 0xA];
+            PPUMemory.memMap[0x2C00 >> 0xA] = PPUMemory.memMap[0x2C00 >> 0xA];
+            PPUMemory.memMap[0x3000 >> 0xA] = PPUMemory.memMap[0x2000 >> 0xA];
+            PPUMemory.memMap[0x3400 >> 0xA] = PPUMemory.memMap[0x2400 >> 0xA];
+            PPUMemory.memMap[0x3800 >> 0xA] = PPUMemory.memMap[0x2800 >> 0xA];
+            PPUMemory.memMap[0x3C00 >> 0xA] = PPUMemory.memMap[0x2C00 >> 0xA];
+            PPUMemory.SetReadOnly(0x2000, 8, false); //Nametables
+            if (nes.rom.mirroring == Mirroring.fourScreen)
+            {
+                PPUMemory.FourScreenMirroring();
+                PPUMemory.hardwired = true;
+            }
+            else if (nes.rom.mirroring == Mirroring.vertical)
+                PPUMemory.VerticalMirroring();
+            else
+                PPUMemory.HorizontalMirroring();
             for (int i = 0; i < 0x100; i++)
                 SPRMemory[i] = 0;
             for (int i = 0x2000; i < 0x2800; i++)
@@ -140,12 +141,6 @@ namespace EmuoTron
             Write(0, 0x2007);
             addrLatch = false;
 
-        }
-        private void PPUMirror(ushort address, ushort mirrorAddress, ushort length, int repeat)
-        {
-            for (int j = 0; j < repeat; j++)
-                for (int i = 0; i < length; i++)
-                    PPUMirrorMap[mirrorAddress + i + (j * length)] = (ushort)(PPUMirrorMap[address + i]);
         }
         public byte Read(ushort address)
         {
@@ -180,14 +175,14 @@ namespace EmuoTron
                     if ((loopyV & 0x3F00) == 0x3F00)
                     {
                         nextByte = (byte)((PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] & grayScale) | (lastWrite & 0xC0)); //random wiki readings claim gray scale is applied here but have seen no roms that test it or evidence to support it.
-                        readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x2FFF]];
+                        readBuffer = PPUMemory[loopyV & 0x2FFF];
                     }
                     else
                     {
                         nextByte = readBuffer;
-                        readBuffer = PPUMemory[PPUMirrorMap[loopyV & 0x3FFF]];
+                        readBuffer = PPUMemory[loopyV & 0x3FFF];
                         if (nes.rom.mapper == 9 || nes.rom.mapper == 10)//MMC 2 Punch Out!, MMC 4 Fire Emblem
-                            nes.mapper.IRQ(PPUMirrorMap[loopyV & 0x3FFF]);
+                            nes.mapper.IRQ(loopyV & 0x3FFF);
                     }
                     int oldA12 = (loopyV >> 12) & 1;
                     if (scanline < 240 && (spriteRendering || backgroundRendering)) //Young Indiana Jones fix, http://nesdev.parodius.com/bbs/viewtopic.php?t=6401
@@ -305,7 +300,7 @@ namespace EmuoTron
                     if ((loopyV & 0x3F00) == 0x3F00)
                         PalMemory[(loopyV & 0x3) != 0 ? loopyV & 0x1F : loopyV & 0x0F] = (byte)(value & 0x3F);
                     else
-                        PPUMemory[PPUMirrorMap[loopyV & 0x3FFF]] = value;
+                        PPUMemory[loopyV & 0x3FFF] = value;
 
                     int writeOldA12 = (loopyV >> 12) & 1;
                     loopyV = ((loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF);
@@ -355,7 +350,7 @@ namespace EmuoTron
                 }
                 for (int tile = 0; tile < 34; tile++)//each tile on line
                 {
-                    int tileAddr = PPUMirrorMap[0x2000 | (tmpV & 0x0FFF)];
+                    int tileAddr = 0x2000 | (tmpV & 0x0FFF);
                     int tileNumber = PPUMemory[tileAddr];
                     int chrAddress = backgroundTable | (tileNumber << 4) | ((tmpV >> 12) & 7);
                     byte lowChr = PPUMemory[chrAddress];
@@ -524,7 +519,7 @@ namespace EmuoTron
                         }
                         for (int tile = 0; tile < 33; tile++)//each tile on line
                         {
-                            int tileAddr = PPUMirrorMap[0x2000 | (loopyV & 0x0FFF)];
+                            int tileAddr = 0x2000 | (loopyV & 0x0FFF);
                             int tileNumber = PPUMemory[tileAddr];
                             int addrTableLookup = AttrTableLookup[tileAddr & 0x3FF];
                             int palette = ((PPUMemory[((tileAddr & 0x3C00) + 0x3C0) + (addrTableLookup & 0xFF)] >> (addrTableLookup >> 12)) & 0x3) << 2; //Shift it over 2 to convert it to a palmemory value
@@ -740,7 +735,7 @@ namespace EmuoTron
                     for (int tile = 0; tile < 32; tile++)//each tile on line
                     {
                        
-                        int tileAddr = PPUMirrorMap[nameTableOffset + ((line / 8) * 32) + tile];
+                        int tileAddr = nameTableOffset + ((line / 8) * 32) + tile;
                         int tileNumber = PPUMemory[tileAddr];
                         int addrTableLookup = AttrTableLookup[tileAddr & 0x3FF];
                         int palette = (PPUMemory[((tileAddr & 0x3C00) + 0x3C0) + (addrTableLookup & 0xFF)] >> (addrTableLookup >> 12)) & 0x03;

@@ -29,16 +29,16 @@ namespace EmuoTron.Mappers
                 switch (address & 0xF800)
                 {
                     case 0x8800:
-                        nes.PPU.PPUMemory.Swap2kROM(0x0000, value % (nes.rom.vROM / 2));
+                        nes.PPU.PPUMemory.Swap2kROM(0x0000, value);
                         break;
                     case 0x9800:
-                        nes.PPU.PPUMemory.Swap2kROM(0x0800, value % (nes.rom.vROM / 2));
+                        nes.PPU.PPUMemory.Swap2kROM(0x0800, value);
                         break;
                     case 0xA800:
-                        nes.PPU.PPUMemory.Swap2kROM(0x1000, value % (nes.rom.vROM / 2));
+                        nes.PPU.PPUMemory.Swap2kROM(0x1000, value);
                         break;
                     case 0xB800:
-                        nes.PPU.PPUMemory.Swap2kROM(0x1800, value % (nes.rom.vROM / 2));
+                        nes.PPU.PPUMemory.Swap2kROM(0x1800, value);
                         break;
                     case 0xC800:
                         if (irqLatch)
@@ -70,7 +70,7 @@ namespace EmuoTron.Mappers
                         }
                         break;
                     case 0xF800:
-                        nes.Memory.Swap16kROM(0x8000, value % (nes.rom.vROM / 16));
+                        nes.Memory.Swap16kROM(0x8000, value);
                         break;
                 }
             }

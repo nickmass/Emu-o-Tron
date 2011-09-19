@@ -38,7 +38,7 @@ namespace EmuoTron.Mappers
             nes.Memory.Swap8kROM(0xE000, (nes.rom.prgROM / 8) - 1);
 
             if (nes.rom.vROM == 0)
-                nes.PPU.PPUMemory.Swap8kRAM(0x0000, 0);
+                nes.PPU.PPUMemory.Swap8kRAM(0x0000, 0, false);
             else
                 nes.PPU.PPUMemory.Swap8kROM(0x0000, 0);
         }
@@ -117,9 +117,9 @@ namespace EmuoTron.Mappers
         }
         private void SyncPrg()
         {
-            nes.Memory.Swap8kROM(0x8000, prgReg0 % (nes.rom.prgROM / 8));
-            nes.Memory.Swap8kROM(0xA000, prgReg1 % (nes.rom.prgROM / 8));
-            nes.Memory.Swap8kROM(0xC000, prgReg2 % (nes.rom.prgROM / 8));
+            nes.Memory.Swap8kROM(0x8000, prgReg0);
+            nes.Memory.Swap8kROM(0xA000, prgReg1);
+            nes.Memory.Swap8kROM(0xC000, prgReg2);
             nes.Memory.Swap8kROM(0xE000, (nes.rom.prgROM / 8) - 1);
         }
         private void SyncChr()
@@ -128,14 +128,14 @@ namespace EmuoTron.Mappers
             {
                 for (int i = 0; i < 8; i++)
                 {
-                    nes.PPU.PPUMemory.Swap1kRAM((ushort)(i << 10), (chrReg[i]) % 8);
+                    nes.PPU.PPUMemory.Swap1kRAM((ushort)(i << 10), chrReg[i], false);
                 }
             }
             else
             {
                 for (int i = 0; i < 8; i++)
                 {
-                    nes.PPU.PPUMemory.Swap1kROM((ushort)(i << 10), (chrReg[i]) % nes.rom.vROM);
+                    nes.PPU.PPUMemory.Swap1kROM((ushort)(i << 10), chrReg[i]);
                 }
             }
         }

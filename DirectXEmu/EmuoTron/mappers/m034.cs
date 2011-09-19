@@ -17,7 +17,7 @@ namespace EmuoTron.Mappers
             if (nes.rom.vROM == 0)//BNROM
             {
                 nes.Memory.Swap32kROM(0x8000, 0);
-                nes.PPU.PPUMemory.Swap8kRAM(0x0000, 0);
+                nes.PPU.PPUMemory.Swap8kRAM(0x0000, 0, false);
             }
             else //NINA-001
             {
@@ -32,22 +32,22 @@ namespace EmuoTron.Mappers
                 if (address >= 0x8000)
                 {
                     if (nes.Memory[address] == value)
-                        nes.Memory.Swap32kROM(0x8000, (value) % (nes.rom.prgROM / 32));
+                        nes.Memory.Swap32kROM(0x8000, value);
                 }
             }
             else //NINA-001
             {
                 if (address == 0x7FFE)
                 {
-                    nes.PPU.PPUMemory.Swap4kROM(0x0000, (value & 0x0F) % (nes.rom.vROM / 4));
+                    nes.PPU.PPUMemory.Swap4kROM(0x0000, value & 0x0F);
                 }
                 else if (address == 0x7FFF)
                 {
-                    nes.PPU.PPUMemory.Swap4kROM(0x1000, (value & 0x0F) % (nes.rom.vROM / 4));
+                    nes.PPU.PPUMemory.Swap4kROM(0x1000, value & 0x0F);
                 }
                 else if (address == 0x7FFD)
                 {
-                    nes.Memory.Swap32kROM(0x8000, (value & 1) % (nes.rom.prgROM / 32));
+                    nes.Memory.Swap32kROM(0x8000, value & 1);
                 }
             }
         }

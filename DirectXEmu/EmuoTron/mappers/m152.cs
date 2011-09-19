@@ -25,8 +25,8 @@ namespace EmuoTron.Mappers
             {
                 if ((address & 0xFF) == value)
                 {
-                    nes.Memory.Swap16kROM(0x8000, ((value >> 4) & 7) % (nes.rom.prgROM / 16));
-                    nes.PPU.PPUMemory.Swap8kROM(0x0000, (value & 0xF) % (nes.rom.vROM / 8));
+                    nes.Memory.Swap16kROM(0x8000, (value >> 4) & 7);
+                    nes.PPU.PPUMemory.Swap8kROM(0x0000, value & 0xF);
                     if ((value & 0x80) == 0)
                         nes.PPU.PPUMemory.ScreenOneMirroring();
                     else

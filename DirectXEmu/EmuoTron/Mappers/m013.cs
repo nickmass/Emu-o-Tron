@@ -15,8 +15,8 @@ namespace EmuoTron.Mappers
         public override void Power()
         {
             nes.Memory.Swap32kROM(0x8000, 0);
-            nes.PPU.PPUMemory.Swap4kRAM(0x0000, 0);
-            nes.PPU.PPUMemory.Swap4kRAM(0x1000, 1);
+            nes.PPU.PPUMemory.Swap4kRAM(0x0000, 0, false);
+            nes.PPU.PPUMemory.Swap4kRAM(0x1000, 1, false);
         }
         public override void Write(byte value, ushort address)
         {
@@ -24,7 +24,7 @@ namespace EmuoTron.Mappers
             {
                 if (value == nes.Memory[address])
                 {
-                    nes.PPU.PPUMemory.Swap4kRAM(0x1000, (value & 0x3));
+                    nes.PPU.PPUMemory.Swap4kRAM(0x1000, (value & 0x3), false);
                 }
             }
         }

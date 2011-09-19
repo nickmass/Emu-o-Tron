@@ -27,19 +27,19 @@ namespace EmuoTron.Mappers
                 switch (address)
                 {
                     case 0x8000:
-                        nes.Memory.Swap8kROM(0x8000, value % (nes.rom.prgROM / 8));
+                        nes.Memory.Swap8kROM(0x8000, value);
                         break;
                     case 0xA000:
-                        nes.Memory.Swap8kROM(0xA000, value % (nes.rom.prgROM / 8));
+                        nes.Memory.Swap8kROM(0xA000, value);
                         break;
                     case 0xC000:
-                        nes.Memory.Swap8kROM(0xC000, value % (nes.rom.prgROM / 8));
+                        nes.Memory.Swap8kROM(0xC000, value);
                         break;
                     case 0xE000:
-                        nes.PPU.PPUMemory.Swap4kROM(0x0000, value % (nes.rom.vROM / 4));
+                        nes.PPU.PPUMemory.Swap4kROM(0x0000, value);
                         break;
                     case 0xF000:
-                        nes.PPU.PPUMemory.Swap4kROM(0x1000, value % (nes.rom.vROM / 4));
+                        nes.PPU.PPUMemory.Swap4kROM(0x1000, value);
                         break;
                 }
             }

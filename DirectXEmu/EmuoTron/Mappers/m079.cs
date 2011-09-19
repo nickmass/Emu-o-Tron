@@ -22,8 +22,8 @@ namespace EmuoTron.Mappers
         {
             if (address >= 0x4100 && address < 0x6000 && (address & 0x4100) == 0x4100)
             {
-                nes.Memory.Swap32kROM(0x8000, ((value >> 3) & 7) % (nes.rom.prgROM / 32));
-                nes.PPU.PPUMemory.Swap8kROM(0, ((value & 7) | ((value & 0x40) >> 3)) % (nes.rom.vROM / 8));
+                nes.Memory.Swap32kROM(0x8000, (value >> 3) & 7);
+                nes.PPU.PPUMemory.Swap8kROM(0, (value & 7) | ((value & 0x40) >> 3));
             }
         }
     }

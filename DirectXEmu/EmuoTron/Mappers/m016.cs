@@ -27,31 +27,31 @@ namespace EmuoTron.Mappers
                 switch (address & 0x000F)
                 {
                     case 0:
-                        nes.PPU.PPUMemory.Swap1kROM(0x0000, value % nes.rom.vROM);
+                        nes.PPU.PPUMemory.Swap1kROM(0x0000, value);
                         break;
                     case 1:
-                        nes.PPU.PPUMemory.Swap1kROM(0x0400, value % nes.rom.vROM);
+                        nes.PPU.PPUMemory.Swap1kROM(0x0400, value);
                         break;
                     case 2:
-                        nes.PPU.PPUMemory.Swap1kROM(0x0800, value % nes.rom.vROM);
+                        nes.PPU.PPUMemory.Swap1kROM(0x0800, value);
                         break;
                     case 3:
-                        nes.PPU.PPUMemory.Swap1kROM(0x0C00, value % nes.rom.vROM);
+                        nes.PPU.PPUMemory.Swap1kROM(0x0C00, value);
                         break;
                     case 4:
-                        nes.PPU.PPUMemory.Swap1kROM(0x1000, value % nes.rom.vROM);
+                        nes.PPU.PPUMemory.Swap1kROM(0x1000, value);
                         break;
                     case 5:
-                        nes.PPU.PPUMemory.Swap1kROM(0x1400, value % nes.rom.vROM);
+                        nes.PPU.PPUMemory.Swap1kROM(0x1400, value);
                         break;
                     case 6:
-                        nes.PPU.PPUMemory.Swap1kROM(0x1800, value % nes.rom.vROM);
+                        nes.PPU.PPUMemory.Swap1kROM(0x1800, value);
                         break;
                     case 7:
-                        nes.PPU.PPUMemory.Swap1kROM(0x1C00, value % nes.rom.vROM);
+                        nes.PPU.PPUMemory.Swap1kROM(0x1C00, value);
                         break;
                     case 8:
-                        nes.Memory.Swap16kROM(0x8000, value % (nes.rom.prgROM / 16));
+                        nes.Memory.Swap16kROM(0x8000, value);
                         break;
                     case 9:
                         switch (value & 3)

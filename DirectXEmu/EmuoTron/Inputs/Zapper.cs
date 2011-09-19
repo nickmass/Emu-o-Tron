@@ -27,9 +27,25 @@ namespace EmuoTron.Inputs
             byte value = 0;
             if (nes.players[playerNum].triggerPulled)
                 value |= 0x10;
-            //OLD FANCY LIGHT DETECT WILL NOT WORK WITH NEW SCREEN PALETTE SYSTEM
-            //if (!(((nes.PPU.screen[nes.players[playerNum].y, nes.players[playerNum].x] & 0x3F) == 0x20) || ((nes.PPU.screen[nes.players[playerNum].y, nes.players[playerNum].x] & 0x3F) == 0x30)))
-            if (!((nes.PPU.screen[nes.players[playerNum].y, nes.players[playerNum].x] & 0x80) == 0x80 || (nes.PPU.screen[nes.players[playerNum].y, nes.players[playerNum].x] & 0x8000) == 0x8000 || (nes.PPU.screen[nes.players[playerNum].y, nes.players[playerNum].x] & 0x800000) == 0x800000)) //Crappy palette dependant light detect, I suppose your TVs settings could affect the lightgun too (maybe).
+            int whitePixels = 0;
+            for (int y = -3; y <= 3; y++)
+            {
+                int adjY = y + nes.players[playerNum].y;
+                if (adjY <= nes.PPU.scanline && adjY < 240 && adjY >= 0 && adjY > nes.PPU.scanline - 32)
+                {
+                    for (int x = -3; x <= 3; x++)
+                    {
+                        int adjX = nes.players[playerNum].x + x ;
+                        if (adjX < 256 && adjX >= 0 && ((adjX <= nes.PPU.scanlineCycle && adjY == nes.PPU.scanline) || (adjY != nes.PPU.scanline && adjY != nes.PPU.scanline - 31) || (adjX > nes.PPU.scanlineCycle && adjY == nes.PPU.scanlineCycle - 31)))
+                        {
+                            uint screenPixel = nes.PPU.screen[nes.players[playerNum].y + y, nes.players[playerNum].x + x];
+                            if ((screenPixel & 0x808080) != 0x00) //Crappy palette dependant light detect, I suppose your TVs settings could affect the lightgun too (maybe).
+                                whitePixels++;
+                        }
+                    }
+                }
+            }
+            if(whitePixels < 36)
                 value |= 0x08;
             return value;
         }
