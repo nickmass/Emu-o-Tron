@@ -439,6 +439,7 @@ namespace DirectXEmu
             this.LoadRecentFiles();
             this.Width = Convert.ToInt32(this.config["width"]);
             this.Height = Convert.ToInt32(this.config["height"]);
+            config["rawNESPalette"] = "0";
             switch (this.config["scaler"].ToLower())
             {
                 default:
@@ -480,6 +481,10 @@ namespace DirectXEmu
                     break;
                 case "phosphor3x":
                     this.imageScaler = new Phosphor3x();
+                    break;
+                case "ntsc":
+                    this.imageScaler = new NTSC();
+                    config["rawNESPalette"] = "1";
                     break;
             }
 
@@ -620,7 +625,23 @@ namespace DirectXEmu
             this.cpu.PPU.displayBG = (config["displayBG"] == "1");
             this.cpu.PPU.displaySprites = (config["displaySprites"] == "1");
             this.cpu.PPU.enforceSpriteLimit = !(config["disableSpriteLimit"] == "1");
-            this.cpu.PPU.colorChart = this.colorChart;
+            if (config["simulatedPalette"] == "1")
+            {
+                NTSCFilter.gamma = double.Parse(config["gamma"]);
+                NTSCFilter.hue = double.Parse(config["hue"]);
+                NTSCFilter.sat = double.Parse(config["saturation"]);
+                NTSCFilter.brightness = double.Parse(config["brightness"]);
+                this.cpu.PPU.colorChart = NTSCFilter.NesPalette;
+            }
+            else
+            {
+                this.cpu.PPU.colorChart = this.colorChart;
+            }
+            if (config["rawNESPalette"] == "1")
+            {
+                for (uint i = 0; i < 0x200; i++)
+                    this.cpu.PPU.colorChart[i] = i;
+            }
             this.cpu.APU.mute = !(config["sound"] == "1");
             this.cpu.APU.volume = volume;
             this.LoadGame();
@@ -1186,10 +1207,28 @@ namespace DirectXEmu
 
         private void loadPaletteToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (this.openPaletteDialog.ShowDialog() == DialogResult.OK)
+            PaletteConfig palConfig = new PaletteConfig(config, cpu == null ? new uint[0x200] : cpu.PPU.colorChart);
+            palConfig.FormClosed += new FormClosedEventHandler(palConfig_FormClosed);
+            palConfig.Show();
+        }
+
+        void palConfig_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            if (config["simulatedPalette"] == "1")
             {
-                FileStream palFile = File.OpenRead(this.openPaletteDialog.FileName);
-                this.config["palette"] = this.openPaletteDialog.FileName;
+                if (cpu != null)
+                {
+                    NTSCFilter.gamma = double.Parse(config["gamma"]);
+                    NTSCFilter.hue = double.Parse(config["hue"]);
+                    NTSCFilter.sat = double.Parse(config["saturation"]);
+                    NTSCFilter.brightness = double.Parse(config["brightness"]);
+                    for (int i = 0; i < 0x200; i++)
+                        cpu.PPU.colorChart[i] = NTSCFilter.NESToRGB(i);
+                }
+            }
+            else
+            {
+                FileStream palFile = File.OpenRead(config["palette"]);
                 for (int i = 0; i < 0x40; i++)
                     this.colorChart[i] = (uint)((0xFF << 24) | (palFile.ReadByte() << 16) | (palFile.ReadByte() << 8) | palFile.ReadByte());
                 if (palFile.Length > 0x40 * 3) //shitty hack for vs palette because im LAZY
@@ -1203,6 +1242,8 @@ namespace DirectXEmu
                 }
                 palFile.Close();
                 CreateEmphasisTables();
+                if (cpu != null)
+                    this.cpu.PPU.colorChart = this.colorChart;
             }
         }
 

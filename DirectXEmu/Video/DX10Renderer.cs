@@ -259,9 +259,10 @@ namespace DirectXEmu
                     break;
 
             }
-            float scale = 64f / (float)renderTarget.Width; //A lot of stuff here assume a charSize for 16, and the size of the character sheet being 256x256, but it's currently too delicate of a balance for me to try to cleanup.
-            float xf = (((((float)realXOffset / (float)renderTarget.Width) * 2f) - 1) * 2) + (0.5f * scale);
-            float yf = -((((((float)realYOffset / (float)renderTarget.Height) * 2f) - 1) * 2) + (0.5f * scale));
+            float scaleX = 64f / (float)renderTarget.Width; //A lot of stuff here assume a charSize for 16, and the size of the character sheet being 256x256, but it's currently too delicate of a balance for me to try to cleanup.
+            float scaleY = 64f / (float)renderTarget.Height;
+            float xf = (((((float)realXOffset / (float)renderTarget.Width) * 2f) - 1) * 2) + (0.5f * scaleX);
+            float yf = -((((((float)realYOffset / (float)renderTarget.Height) * 2f) - 1) * 2) + (0.5f * scaleY));
 
             messageSprite.Begin(SpriteFlags.None);
 
@@ -276,7 +277,7 @@ namespace DirectXEmu
                 float charX = ((charNum % 16) * 0.0625f);
                 float charY = ((charNum / 16) * 0.0625f);
                 chars[i] = new SpriteInstance(spriteView, new Vector2(charX, charY), new Vector2(0.0625f, 0.0625f));
-                chars[i].Transform = Matrix.Add(Matrix.Translation(xf + (i * scale), yf, 0), Matrix.Scaling(scale - 1, scale - 1, 0));
+                chars[i].Transform = Matrix.Add(Matrix.Translation(xf + (i * scaleX), yf, 0), Matrix.Scaling(scaleX - 1, scaleY - 1, 0));
             }
             messageSprite.DrawBuffered(chars);
             messageSprite.End();

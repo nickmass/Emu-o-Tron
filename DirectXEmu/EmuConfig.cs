@@ -7,7 +7,7 @@ using EmuoTron;
 
 namespace DirectXEmu
 {
-    class EmuConfig
+    public class EmuConfig
     {
         private string configFile;
         private Dictionary<string, string> settings;
@@ -101,6 +101,13 @@ namespace DirectXEmu
             defaults["renderer"] = "DX9";
             defaults["audio"] = "XA2";
             defaults["input"] = "Win";
+            defaults["simulatedPalette"] = "1";
+            defaults["gamma"] = "2.0";
+            defaults["brightness"] = "1.0";
+            defaults["hue"] = "3.9";
+            defaults["saturation"] = "1.7";
+            defaults["rawNESPalette"] = "0";
+
 #if DEBUG
             defaults["romPath1"] = @"C:\Games\Emulators\Roms\NES";
             defaults["romPath2"] = @"C:\Games\Emulators\Roms\NES";

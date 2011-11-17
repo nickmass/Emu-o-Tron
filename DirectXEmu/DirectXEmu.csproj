@@ -247,6 +247,12 @@
     <Compile Include="Input\IInput.cs" />
     <Compile Include="Input\NullInput.cs" />
     <Compile Include="NSFScreen.cs" />
+    <Compile Include="PaletteConfig.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="PaletteConfig.Designer.cs">
+      <DependentUpon>PaletteConfig.cs</DependentUpon>
+    </Compile>
     <Compile Include="RomPatching.cs" />
     <Compile Include="Video\DX10Renderer.cs" />
     <Compile Include="Video\DX9Renderer.cs" />
@@ -299,6 +305,8 @@
     <Compile Include="EmuoTron\Mappers\m085.cs" />
     <Compile Include="EmuoTron\Mappers\mVRC4.cs" />
     <Compile Include="EmuoTron\Mappers\mVRC6.cs" />
+    <Compile Include="Video\NTSCFilter.cs" />
+    <Compile Include="Video\Scalers\NTSC.cs" />
     <Compile Include="Video\Scalers\Phosphor3x.cs" />
     <Compile Include="Video\Scalers\Phosphor2x.cs" />
     <Compile Include="Video\Scalers\Fill.cs" />
@@ -574,6 +582,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="NetPlayConnect.resx">
       <DependentUpon>NetPlayConnect.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="PaletteConfig.resx">
+      <DependentUpon>PaletteConfig.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="PatternTablePreview.resx">
       <DependentUpon>PatternTablePreview.cs</DependentUpon>

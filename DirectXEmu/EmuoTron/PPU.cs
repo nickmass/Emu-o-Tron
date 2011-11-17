@@ -124,8 +124,6 @@ namespace EmuoTron
             if (nes.rom.vROM == 0 || nes.rom.mapper == 19 || nes.rom.mapper == 210)
                 vRAM += 8;
             PPUMemory = new MemoryStore(4, nes.rom.vROM, vRAM, true); //4 hardwired to make doing extra nametables less insane.
-            for (uint i = 0; i < 0x200; i++)
-                colorChart[i] = i;
 
             switch (nes.nesRegion)
             {

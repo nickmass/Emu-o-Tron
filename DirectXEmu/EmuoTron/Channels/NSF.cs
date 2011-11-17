@@ -171,7 +171,7 @@ namespace EmuoTron.Channels
 
         public override byte Cycle()
         {
-            byte volume = 0;
+            int volume = 0;
             volume += VRC6.Cycle();
             volume += VRC7.Cycle();
             volume += FDS.Cycle();
@@ -183,7 +183,7 @@ namespace EmuoTron.Channels
             {
                 nes.mapper.interruptMapper = ((Channels.MMC5)MMC5).interrupt;
             }
-            return volume;
+            return (byte)volume;
         }
 
         public override void StateSave(System.IO.BinaryWriter writer)

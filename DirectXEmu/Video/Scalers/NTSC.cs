@@ -2,13 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Drawing;
-using System.Drawing.Imaging;
 
 namespace DirectXEmu
 {
-    class NearestNeighbor2x : IScaler
+    class NTSC : IScaler
     {
+        
         private int _resizedX;
         private int _resizedY;
         private bool _isResizable;
@@ -23,31 +22,22 @@ namespace DirectXEmu
         public bool IsResizable { get { return _isResizable; } }
         public bool MaintainAspectRatio { get { return _maintainAspectRatio; } }
 
-        public NearestNeighbor2x()
+        private NTSCFilter ntsc;
+
+        public NTSC()
         {
-            _resizedX = 512;
+            _resizedX = 640;
             _resizedY = 480;
-             _ratioX = 16;
-            _ratioY = 15;
+             _ratioX = 4;
+            _ratioY = 3;
             _isResizable = false;
             _maintainAspectRatio = true;
+            ntsc = new NTSCFilter(_resizedX, 2);
+
         }
         public unsafe void PerformScale(uint* origPixels, uint* resizePixels)
         {
-            uint tmp1, tmp2, imgX;
-            for (uint imgY = 0; imgY < 240; imgY++)
-            {
-                imgX = 0;
-                for (; imgX < 256; imgX++)
-                {
-                    tmp1 = (imgY << 10) | (imgX << 1);
-                    tmp2 = origPixels[(imgY << 8) | imgX];
-                    resizePixels[tmp1] = tmp2;
-                    resizePixels[tmp1 | 1] = tmp2;
-                    resizePixels[tmp1 | 512] = tmp2;
-                    resizePixels[tmp1 | 513] = tmp2;
-                }
-            }
+            ntsc.Filter(origPixels, resizePixels);
         }
     }
 }
