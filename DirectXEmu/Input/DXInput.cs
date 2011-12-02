@@ -19,12 +19,26 @@ namespace DirectXEmu
         List<Key> pressedKeys = new List<Key>();
         Dictionary<Key, Keys> dxTranslate = new Dictionary<Key, Keys>();
         MouseArgs currentMouse;
+        Joystick joystick;
+        JoystickState joystickState;
+        bool joystickAttached = false;
+
 
         public event KeyHandler KeyDownEvent;
         public event KeyHandler KeyUpEvent;
         public event MouseHandler MouseMoveEvent;
         public event MouseHandler MouseDownEvent;
         public event MouseHandler MouseUpEvent;
+
+        private bool joyLeftPressed;
+        private bool joyRightPressed;
+        private bool joyUpPressed;
+        private bool joyDownPressed;
+        private bool joy0Pressed;
+        private bool joy1Pressed;
+        private bool joy2Pressed;
+        private bool joy3Pressed;
+
 
         public DXInput(Form inputSource)
         {
@@ -36,6 +50,7 @@ namespace DirectXEmu
             device = new DirectInput();
             keyState = new KeyboardState();
             mouseState = new MouseState();
+            joystickState = new JoystickState();
             Reset();
         }
 
@@ -47,12 +62,141 @@ namespace DirectXEmu
             mouse = new Mouse(device);
             mouse.SetCooperativeLevel(inputSource, CooperativeLevel.Foreground | CooperativeLevel.Nonexclusive);
             mouse.Acquire();
+            IList<DeviceInstance> attachedJoysticks = device.GetDevices(DeviceClass.GameController, DeviceEnumerationFlags.AttachedOnly);
+            if (attachedJoysticks.Count > 0)
+            {
+                joystick = new Joystick(device, attachedJoysticks[0].InstanceGuid);
+                joystick.SetCooperativeLevel(inputSource, CooperativeLevel.Foreground | CooperativeLevel.Nonexclusive);
+                joystick.Acquire();
+                joystickAttached = true;
+            }
         }
 
         public void MainLoop()
         {
             HandleKeyboard();
             HandleMouse();
+            if (joystickAttached)
+                HandleJoystick();
+        }
+        private void HandleJoystick()
+        {
+            if (joystick.Acquire().IsFailure)
+                return;
+            if (joystick.Poll().IsFailure)
+                return;
+            try
+            {
+                joystick.GetCurrentState(ref joystickState);
+                if (joystickState.X < 0x3FFF)
+                {
+                    if (!joyLeftPressed)
+                        KeyDownEvent(this, Keys.Left);
+                    joyLeftPressed = true;
+                }
+                else
+                {
+                    if (joyLeftPressed)
+                        KeyUpEvent(this, Keys.Left);
+                    joyLeftPressed = false;
+                }
+                if (joystickState.X > 0xBFFF)
+                {
+                    if (!joyRightPressed)
+                        KeyDownEvent(this, Keys.Right);
+                    joyRightPressed = true;
+                }
+                else
+                {
+                    if (joyRightPressed)
+                        KeyUpEvent(this, Keys.Right);
+                    joyRightPressed = false;
+                }
+                if (joystickState.Y < 0x3FFF)
+                {
+                    if (!joyUpPressed)
+                        KeyDownEvent(this, Keys.Up);
+                    joyUpPressed = true;
+                }
+                else
+                {
+                    if (joyUpPressed)
+                        KeyUpEvent(this, Keys.Up);
+                    joyUpPressed = false;
+                }
+                if (joystickState.Y > 0xBFFF)
+                {
+                    if (!joyDownPressed)
+                        KeyDownEvent(this, Keys.Down);
+                    joyDownPressed = true;
+                }
+                else
+                {
+                    if (joyDownPressed)
+                        KeyUpEvent(this, Keys.Down);
+                    joyDownPressed = false;
+                }
+
+                bool[] buttons = joystickState.GetButtons();
+
+                if (buttons[0])
+                {
+                    if (!joy0Pressed)
+                        KeyDownEvent(this, Keys.X);
+                    joy0Pressed = true;
+                }
+                else
+                {
+                    if (joy0Pressed)
+                        KeyUpEvent(this, Keys.X);
+                    joy0Pressed = false;
+                }
+
+                if (buttons[1])
+                {
+                    if (!joy1Pressed)
+                        KeyDownEvent(this, Keys.Z);
+                    joy1Pressed = true;
+                }
+                else
+                {
+                    if (joy1Pressed)
+                        KeyUpEvent(this, Keys.Z);
+                    joy1Pressed = false;
+                }
+
+                if (buttons[2])
+                {
+                    if (!joy2Pressed)
+                        KeyDownEvent(this, Keys.OemQuotes);
+                    joy2Pressed = true;
+                }
+                else
+                {
+                    if (joy2Pressed)
+                        KeyUpEvent(this, Keys.OemQuotes);
+                    joy2Pressed = false;
+                }
+
+                if (buttons[3])
+                {
+                    if (!joy3Pressed)
+                        KeyDownEvent(this, Keys.Return);
+                    joy3Pressed = true;
+                }
+                else
+                {
+                    if (joy3Pressed)
+                        KeyUpEvent(this, Keys.Return);
+                    joy3Pressed = false;
+                }
+
+            }
+            catch
+            {
+                joystick.Acquire();
+            }
+
         }
         private void HandleMouse()
         {
@@ -120,6 +264,7 @@ namespace DirectXEmu
         {
             keyboard.Dispose();
             mouse.Dispose();
+            joystick.Dispose();
             device.Dispose();
         }
 
