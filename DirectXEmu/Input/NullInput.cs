@@ -9,6 +9,9 @@ namespace DirectXEmu
     {
         #region IInput Members
 
+        public event InputHandler InputEvent;
+        public event InputScalerHandler InputScalerEvent;
+
         public void Create()
         {
         }
@@ -24,16 +27,6 @@ namespace DirectXEmu
         public void Destroy()
         {
         }
-
-        public event KeyHandler KeyDownEvent;
-
-        public event KeyHandler KeyUpEvent;
-
-        public event MouseHandler MouseMoveEvent;
-
-        public event MouseHandler MouseDownEvent;
-
-        public event MouseHandler MouseUpEvent;
 
         #endregion
     }

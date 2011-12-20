@@ -17,27 +17,22 @@ namespace DirectXEmu
         MouseState mouseState;
         Form inputSource;
         List<Key> pressedKeys = new List<Key>();
-        Dictionary<Key, Keys> dxTranslate = new Dictionary<Key, Keys>();
-        MouseArgs currentMouse;
+        Dictionary<Key, EmuKeys> dxTranslate = new Dictionary<Key, EmuKeys>();
+        private int mouseX;
+        private int mouseY;
+        private bool[] currentMouseButtons = new bool[5];
         Joystick joystick;
         JoystickState joystickState;
         bool joystickAttached = false;
 
+        public event InputHandler InputEvent;
+        public event InputScalerHandler InputScalerEvent;
 
-        public event KeyHandler KeyDownEvent;
-        public event KeyHandler KeyUpEvent;
-        public event MouseHandler MouseMoveEvent;
-        public event MouseHandler MouseDownEvent;
-        public event MouseHandler MouseUpEvent;
-
-        private bool joyLeftPressed;
-        private bool joyRightPressed;
         private bool joyUpPressed;
         private bool joyDownPressed;
-        private bool joy0Pressed;
-        private bool joy1Pressed;
-        private bool joy2Pressed;
-        private bool joy3Pressed;
+        private bool joyLeftPressed;
+        private bool joyRightPressed;
+        private bool[] currentJoyButtons = new bool[10];
 
 
         public DXInput(Form inputSource)
@@ -91,106 +86,94 @@ namespace DirectXEmu
                 if (joystickState.X < 0x3FFF)
                 {
                     if (!joyLeftPressed)
-                        KeyDownEvent(this, Keys.Left);
+                        InputEvent(EmuKeys.JoyLeft, true);
                     joyLeftPressed = true;
                 }
                 else
                 {
                     if (joyLeftPressed)
-                        KeyUpEvent(this, Keys.Left);
+                        InputEvent(EmuKeys.JoyLeft, false);
                     joyLeftPressed = false;
                 }
                 if (joystickState.X > 0xBFFF)
                 {
                     if (!joyRightPressed)
-                        KeyDownEvent(this, Keys.Right);
+                        InputEvent(EmuKeys.JoyRight, true);
                     joyRightPressed = true;
                 }
                 else
                 {
                     if (joyRightPressed)
-                        KeyUpEvent(this, Keys.Right);
+                        InputEvent(EmuKeys.JoyRight, false);
                     joyRightPressed = false;
                 }
                 if (joystickState.Y < 0x3FFF)
                 {
                     if (!joyUpPressed)
-                        KeyDownEvent(this, Keys.Up);
+                        InputEvent(EmuKeys.JoyUp, true);
                     joyUpPressed = true;
                 }
                 else
                 {
                     if (joyUpPressed)
-                        KeyUpEvent(this, Keys.Up);
+                        InputEvent(EmuKeys.JoyUp, false);
                     joyUpPressed = false;
                 }
                 if (joystickState.Y > 0xBFFF)
                 {
                     if (!joyDownPressed)
-                        KeyDownEvent(this, Keys.Down);
+                        InputEvent(EmuKeys.JoyDown, true);
                     joyDownPressed = true;
                 }
                 else
                 {
                     if (joyDownPressed)
-                        KeyUpEvent(this, Keys.Down);
+                        InputEvent(EmuKeys.JoyDown, false);
                     joyDownPressed = false;
                 }
 
                 bool[] buttons = joystickState.GetButtons();
 
-                if (buttons[0])
+                for (int i = 0; i < buttons.Length && i < 10; i++)
                 {
-                    if (!joy0Pressed)
-                        KeyDownEvent(this, Keys.X);
-                    joy0Pressed = true;
+                    if(buttons[i] != currentJoyButtons[i])
+                    {
+                        switch (i)
+                        {
+                            case 0:
+                                InputEvent(EmuKeys.Joy1, buttons[i]);
+                                break;
+                            case 1:
+                                InputEvent(EmuKeys.Joy2, buttons[i]);
+                                break;
+                            case 2:
+                                InputEvent(EmuKeys.Joy3, buttons[i]);
+                                break;
+                            case 3:
+                                InputEvent(EmuKeys.Joy4, buttons[i]);
+                                break;
+                            case 4:
+                                InputEvent(EmuKeys.Joy5, buttons[i]);
+                                break;
+                            case 5:
+                                InputEvent(EmuKeys.Joy6, buttons[i]);
+                                break;
+                            case 6:
+                                InputEvent(EmuKeys.Joy7, buttons[i]);
+                                break;
+                            case 7:
+                                InputEvent(EmuKeys.Joy8, buttons[i]);
+                                break;
+                            case 8:
+                                InputEvent(EmuKeys.Joy9, buttons[i]);
+                                break;
+                            case 9:
+                                InputEvent(EmuKeys.Joy10, buttons[i]);
+                                break;
+                        }
+                        currentJoyButtons[i] = buttons[i];
+                    }
                 }
-                else
-                {
-                    if (joy0Pressed)
-                        KeyUpEvent(this, Keys.X);
-                    joy0Pressed = false;
-                }
-
-                if (buttons[1])
-                {
-                    if (!joy1Pressed)
-                        KeyDownEvent(this, Keys.Z);
-                    joy1Pressed = true;
-                }
-                else
-                {
-                    if (joy1Pressed)
-                        KeyUpEvent(this, Keys.Z);
-                    joy1Pressed = false;
-                }
-
-                if (buttons[2])
-                {
-                    if (!joy2Pressed)
-                        KeyDownEvent(this, Keys.OemQuotes);
-                    joy2Pressed = true;
-                }
-                else
-                {
-                    if (joy2Pressed)
-                        KeyUpEvent(this, Keys.OemQuotes);
-                    joy2Pressed = false;
-                }
-
-                if (buttons[3])
-                {
-                    if (!joy3Pressed)
-                        KeyDownEvent(this, Keys.Return);
-                    joy3Pressed = true;
-                }
-                else
-                {
-                    if (joy3Pressed)
-                        KeyUpEvent(this, Keys.Return);
-                    joy3Pressed = false;
-                }
-
             }
             catch
             {
@@ -207,20 +190,42 @@ namespace DirectXEmu
             try
             {
                 mouse.GetCurrentState(ref mouseState);
-                MouseArgs newMouse;
-                newMouse.Click = mouseState.IsPressed(0);
-                newMouse.X = Cursor.Position.X; //Not even going to bother with attempting to use crazy relative Direct Input mouse data
-                newMouse.Y = Cursor.Position.Y;
-                if (newMouse.Click != currentMouse.Click)
+                
+                bool[] buttons = mouseState.GetButtons();
+
+                for (int i = 0; i < buttons.Length && i < 5; i++)
                 {
-                    if (newMouse.Click)
-                        MouseDownEvent(this, newMouse);
-                    else
-                        MouseUpEvent(this, newMouse);
+                    if (buttons[i] != currentMouseButtons[i])
+                    {
+                        switch (i)
+                        {
+                            case 0:
+                                InputEvent(EmuKeys.Mouse1, buttons[i]);
+                                break;
+                            case 1:
+                                InputEvent(EmuKeys.Mouse2, buttons[i]);
+                                break;
+                            case 2:
+                                InputEvent(EmuKeys.Mouse3, buttons[i]);
+                                break;
+                            case 3:
+                                InputEvent(EmuKeys.Mouse4, buttons[i]);
+                                break;
+                            case 4:
+                                InputEvent(EmuKeys.Mouse5, buttons[i]);
+                                break;
+                        }
+                        currentMouseButtons[i] = buttons[i];
+                    }
                 }
-                if (newMouse.X != currentMouse.X || newMouse.Y != currentMouse.Y)
-                    MouseMoveEvent(this, newMouse);
-                currentMouse = newMouse;
+                int newMouseX = Cursor.Position.X; //Not even going to bother with attempting to use crazy relative Direct Input mouse data
+                int newMouseY = Cursor.Position.Y;
+                if (newMouseX != mouseX)
+                    InputScalerEvent(EmuKeys.MouseX, newMouseX);
+                if (newMouseY != mouseY)
+                    InputScalerEvent(EmuKeys.MouseY, newMouseY);
+                mouseX = newMouseX;
+                mouseY = newMouseY;
 
             }
             catch
@@ -243,13 +248,13 @@ namespace DirectXEmu
                     if(keyState.IsPressed(key))
                     {
                         newPressedKeys.Add(key);
-                        if (!pressedKeys.Contains(key))
-                            KeyDownEvent(this, dxTranslate[key]);
+                        if (!pressedKeys.Contains(key) && dxTranslate.ContainsKey(key))
+                            InputEvent(dxTranslate[key], true);
                     }
                     else
                     {
-                        if (pressedKeys.Contains(key))
-                            KeyUpEvent(this, dxTranslate[key]);
+                        if (pressedKeys.Contains(key) && dxTranslate.ContainsKey(key))
+                            InputEvent(dxTranslate[key], false);
                     }
                 }
                 pressedKeys = newPressedKeys;
@@ -270,116 +275,109 @@ namespace DirectXEmu
 
         private void LoadKeyTranslations() //There is a chance that mshome keyboard bug is in play here rendering this useless on many other PCs, but my default keybinds work for me so whatever.
         {
-            dxTranslate[Key.A] = Keys.A;
-            dxTranslate[Key.Apostrophe] = Keys.OemQuotes;
-            dxTranslate[Key.B] = Keys.B;
-            dxTranslate[Key.Backslash] = Keys.OemBackslash;
-            dxTranslate[Key.Backspace] = Keys.Back;
-            dxTranslate[Key.C] = Keys.C;
-            dxTranslate[Key.CapsLock] = Keys.CapsLock;
-            dxTranslate[Key.Colon] = Keys.OemQuotes;
-            dxTranslate[Key.Comma] = Keys.Oemcomma;
-            dxTranslate[Key.D] = Keys.D;
-            dxTranslate[Key.D0] = Keys.D0;
-            dxTranslate[Key.D1] = Keys.D1;
-            dxTranslate[Key.D2] = Keys.D2;
-            dxTranslate[Key.D3] = Keys.D3;
-            dxTranslate[Key.D4] = Keys.D4;
-            dxTranslate[Key.D5] = Keys.D5;
-            dxTranslate[Key.D6] = Keys.D6;
-            dxTranslate[Key.D7] = Keys.D7;
-            dxTranslate[Key.D8] = Keys.D8;
-            dxTranslate[Key.D9] = Keys.D9;
-            dxTranslate[Key.Delete] = Keys.Delete;
-            dxTranslate[Key.DownArrow] = Keys.Down;
-            dxTranslate[Key.E] = Keys.E;
-            dxTranslate[Key.End] = Keys.End;
-            dxTranslate[Key.PreviousTrack] = Keys.Oemplus; //*************CHECK
-            dxTranslate[Key.Escape] = Keys.Escape;
-            dxTranslate[Key.F] = Keys.F;
-            dxTranslate[Key.F1] = Keys.F1;
-            dxTranslate[Key.F2] = Keys.F2;
-            dxTranslate[Key.F3] = Keys.F3;
-            dxTranslate[Key.F4] = Keys.F4;
-            dxTranslate[Key.F5] = Keys.F5;
-            dxTranslate[Key.F6] = Keys.F6;
-            dxTranslate[Key.F7] = Keys.F7;
-            dxTranslate[Key.F8] = Keys.F8;
-            dxTranslate[Key.F9] = Keys.F9;
-            dxTranslate[Key.F10] = Keys.F10;
-            dxTranslate[Key.F11] = Keys.F11;
-            dxTranslate[Key.F12] = Keys.F12;
-            dxTranslate[Key.F13] = Keys.F13;
-            dxTranslate[Key.F14] = Keys.F14;
-            dxTranslate[Key.F15] = Keys.F15;
-            dxTranslate[Key.G] = Keys.G;
-            dxTranslate[Key.Kanji] = Keys.Oemtilde;
-            dxTranslate[Key.H] = Keys.H;
-            dxTranslate[Key.Home] = Keys.Home;
-            dxTranslate[Key.I] = Keys.I;
-            dxTranslate[Key.Insert] = Keys.Insert;
-            dxTranslate[Key.J] = Keys.J;
-            dxTranslate[Key.K] = Keys.K;
-            dxTranslate[Key.L] = Keys.L;
-            dxTranslate[Key.LeftAlt] = Keys.Alt;
-            dxTranslate[Key.LeftArrow] = Keys.Left;
-            dxTranslate[Key.LeftBracket] = Keys.OemCloseBrackets;
-            dxTranslate[Key.AT] = Keys.OemOpenBrackets;//WEEEEIRD
-            dxTranslate[Key.LeftControl] = Keys.LControlKey;
-            dxTranslate[Key.LeftShift] = Keys.ShiftKey;
-            dxTranslate[Key.LeftWindowsKey] = Keys.LWin;
-            dxTranslate[Key.M] = Keys.M;
-            dxTranslate[Key.Minus] = Keys.Subtract;
-            dxTranslate[Key.N] = Keys.N;
-            dxTranslate[Key.NumberLock] = Keys.NumLock;
-            dxTranslate[Key.NumberPad0] = Keys.NumPad0;
-            dxTranslate[Key.NumberPad1] = Keys.NumPad1;
-            dxTranslate[Key.NumberPad2] = Keys.NumPad2;
-            dxTranslate[Key.NumberPad3] = Keys.NumPad3;
-            dxTranslate[Key.NumberPad4] = Keys.NumPad4;
-            dxTranslate[Key.NumberPad5] = Keys.NumPad5;
-            dxTranslate[Key.NumberPad6] = Keys.NumPad6;
-            dxTranslate[Key.NumberPad7] = Keys.NumPad7;
-            dxTranslate[Key.NumberPad8] = Keys.NumPad8;
-            dxTranslate[Key.NumberPad9] = Keys.NumPad9;
-            dxTranslate[Key.NumberPadComma] = Keys.Oemcomma;
-            dxTranslate[Key.NumberPadEnter] = Keys.Enter;//CHECK
-            dxTranslate[Key.NumberPadMinus] = Keys.Subtract;
-            dxTranslate[Key.NumberPadPeriod] = Keys.OemPeriod;
-            dxTranslate[Key.NumberPadPlus] = Keys.Oemplus;
-            dxTranslate[Key.NumberPadSlash] = Keys.Divide;
-            dxTranslate[Key.NumberPadStar] = Keys.Multiply;
-            dxTranslate[Key.O] = Keys.O;
-            dxTranslate[Key.Oem102] = Keys.Oem102;
-            dxTranslate[Key.P] = Keys.P;
-            dxTranslate[Key.PageDown] = Keys.PageDown;
-            dxTranslate[Key.PageUp] = Keys.PageUp;
-            dxTranslate[Key.Pause] = Keys.Pause;
-            dxTranslate[Key.Period] = Keys.OemPeriod;
-            dxTranslate[Key.PrintScreen] = Keys.PrintScreen;
-            dxTranslate[Key.Q] = Keys.Q;
-            dxTranslate[Key.R] = Keys.R;
-            dxTranslate[Key.Return] = Keys.Return;
-            dxTranslate[Key.RightAlt] = Keys.Alt;
-            dxTranslate[Key.RightArrow] = Keys.Right;
-            dxTranslate[Key.RightBracket] = Keys.OemBackslash;
-            dxTranslate[Key.RightControl] = Keys.RControlKey;
-            dxTranslate[Key.RightShift] = Keys.ShiftKey;
-            dxTranslate[Key.RightWindowsKey] = Keys.RWin;
-            dxTranslate[Key.S] = Keys.S;
-            dxTranslate[Key.ScrollLock] = Keys.Scroll;
-            dxTranslate[Key.Semicolon] = Keys.OemSemicolon;
-            dxTranslate[Key.Slash] = Keys.Divide;
-            dxTranslate[Key.Space] = Keys.Space;
-            dxTranslate[Key.T] = Keys.T;
-            dxTranslate[Key.Tab] = Keys.Tab;
-            dxTranslate[Key.U] = Keys.U;
-            dxTranslate[Key.UpArrow] = Keys.Up;
-            dxTranslate[Key.V] = Keys.V;
-            dxTranslate[Key.W] = Keys.W;
-            dxTranslate[Key.X] = Keys.X;
-            dxTranslate[Key.Y] = Keys.Y;
-            dxTranslate[Key.Z] = Keys.Z;
+            dxTranslate[Key.A] = EmuKeys.A;
+            dxTranslate[Key.Colon] = EmuKeys.Apostrophe;
+            dxTranslate[Key.B] = EmuKeys.B;
+            dxTranslate[Key.Backslash] = EmuKeys.Backslash;
+            dxTranslate[Key.Backspace] = EmuKeys.Backspace;
+            dxTranslate[Key.C] = EmuKeys.C;
+            dxTranslate[Key.CapsLock] = EmuKeys.CapsLock;
+            dxTranslate[Key.Comma] = EmuKeys.Comma;
+            dxTranslate[Key.D] = EmuKeys.D;
+            dxTranslate[Key.D0] = EmuKeys.D0;
+            dxTranslate[Key.D1] = EmuKeys.D1;
+            dxTranslate[Key.D2] = EmuKeys.D2;
+            dxTranslate[Key.D3] = EmuKeys.D3;
+            dxTranslate[Key.D4] = EmuKeys.D4;
+            dxTranslate[Key.D5] = EmuKeys.D5;
+            dxTranslate[Key.D6] = EmuKeys.D6;
+            dxTranslate[Key.D7] = EmuKeys.D7;
+            dxTranslate[Key.D8] = EmuKeys.D8;
+            dxTranslate[Key.D9] = EmuKeys.D9;
+            dxTranslate[Key.Delete] = EmuKeys.Delete;
+            dxTranslate[Key.DownArrow] = EmuKeys.DownArrow;
+            dxTranslate[Key.E] = EmuKeys.E;
+            dxTranslate[Key.End] = EmuKeys.End;
+            dxTranslate[Key.Escape] = EmuKeys.Escape;
+            dxTranslate[Key.F] = EmuKeys.F;
+            dxTranslate[Key.F1] = EmuKeys.F1;
+            dxTranslate[Key.F2] = EmuKeys.F2;
+            dxTranslate[Key.F3] = EmuKeys.F3;
+            dxTranslate[Key.F4] = EmuKeys.F4;
+            dxTranslate[Key.F5] = EmuKeys.F5;
+            dxTranslate[Key.F6] = EmuKeys.F6;
+            dxTranslate[Key.F7] = EmuKeys.F7;
+            dxTranslate[Key.F8] = EmuKeys.F8;
+            dxTranslate[Key.F9] = EmuKeys.F9;
+            dxTranslate[Key.F10] = EmuKeys.F10;
+            dxTranslate[Key.F11] = EmuKeys.F11;
+            dxTranslate[Key.F12] = EmuKeys.F12;
+            dxTranslate[Key.G] = EmuKeys.G;
+            dxTranslate[Key.Kanji] = EmuKeys.Grave;
+            dxTranslate[Key.H] = EmuKeys.H;
+            dxTranslate[Key.Home] = EmuKeys.Home;
+            dxTranslate[Key.I] = EmuKeys.I;
+            dxTranslate[Key.Insert] = EmuKeys.Insert;
+            dxTranslate[Key.J] = EmuKeys.J;
+            dxTranslate[Key.K] = EmuKeys.K;
+            dxTranslate[Key.L] = EmuKeys.L;
+            dxTranslate[Key.LeftAlt] = EmuKeys.LeftAlt;
+            dxTranslate[Key.LeftArrow] = EmuKeys.LeftArrow;
+            dxTranslate[Key.LeftBracket] = EmuKeys.RightBracket;
+            dxTranslate[Key.AT] = EmuKeys.LeftBracket;
+            dxTranslate[Key.LeftControl] = EmuKeys.LeftControl;
+            dxTranslate[Key.LeftShift] = EmuKeys.LeftShift;
+            dxTranslate[Key.LeftWindowsKey] = EmuKeys.LeftWindowsKey;
+            dxTranslate[Key.M] = EmuKeys.M;
+            dxTranslate[Key.Minus] = EmuKeys.Minus;
+            dxTranslate[Key.N] = EmuKeys.N;
+            dxTranslate[Key.NumberLock] = EmuKeys.NumberLock;
+            dxTranslate[Key.NumberPad0] = EmuKeys.NumberPad0;
+            dxTranslate[Key.NumberPad1] = EmuKeys.NumberPad1;
+            dxTranslate[Key.NumberPad2] = EmuKeys.NumberPad2;
+            dxTranslate[Key.NumberPad3] = EmuKeys.NumberPad3;
+            dxTranslate[Key.NumberPad4] = EmuKeys.NumberPad4;
+            dxTranslate[Key.NumberPad5] = EmuKeys.NumberPad5;
+            dxTranslate[Key.NumberPad6] = EmuKeys.NumberPad6;
+            dxTranslate[Key.NumberPad7] = EmuKeys.NumberPad7;
+            dxTranslate[Key.NumberPad8] = EmuKeys.NumberPad8;
+            dxTranslate[Key.NumberPad9] = EmuKeys.NumberPad9;
+            dxTranslate[Key.NumberPadEnter] = EmuKeys.NumberPadEnter;
+            dxTranslate[Key.NumberPadMinus] = EmuKeys.NumberPadMinus;
+            dxTranslate[Key.NumberPadPeriod] = EmuKeys.NumberPadPeriod;
+            dxTranslate[Key.NumberPadPlus] = EmuKeys.NumberPadPlus;
+            dxTranslate[Key.NumberPadSlash] = EmuKeys.NumberPadSlash;
+            dxTranslate[Key.NumberPadStar] = EmuKeys.NumberPadStar;
+            dxTranslate[Key.O] = EmuKeys.O;
+            dxTranslate[Key.P] = EmuKeys.P;
+            dxTranslate[Key.PageDown] = EmuKeys.PageDown;
+            dxTranslate[Key.PageUp] = EmuKeys.PageUp;
+            dxTranslate[Key.Pause] = EmuKeys.Pause;
+            dxTranslate[Key.Period] = EmuKeys.Period;
+            dxTranslate[Key.PrintScreen] = EmuKeys.PrintScreen;
+            dxTranslate[Key.Q] = EmuKeys.Q;
+            dxTranslate[Key.R] = EmuKeys.R;
+            dxTranslate[Key.Return] = EmuKeys.Return;
+            dxTranslate[Key.RightAlt] = EmuKeys.RightAlt;
+            dxTranslate[Key.RightArrow] = EmuKeys.RightArrow;
+            dxTranslate[Key.RightBracket] = EmuKeys.Backslash;
+            dxTranslate[Key.RightControl] = EmuKeys.RightControl;
+            dxTranslate[Key.RightShift] = EmuKeys.RightShift;
+            dxTranslate[Key.RightWindowsKey] = EmuKeys.RightWindowsKey;
+            dxTranslate[Key.S] = EmuKeys.S;
+            dxTranslate[Key.ScrollLock] = EmuKeys.ScrollLock;
+            dxTranslate[Key.Semicolon] = EmuKeys.Semicolon;
+            dxTranslate[Key.Slash] = EmuKeys.Slash;
+            dxTranslate[Key.Space] = EmuKeys.Space;
+            dxTranslate[Key.T] = EmuKeys.T;
+            dxTranslate[Key.Tab] = EmuKeys.Tab;
+            dxTranslate[Key.U] = EmuKeys.U;
+            dxTranslate[Key.UpArrow] = EmuKeys.UpArrow;
+            dxTranslate[Key.V] = EmuKeys.V;
+            dxTranslate[Key.W] = EmuKeys.W;
+            dxTranslate[Key.X] = EmuKeys.X;
+            dxTranslate[Key.Y] = EmuKeys.Y;
+            dxTranslate[Key.Z] = EmuKeys.Z;
         }
     }
 }

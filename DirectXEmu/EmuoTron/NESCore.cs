@@ -1859,7 +1859,7 @@ namespace EmuoTron
             lastRead = 0;
             for (int i = 0; i < 0x800; i++)
             {
-                Memory[i] = 0;
+                Memory[i] = (byte)((i & 0x04) == 0 ? 0x00 : 0xFF);
             }
             interruptReset = false;
             PPU.Power();

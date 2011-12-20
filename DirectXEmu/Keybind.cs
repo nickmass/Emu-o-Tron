@@ -19,13 +19,16 @@ namespace DirectXEmu
         public ControllerType portTwo;
         public ControllerType expansion;
 
-        public Keybind(Keybinds keys, ControllerType portOne, ControllerType portTwo, ControllerType expansion, bool fourScore, bool filterIllegalInput)
+        private string inputMode;
+
+        public Keybind(Keybinds keys, ControllerType portOne, ControllerType portTwo, ControllerType expansion, bool fourScore, bool filterIllegalInput, string inputMode)
         {
             this.keys = keys;
             this.fourScore = fourScore;
             this.portOne = portOne;
             this.portTwo = portTwo;
             this.expansion = expansion;
+            this.inputMode = inputMode;
             InitializeComponent();
             chkFourScore.Checked = fourScore;
             chkFilter.Checked = filterIllegalInput;
@@ -151,6 +154,68 @@ namespace DirectXEmu
                     expansion = ControllerType.Empty;
                     break;
             }
+        }
+
+        private void btnGamepad1_Click(object sender, EventArgs e)
+        {
+            PollKey pollKey;
+            Keybinds newKeys = ((Keybinds)bindViewer.SelectedObject);
+            pollKey = new PollKey(newKeys.Player1Up, "Up", inputMode);
+            pollKey.ShowDialog();
+            newKeys.Player1Up = pollKey.newKey;
+            pollKey = new PollKey(newKeys.Player1Down, "Down", inputMode);
+            pollKey.ShowDialog();
+            newKeys.Player1Down = pollKey.newKey;
+            pollKey = new PollKey(newKeys.Player1Left, "Left", inputMode);
+            pollKey.ShowDialog();
+            newKeys.Player1Left = pollKey.newKey;
+            pollKey = new PollKey(newKeys.Player1Right, "Right", inputMode);
+            pollKey.ShowDialog();
+            newKeys.Player1Right = pollKey.newKey;
+            pollKey = new PollKey(newKeys.Player1A, "A button", inputMode);
+            pollKey.ShowDialog();
+            newKeys.Player1A = pollKey.newKey;
+            pollKey = new PollKey(newKeys.Player1B, "B button", inputMode);
+            pollKey.ShowDialog();
+            newKeys.Player1B = pollKey.newKey;
+            pollKey = new PollKey(newKeys.Player1Select, "Select button", inputMode);
+            pollKey.ShowDialog();
+            newKeys.Player1Select = pollKey.newKey;
+            pollKey = new PollKey(newKeys.Player1Start, "Start button", inputMode);
+            pollKey.ShowDialog();
+            newKeys.Player1Start = pollKey.newKey;
+            bindViewer.SelectedObject = newKeys;
+        }
+
+        private void btnGamepad2_Click(object sender, EventArgs e)
+        {
+            PollKey pollKey;
+            Keybinds newKeys = ((Keybinds)bindViewer.SelectedObject);
+            pollKey = new PollKey(newKeys.Player2Up, "Up", inputMode);
+            pollKey.ShowDialog();
+            newKeys.Player2Up = pollKey.newKey;
+            pollKey = new PollKey(newKeys.Player2Down, "Down", inputMode);
+            pollKey.ShowDialog();
+            newKeys.Player2Down = pollKey.newKey;
+            pollKey = new PollKey(newKeys.Player2Left, "Left", inputMode);
+            pollKey.ShowDialog();
+            newKeys.Player2Left = pollKey.newKey;
+            pollKey = new PollKey(newKeys.Player2Right, "Right", inputMode);
+            pollKey.ShowDialog();
+            newKeys.Player2Right = pollKey.newKey;
+            pollKey = new PollKey(newKeys.Player2A, "A button", inputMode);
+            pollKey.ShowDialog();
+            newKeys.Player2A = pollKey.newKey;
+            pollKey = new PollKey(newKeys.Player2B, "B button", inputMode);
+            pollKey.ShowDialog();
+            newKeys.Player2B = pollKey.newKey;
+            pollKey = new PollKey(newKeys.Player2Select, "Select button", inputMode);
+            pollKey.ShowDialog();
+            newKeys.Player2Select = pollKey.newKey;
+            pollKey = new PollKey(newKeys.Player2Start, "Start button", inputMode);
+            pollKey.ShowDialog();
+            newKeys.Player2Start = pollKey.newKey;
+            bindViewer.SelectedObject = newKeys;
         }
     }
 }

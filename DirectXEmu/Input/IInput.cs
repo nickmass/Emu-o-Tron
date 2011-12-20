@@ -6,25 +6,147 @@ using System.Windows.Forms;
 
 namespace DirectXEmu
 {
-    interface IInput
+    public interface IInput
     {
         void Create();
         void Reset();
         void MainLoop();
         void Destroy();
-        event KeyHandler KeyDownEvent;
-        event KeyHandler KeyUpEvent;
-        event MouseHandler MouseMoveEvent;
-        event MouseHandler MouseDownEvent;
-        event MouseHandler MouseUpEvent;
+        event InputHandler InputEvent;
+        event InputScalerHandler InputScalerEvent;
     }
-    public struct MouseArgs
-    {
-        public int X;
-        public int Y;
-        public bool Click;
-    }
-    public delegate void KeyHandler(object sender, Keys key);
-    public delegate void MouseHandler(object sender, MouseArgs mouse);
 
+    public delegate void InputHandler(EmuKeys key, bool pressed);
+    public delegate void InputScalerHandler(EmuKeys key, int value);
+
+
+    public enum EmuKeys
+    {
+        None,
+        D0,
+        D1,
+        D2,
+        D3,
+        D4,
+        D5,
+        D6,
+        D7,
+        D8,
+        D9,
+        A,
+        B,
+        C,
+        D,
+        E,
+        F,
+        G,
+        H,
+        I,
+        J,
+        K,
+        L,
+        M,
+        N,
+        O,
+        P,
+        Q,
+        R,
+        S,
+        T,
+        U,
+        V,
+        W,
+        X,
+        Y,
+        Z,
+        Apostrophe,
+        Backspace,
+        Backslash,
+        CapsLock,
+        Comma,
+        Delete,
+        DownArrow,
+        End,
+        Equals,
+        Escape,
+        F1,
+        F2,
+        F3,
+        F4,
+        F5,
+        F6,
+        F7,
+        F8,
+        F9,
+        F10,
+        F11,
+        F12,
+        Grave,
+        Home,
+        Insert,
+        LeftBracket,
+        LeftControl,
+        LeftArrow,
+        LeftAlt,
+        LeftShift,
+        LeftWindowsKey,
+        Minus,
+        NumberLock,
+        NumberPad0,
+        NumberPad1,
+        NumberPad2,
+        NumberPad3,
+        NumberPad4,
+        NumberPad5,
+        NumberPad6,
+        NumberPad7,
+        NumberPad8,
+        NumberPad9,
+        NumberPadEnter,
+        NumberPadMinus,
+        NumberPadPeriod,
+        NumberPadPlus,
+        NumberPadSlash,
+        NumberPadStar,
+        PageDown,
+        PageUp,
+        Pause,
+        Period,
+        RightBracket,
+        RightControl,
+        Return,
+        RightArrow,
+        RightAlt,
+        RightShift,
+        RightWindowsKey,
+        ScrollLock,
+        Semicolon,
+        Slash,
+        Space,
+        PrintScreen,
+        Tab,
+        UpArrow,
+        Mouse1,
+        Mouse2,
+        Mouse3,
+        Mouse4,
+        Mouse5,
+        MouseX,
+        MouseY,
+        MouseScroll,
+        Joy1,
+        Joy2,
+        Joy3,
+        Joy4,
+        Joy5,
+        Joy6,
+        Joy7,
+        Joy8,
+        Joy9,
+        Joy10,
+        JoyUp,
+        JoyDown,
+        JoyLeft,
+        JoyRight
+    }
 }

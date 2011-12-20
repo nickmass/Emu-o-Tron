@@ -306,7 +306,7 @@ namespace DirectXEmu
                 playMovie = !Fm2Reader();
                 if (fm2Reset)
                 {
-                    cpu.Reset();
+                    cpu.Power();
                     fm2Reset = false;
                 }
                 if (!playMovie)
@@ -750,11 +750,253 @@ namespace DirectXEmu
                     break;
             }
             input.Create();
-            input.KeyDownEvent += new KeyHandler(input_KeyDownEvent);
-            input.KeyUpEvent += new KeyHandler(input_KeyUpEvent);
-            input.MouseMoveEvent += new MouseHandler(input_MouseMoveEvent);
-            input.MouseDownEvent += new MouseHandler(input_MouseDownEvent);
-            input.MouseUpEvent += new MouseHandler(input_MouseUpEvent);
+            input.InputEvent += new InputHandler(input_InputEvent);
+            input.InputScalerEvent += new InputScalerHandler(input_InputScalerEvent);
+        }
+
+        void input_InputScalerEvent(EmuKeys key, int value)
+        {
+            switch (key)
+            {
+                case EmuKeys.MouseX:
+                    Point tmpPointX = surfaceControl.PointToClient(new Point(value, 0));
+                    tmpPointX.X = (int)((256 * tmpPointX.X) / (surfaceControl.Width * 1.0));
+                    if (tmpPointX.X < 0)
+                        tmpPointX.X = 0;
+                    else if (tmpPointX.X >= 256)
+                        tmpPointX.X = 256 - 1;
+                    player1.x = (byte)tmpPointX.X;
+                    player2.x = player1.x;
+                    break;
+                case EmuKeys.MouseY:
+                    Point tmpPointY = surfaceControl.PointToClient(new Point(0, value));
+                    tmpPointY.Y = (int)((240 * tmpPointY.Y) / (surfaceControl.Height * 1.0));
+                    if (tmpPointY.Y < 0)
+                        tmpPointY.Y = 0;
+                    else if (tmpPointY.Y >= 240)
+                        tmpPointY.Y = 240 - 1;
+                    player1.y = (byte)tmpPointY.Y;
+                    player2.y = player1.y;
+                    break;
+            }
+        }
+
+        void input_InputEvent(EmuKeys key, bool pressed)
+        {
+            if (key == keyBindings.Player1A)
+            {
+                player1Pressed.a = pressed;
+            }
+            else if (key == keyBindings.Player1TurboA)
+            {
+                player1A.on = pressed;
+                if(!pressed)
+                    player1A.count = 1;
+            }
+            else if (key == keyBindings.Player1B)
+            {
+                player1Pressed.b = pressed;
+            }
+            else if (key == keyBindings.Player1TurboB)
+            {
+                player1B.on = pressed;
+                if (!pressed)
+                    player1B.count = 1;
+            }
+            else if (key == keyBindings.Player1Select)
+            {
+                player1Pressed.select = pressed;
+            }
+            else if (key == keyBindings.Player1Start)
+            {
+                player1Pressed.start = pressed;
+            }
+            else if (key == keyBindings.Player1Up)
+            {
+                player1Pressed.up = pressed;
+            }
+            else if (key == keyBindings.Player1Down)
+            {
+                player1Pressed.down = pressed;
+            }
+            else if (key == keyBindings.Player1Left)
+            {
+                player1Pressed.left = pressed;
+                if (cpu != null && !pressed)
+                    cpu.NSFPreviousSong();
+            }
+            else if (key == keyBindings.Player1Right)
+            {
+                player1Pressed.right = pressed;
+                if (cpu != null && !pressed)
+                    cpu.NSFNextSong();
+            }
+            else if (key == EmuKeys.Mouse1)
+            {
+                player1.triggerPulled = pressed;
+                player2.triggerPulled = pressed;
+            }
+            else if (key == keyBindings.Player2A)
+            {
+                player2Pressed.a = pressed;
+            }
+            else if (key == keyBindings.Player2TurboA)
+            {
+                player2A.on = pressed;
+                if (!pressed)
+                    player2A.count = 1;
+            }
+            else if (key == keyBindings.Player2B)
+            {
+                player2Pressed.b = pressed;
+            }
+            else if (key == keyBindings.Player2TurboB)
+            {
+                player2B.on = pressed;
+                if (!pressed)
+                    player2B.count = 1;
+            }
+            else if (key == keyBindings.Player2Select)
+            {
+                player2Pressed.select = pressed;
+            }
+            else if (key == keyBindings.Player2Start)
+            {
+                player2Pressed.start = pressed;
+            }
+            else if (key == keyBindings.Player2Up)
+            {
+                player2Pressed.up = pressed;
+            }
+            else if (key == keyBindings.Player2Down)
+            {
+                player2Pressed.down = pressed;
+            }
+            else if (key == keyBindings.Player2Left)
+            {
+                player2Pressed.left = pressed;
+            }
+            else if (key == keyBindings.Player2Right)
+            {
+                player2Pressed.right = pressed;
+            }
+            else if (key == EmuKeys.Q)
+            {
+                controlStrobe = pressed;
+            }
+            else if (key == keyBindings.SaveState)
+            {
+                if (!pressed)
+                    this.storeState = true;
+            }
+            else if (key == keyBindings.LoadState)
+            {
+                if (!pressed)
+                    this.loadState = true;
+            }
+            else if (key == keyBindings.Rewind)
+            {
+                rewinding = pressed;
+            }
+            else if (key == keyBindings.FastForward)
+            {
+                frameSkipper = pressed ? maxFrameSkip : 1;
+            }
+            else if (key == EmuKeys.F2)
+            {
+                player1.coin = pressed;
+            }
+            else if (key == EmuKeys.F3)
+            {
+                player2.coin = pressed;
+            }
+            else if (key == keyBindings.Pause)
+            {
+                if (!pressed)
+                {
+                    if (state == SystemState.Playing)
+                        state = SystemState.Paused;
+                    else if (state == SystemState.Paused)
+                        state = SystemState.Playing;
+                    this.message = "Paused";
+                    this.messageDuration = 1;
+                }
+            }
+            else if (key == keyBindings.Reset)
+            {
+                if (!pressed)
+                {
+                    this.SaveGame();
+                    moviePtr = 0;
+                    this.cpu.Reset();
+                    this.LoadGame();
+                    this.message = "Reset";
+                    this.messageDuration = 90;
+                }
+            }
+            else if (key == keyBindings.Power)
+            {
+                if (!pressed)
+                {
+                    this.SaveGame();
+                    moviePtr = 0;
+                    this.cpu.Power();
+                    this.LoadGame();
+                    this.message = "Power";
+                    this.messageDuration = 90;
+                }
+            }
+            else if (key == EmuKeys.LeftBracket)
+            {
+                if (!pressed)
+                {
+                    quickSaveSlot--;
+                    if (quickSaveSlot < 0)
+                        quickSaveSlot = 9;
+                    this.message = "Save Slot " + quickSaveSlot.ToString();
+                    this.messageDuration = 90;
+                }
+
+            }
+            else if (key == EmuKeys.RightBracket)
+            {
+
+                if (!pressed)
+                {
+                    quickSaveSlot++;
+                    if (quickSaveSlot > 9)
+                        quickSaveSlot = 0;
+                    this.message = "Save Slot " + quickSaveSlot.ToString();
+                    this.messageDuration = 90;
+                }
+
+            }
+            else if (key == EmuKeys.Backslash)
+            {
+                if (!pressed)
+                {
+                    if (state == SystemState.Paused)
+                        state = SystemState.Playing;
+                    frameAdvance = true;
+                    this.message = "Paused";
+                    this.messageDuration = 2;
+                }
+            }
+            else if (key == EmuKeys.Grave)
+            {
+                if (!pressed)
+                {
+                    if (rewindingEnabled)
+                    {
+                        if (state == SystemState.Paused)
+                            state = SystemState.Playing;
+                        frameDevance = true;
+                        rewinding = true;
+                        this.message = "Paused";
+                        this.messageDuration = 2;
+                    }
+                }
+            }
         }
 
         private void SaveGame()
@@ -1272,330 +1514,6 @@ namespace DirectXEmu
         }
 
         #region input_events
-        void input_MouseUpEvent(object sender, MouseArgs mouse)
-        {
-            player1.triggerPulled = false;
-
-            player2.triggerPulled = false;
-        }
-
-        void input_MouseDownEvent(object sender, MouseArgs mouse)
-        {
-            player1.triggerPulled = true;
-
-            player2.triggerPulled = true;
-        }
-
-        void input_MouseMoveEvent(object sender, MouseArgs mouse)
-        {
-            Point tmpPoint = surfaceControl.PointToClient(new Point(mouse.X, mouse.Y));
-            tmpPoint.X = (int)((256 * tmpPoint.X) / (surfaceControl.Width * 1.0));
-            tmpPoint.Y = (int)((240 * tmpPoint.Y) / (surfaceControl.Height * 1.0));
-            if (tmpPoint.X < 0)
-                tmpPoint.X = 0;
-            else if (tmpPoint.X >= 256)
-                tmpPoint.X = 256 - 1;
-            if (tmpPoint.Y < 0)
-                tmpPoint.Y = 0;
-            else if (tmpPoint.Y >= 240)
-                tmpPoint.Y = 240 - 1;
-
-            player1.x = (byte)tmpPoint.X;
-            player1.y = (byte)tmpPoint.Y;
-
-            player2.x = player1.x;
-            player2.y = player1.y;
-        }
-
-        void input_KeyUpEvent(object sender, Keys key)
-        {
-            if (key == keyBindings.Player1A)
-            {
-                player1Pressed.a = false;
-            }
-            else if (key == keyBindings.Player1TurboA)
-            {
-                player1A.on = false;
-                player1A.count = 1;
-            }
-            else if (key == keyBindings.Player1B)
-            {
-                player1Pressed.b = false;
-            }
-            else if (key == keyBindings.Player1TurboB)
-            {
-                player1B.on = false;
-                player1B.count = 1;
-            }
-            else if (key == keyBindings.Player1Select)
-            {
-                player1Pressed.select = false;
-            }
-            else if (key == keyBindings.Player1Start)
-            {
-                player1Pressed.start = false;
-            }
-            else if (key == keyBindings.Player1Up)
-            {
-                player1Pressed.up = false;
-            }
-            else if (key == keyBindings.Player1Down)
-            {
-                player1Pressed.down = false;
-            }
-            else if (key == keyBindings.Player1Left)
-            {
-                player1Pressed.left = false;
-                if (cpu != null)
-                    cpu.NSFPreviousSong();
-            }
-            else if (key == keyBindings.Player1Right)
-            {
-                player1Pressed.right = false;
-                if (cpu != null)
-                    cpu.NSFNextSong();
-            }
-            else if (key == keyBindings.Player2A)
-            {
-                player2Pressed.a = false;
-            }
-            else if (key == keyBindings.Player2TurboA)
-            {
-                player2A.on = false;
-                player2A.count = 1;
-            }
-            else if (key == keyBindings.Player2B)
-            {
-                player2Pressed.b = false;
-            }
-            else if (key == keyBindings.Player2TurboB)
-            {
-                player2B.on = false;
-                player2B.count = 1;
-            }
-            else if (key == keyBindings.Player2Select)
-            {
-                player2Pressed.select = false;
-            }
-            else if (key == keyBindings.Player2Start)
-            {
-                player2Pressed.start = false;
-            }
-            else if (key == keyBindings.Player2Up)
-            {
-                player2Pressed.up = false;
-            }
-            else if (key == keyBindings.Player2Down)
-            {
-                player2Pressed.down = false;
-            }
-            else if (key == keyBindings.Player2Left)
-            {
-                player2Pressed.left = false;
-            }
-            else if (key == keyBindings.Player2Right)
-            {
-                player2Pressed.right = false;
-            }
-            else if (key == Keys.Q)
-            {
-                controlStrobe = false;
-            }
-            else if (key == keyBindings.SaveState)
-            {
-                this.storeState = true;
-            }
-            else if (key == keyBindings.LoadState)
-            {
-                this.loadState = true;
-            }
-            else if (key == keyBindings.Rewind)
-            {
-                rewinding = false;
-            }
-            else if (key == keyBindings.FastForward)
-            {
-                frameSkipper = 1;
-            }
-            else if (key == Keys.F2)
-            {
-                player1.coin = false;
-            }
-            else if (key == Keys.F3)
-            {
-                player2.coin = false;
-            }
-            else if (key == keyBindings.Pause)
-            {
-                if (state == SystemState.Playing)
-                    state = SystemState.Paused;
-                else if (state == SystemState.Paused)
-                    state = SystemState.Playing;
-                this.message = "Paused";
-                this.messageDuration = 1;
-            }
-            else if (key == keyBindings.Reset)
-            {
-                this.SaveGame();
-                moviePtr = 0;
-                this.cpu.Reset();
-                this.LoadGame();
-                this.message = "Reset";
-                this.messageDuration = 90;
-            }
-            else if (key == keyBindings.Power)
-            {
-                this.SaveGame();
-                moviePtr = 0;
-                this.cpu.Power();
-                this.LoadGame();
-                this.message = "Power";
-                this.messageDuration = 90;
-            }
-            else if (key == Keys.OemOpenBrackets)
-            {
-                quickSaveSlot--;
-                if (quickSaveSlot < 0)
-                    quickSaveSlot = 9;
-                this.message = "Save Slot " + quickSaveSlot.ToString();
-                this.messageDuration = 90;
-
-            }
-            else if (key == Keys.OemCloseBrackets)
-            {
-                quickSaveSlot++;
-                if (quickSaveSlot > 9)
-                    quickSaveSlot = 0;
-                this.message = "Save Slot " + quickSaveSlot.ToString();
-                this.messageDuration = 90;
-
-            }
-            else if (key == Keys.OemPipe)
-            {
-                if (state == SystemState.Paused)
-                    state = SystemState.Playing;
-                frameAdvance = true;
-                this.message = "Paused";
-                this.messageDuration = 2;
-            }
-            else if (key == Keys.Oemtilde)
-            {
-                if (rewindingEnabled)
-                {
-                    if (state == SystemState.Paused)
-                        state = SystemState.Playing;
-                    frameDevance = true;
-                    rewinding = true;
-                    this.message = "Paused";
-                    this.messageDuration = 2;
-                }
-            }
-        }
-
-        void input_KeyDownEvent(object sender, Keys key)
-        {
-            if (key == keyBindings.Player1A)
-            {
-                player1Pressed.a = true;
-            }
-            else if (key == keyBindings.Player1TurboA)
-            {
-                player1A.on = true;
-            }
-            else if (key == keyBindings.Player1B)
-            {
-                player1Pressed.b = true;
-            }
-            else if (key == keyBindings.Player1TurboB)
-            {
-                player1B.on = true;
-            }
-            else if (key == keyBindings.Player1Select)
-            {
-                player1Pressed.select = true;
-            }
-            else if (key == keyBindings.Player1Start)
-            {
-                player1Pressed.start = true;
-            }
-            else if (key == keyBindings.Player1Up)
-            {
-                player1Pressed.up = true;
-            }
-            else if (key == keyBindings.Player1Down)
-            {
-                player1Pressed.down = true;
-            }
-            else if (key == keyBindings.Player1Left)
-            {
-                player1Pressed.left = true;
-            }
-            else if (key == keyBindings.Player1Right)
-            {
-                player1Pressed.right = true;
-            }
-            else if (key == keyBindings.Player2A)
-            {
-                player2Pressed.a = true;
-            }
-            else if (key == keyBindings.Player2TurboA)
-            {
-                player2A.on = true;
-            }
-            else if (key == keyBindings.Player2B)
-            {
-                player2Pressed.b = true;
-            }
-            else if (key == keyBindings.Player2TurboB)
-            {
-                player2B.on = true;
-            }
-            else if (key == keyBindings.Player2Select)
-            {
-                player2Pressed.select = true;
-            }
-            else if (key == keyBindings.Player2Start)
-            {
-                player2Pressed.start = true;
-            }
-            else if (key == keyBindings.Player2Up)
-            {
-                player2Pressed.up = true;
-            }
-            else if (key == keyBindings.Player2Down)
-            {
-                player2Pressed.down = true;
-            }
-            else if (key == keyBindings.Player2Left)
-            {
-                player2Pressed.left = true;
-            }
-            else if (key == keyBindings.Player2Right)
-            {
-                player2Pressed.right = true;
-            }
-            else if (key == Keys.Q)
-            {
-                controlStrobe = true;
-            }
-            else if (key == keyBindings.Rewind)
-            {
-                rewinding = true;
-            }
-            else if (key == keyBindings.FastForward)
-            {
-                frameSkipper = maxFrameSkip;
-            }
-            else if (key == Keys.F2)
-            {
-                player1.coin = true;
-            }
-            else if (key == Keys.F3)
-            {
-                player2.coin = true;
-            }
-        }
-
         private void EmuWindow_KeyUp(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.F11) //TO-DO: turn into real keybind
@@ -1719,7 +1637,7 @@ namespace DirectXEmu
         {
             SystemState old = state;
             state = SystemState.SystemPause;
-            Keybind keyBindWindow = new Keybind(keyBindings, (ControllerType)Enum.Parse(typeof(ControllerType), config["portOne"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["portTwo"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["expansion"]), (config["fourScore"] == "1"), config["filterIllegalInput"] == "1");
+            Keybind keyBindWindow = new Keybind(keyBindings, (ControllerType)Enum.Parse(typeof(ControllerType), config["portOne"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["portTwo"]), (ControllerType)Enum.Parse(typeof(ControllerType), config["expansion"]), (config["fourScore"] == "1"), config["filterIllegalInput"] == "1", config["input"]);
             if (keyBindWindow.ShowDialog() == DialogResult.OK)
             {
                 keyBindings = keyBindWindow.keys;
@@ -1738,33 +1656,34 @@ namespace DirectXEmu
 
         private void LoadKeys()
         {
-            keyBindings.Player1Up = (Keys)Enum.Parse(typeof(Keys), this.config["player1Up"]);
-            keyBindings.Player1Down = (Keys)Enum.Parse(typeof(Keys), this.config["player1Down"]);
-            keyBindings.Player1Left = (Keys)Enum.Parse(typeof(Keys), this.config["player1Left"]);
-            keyBindings.Player1Right = (Keys)Enum.Parse(typeof(Keys), this.config["player1Right"]);
-            keyBindings.Player1Start = (Keys)Enum.Parse(typeof(Keys), this.config["player1Start"]);
-            keyBindings.Player1Select = (Keys)Enum.Parse(typeof(Keys), this.config["player1Select"]);
-            keyBindings.Player1A = (Keys)Enum.Parse(typeof(Keys), this.config["player1A"]);
-            keyBindings.Player1B = (Keys)Enum.Parse(typeof(Keys), this.config["player1B"]);
-            keyBindings.Player1TurboA = (Keys)Enum.Parse(typeof(Keys), this.config["player1TurboA"]);
-            keyBindings.Player1TurboB = (Keys)Enum.Parse(typeof(Keys), this.config["player1TurboB"]);
-            keyBindings.Player2Up = (Keys)Enum.Parse(typeof(Keys), this.config["player2Up"]);
-            keyBindings.Player2Down = (Keys)Enum.Parse(typeof(Keys), this.config["player2Down"]);
-            keyBindings.Player2Left = (Keys)Enum.Parse(typeof(Keys), this.config["player2Left"]);
-            keyBindings.Player2Right = (Keys)Enum.Parse(typeof(Keys), this.config["player2Right"]);
-            keyBindings.Player2Start = (Keys)Enum.Parse(typeof(Keys), this.config["player2Start"]);
-            keyBindings.Player2Select = (Keys)Enum.Parse(typeof(Keys), this.config["player2Select"]);
-            keyBindings.Player2A = (Keys)Enum.Parse(typeof(Keys), this.config["player2A"]);
-            keyBindings.Player2B = (Keys)Enum.Parse(typeof(Keys), this.config["player2B"]);
-            keyBindings.Player2TurboA = (Keys)Enum.Parse(typeof(Keys), this.config["player2TurboA"]);
-            keyBindings.Player2TurboB = (Keys)Enum.Parse(typeof(Keys), this.config["player2TurboB"]);
-            keyBindings.LoadState = (Keys)Enum.Parse(typeof(Keys), this.config["loadState"]);
-            keyBindings.SaveState = (Keys)Enum.Parse(typeof(Keys), this.config["saveState"]);
-            keyBindings.Rewind = (Keys)Enum.Parse(typeof(Keys), this.config["rewind"]);
-            keyBindings.FastForward = (Keys)Enum.Parse(typeof(Keys), this.config["fastForward"]);
-            keyBindings.Pause = (Keys)Enum.Parse(typeof(Keys), this.config["pause"]);
-            keyBindings.Power = (Keys)Enum.Parse(typeof(Keys), this.config["power"]);
-            keyBindings.Reset = (Keys)Enum.Parse(typeof(Keys), this.config["restart"]);
+            keyBindings = new Keybinds();
+            keyBindings.Player1Up = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player1Up"]);
+            keyBindings.Player1Down = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player1Down"]);
+            keyBindings.Player1Left = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player1Left"]);
+            keyBindings.Player1Right = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player1Right"]);
+            keyBindings.Player1Start = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player1Start"]);
+            keyBindings.Player1Select = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player1Select"]);
+            keyBindings.Player1A = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player1A"]);
+            keyBindings.Player1B = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player1B"]);
+            keyBindings.Player1TurboA = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player1TurboA"]);
+            keyBindings.Player1TurboB = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player1TurboB"]);
+            keyBindings.Player2Up = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player2Up"]);
+            keyBindings.Player2Down = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player2Down"]);
+            keyBindings.Player2Left = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player2Left"]);
+            keyBindings.Player2Right = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player2Right"]);
+            keyBindings.Player2Start = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player2Start"]);
+            keyBindings.Player2Select = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player2Select"]);
+            keyBindings.Player2A = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player2A"]);
+            keyBindings.Player2B = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player2B"]);
+            keyBindings.Player2TurboA = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player2TurboA"]);
+            keyBindings.Player2TurboB = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["player2TurboB"]);
+            keyBindings.LoadState = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["loadState"]);
+            keyBindings.SaveState = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["saveState"]);
+            keyBindings.Rewind = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["rewind"]);
+            keyBindings.FastForward = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["fastForward"]);
+            keyBindings.Pause = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["pause"]);
+            keyBindings.Power = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["power"]);
+            keyBindings.Reset = (EmuKeys)Enum.Parse(typeof(EmuKeys), this.config["restart"]);
         }
 
         private void SaveKeys()

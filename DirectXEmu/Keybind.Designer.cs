@@ -39,6 +39,8 @@
             this.chkFilter = new System.Windows.Forms.CheckBox();
             this.label3 = new System.Windows.Forms.Label();
             this.cboExpansion = new System.Windows.Forms.ComboBox();
+            this.btnGamepad1 = new System.Windows.Forms.Button();
+            this.btnGamepad2 = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // bindViewer
@@ -103,7 +105,7 @@
             // chkFourScore
             // 
             this.chkFourScore.AutoSize = true;
-            this.chkFourScore.Location = new System.Drawing.Point(114, 102);
+            this.chkFourScore.Location = new System.Drawing.Point(114, 131);
             this.chkFourScore.Name = "chkFourScore";
             this.chkFourScore.Size = new System.Drawing.Size(78, 17);
             this.chkFourScore.TabIndex = 5;
@@ -132,7 +134,7 @@
             // chkFilter
             // 
             this.chkFilter.AutoSize = true;
-            this.chkFilter.Location = new System.Drawing.Point(21, 125);
+            this.chkFilter.Location = new System.Drawing.Point(21, 154);
             this.chkFilter.Name = "chkFilter";
             this.chkFilter.Size = new System.Drawing.Size(171, 17);
             this.chkFilter.TabIndex = 8;
@@ -162,11 +164,33 @@
             this.cboExpansion.TabIndex = 9;
             this.cboExpansion.SelectedIndexChanged += new System.EventHandler(this.cboExpansion_SelectedIndexChanged);
             // 
+            // btnGamepad1
+            // 
+            this.btnGamepad1.Location = new System.Drawing.Point(33, 102);
+            this.btnGamepad1.Name = "btnGamepad1";
+            this.btnGamepad1.Size = new System.Drawing.Size(75, 23);
+            this.btnGamepad1.TabIndex = 11;
+            this.btnGamepad1.Text = "Gamepad 1";
+            this.btnGamepad1.UseVisualStyleBackColor = true;
+            this.btnGamepad1.Click += new System.EventHandler(this.btnGamepad1_Click);
+            // 
+            // btnGamepad2
+            // 
+            this.btnGamepad2.Location = new System.Drawing.Point(114, 102);
+            this.btnGamepad2.Name = "btnGamepad2";
+            this.btnGamepad2.Size = new System.Drawing.Size(75, 23);
+            this.btnGamepad2.TabIndex = 12;
+            this.btnGamepad2.Text = "Gamepad 2";
+            this.btnGamepad2.UseVisualStyleBackColor = true;
+            this.btnGamepad2.Click += new System.EventHandler(this.btnGamepad2_Click);
+            // 
             // Keybind
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(538, 449);
+            this.Controls.Add(this.btnGamepad2);
+            this.Controls.Add(this.btnGamepad1);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.cboExpansion);
             this.Controls.Add(this.chkFilter);
@@ -202,5 +226,7 @@
         private System.Windows.Forms.CheckBox chkFilter;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.ComboBox cboExpansion;
+        private System.Windows.Forms.Button btnGamepad1;
+        private System.Windows.Forms.Button btnGamepad2;
     }
 }

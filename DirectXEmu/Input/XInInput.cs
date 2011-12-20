@@ -16,6 +16,9 @@ namespace DirectXEmu
         ControllerState currentPlayer1;
         ControllerState currentPlayer2;
 
+        public event InputHandler InputEvent;
+        public event InputScalerHandler InputScalerEvent;
+
         public void Create()
         {
             Reset();
@@ -50,105 +53,63 @@ namespace DirectXEmu
 
                 if (newPlayer1.A != currentPlayer1.A)
                 {
-                    if (newPlayer1.A)
-                        KeyDownEvent(this, Keys.Z);
-                    else
-                        KeyUpEvent(this, Keys.Z);
+                    InputEvent(EmuKeys.Joy1, newPlayer1.A);
                 }
                 if (newPlayer1.B != currentPlayer1.B)
                 {
-                    if (newPlayer1.B)
-                        KeyDownEvent(this, Keys.X);
-                    else
-                        KeyUpEvent(this, Keys.X);
+                    InputEvent(EmuKeys.Joy2, newPlayer1.B);
                 }
                 if (newPlayer1.X != currentPlayer1.X)
                 {
-                    if (newPlayer1.X)
-                        KeyDownEvent(this, Keys.A);
-                    else
-                        KeyUpEvent(this, Keys.A);
+                    InputEvent(EmuKeys.Joy3, newPlayer1.X);
                 }
                 if (newPlayer1.Y != currentPlayer1.Y)
                 {
-                    if (newPlayer1.Y)
-                        KeyDownEvent(this, Keys.S);
-                    else
-                        KeyUpEvent(this, Keys.S);
+                    InputEvent(EmuKeys.Joy4, newPlayer1.Y);
                 }
                 if (newPlayer1.Up != currentPlayer1.Up)
                 {
-                    if (newPlayer1.Up)
-                        KeyDownEvent(this, Keys.Up);
-                    else
-                        KeyUpEvent(this, Keys.Up);
+                    InputEvent(EmuKeys.JoyUp, newPlayer1.Up);
                 }
                 if (newPlayer1.Down != currentPlayer1.Down)
                 {
-                    if (newPlayer1.Down)
-                        KeyDownEvent(this, Keys.Down);
-                    else
-                        KeyUpEvent(this, Keys.Down);
+                    InputEvent(EmuKeys.JoyDown, newPlayer1.Down);
                 }
                 if (newPlayer1.Left != currentPlayer1.Left)
                 {
-                    if (newPlayer1.Left)
-                        KeyDownEvent(this, Keys.Left);
-                    else
-                        KeyUpEvent(this, Keys.Left);
+                    InputEvent(EmuKeys.JoyLeft, newPlayer1.Left);
                 }
                 if (newPlayer1.Right != currentPlayer1.Right)
                 {
-                    if (newPlayer1.Right)
-                        KeyDownEvent(this, Keys.Right);
-                    else
-                        KeyUpEvent(this, Keys.Right);
+                    InputEvent(EmuKeys.JoyRight, newPlayer1.Right);
                 }
                 if (newPlayer1.Start != currentPlayer1.Start)
                 {
-                    if (newPlayer1.Start)
-                        KeyDownEvent(this, Keys.Return);
-                    else
-                        KeyUpEvent(this, Keys.Return);
+                    InputEvent(EmuKeys.Joy5, newPlayer1.Start);
                 }
                 if (newPlayer1.Back != currentPlayer1.Back)
                 {
-                    if (newPlayer1.Back)
-                        KeyDownEvent(this, Keys.OemQuotes);
-                    else
-                        KeyUpEvent(this, Keys.OemQuotes);
+                    InputEvent(EmuKeys.Joy6, newPlayer1.Back);
                 }
                 if (newPlayer1.LBumper != currentPlayer1.LBumper)
                 {
-                    if (newPlayer1.LBumper)
-                        KeyDownEvent(this, Keys.D2);
-                    else
-                        KeyUpEvent(this, Keys.D2);
+                    InputEvent(EmuKeys.Joy7, newPlayer1.LBumper);
                 }
                 if (newPlayer1.RBumper != currentPlayer1.RBumper)
                 {
-                    if (newPlayer1.RBumper)
-                        KeyDownEvent(this, Keys.D1);
-                    else
-                        KeyUpEvent(this, Keys.D1);
+                    InputEvent(EmuKeys.Joy8, newPlayer1.RBumper);
                 }
                 if (newPlayer1.LTrigger != currentPlayer1.LTrigger)
                 {
-                    if (newPlayer1.LTrigger)
-                        KeyDownEvent(this, Keys.Tab);
-                    else
-                        KeyUpEvent(this, Keys.Tab);
+                    InputEvent(EmuKeys.Joy9, newPlayer1.LTrigger);
                 }
                 if (newPlayer1.RTrigger != currentPlayer1.RTrigger)
                 {
-                    if (newPlayer1.RTrigger)
-                        KeyDownEvent(this, Keys.ShiftKey);
-                    else
-                        KeyUpEvent(this, Keys.ShiftKey);
+                    InputEvent(EmuKeys.Joy10, newPlayer1.RTrigger);
                 }
                 currentPlayer1 = newPlayer1;
             }
-
+            /*
             if (player2Controller.IsConnected)
             {
                 Gamepad x360State = player2Controller.GetState().Gamepad;
@@ -239,22 +200,12 @@ namespace DirectXEmu
                         KeyUpEvent(this, Keys.NumPad9);
                 }
                 currentPlayer2 = newPlayer2;
-            }
+            }*/
         }
 
         public void Destroy()
         {
         }
-
-        public event KeyHandler KeyDownEvent;
-
-        public event KeyHandler KeyUpEvent;
-
-        public event MouseHandler MouseMoveEvent;
-
-        public event MouseHandler MouseDownEvent;
-
-        public event MouseHandler MouseUpEvent;
 
         struct ControllerState
         {

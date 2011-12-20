@@ -4,168 +4,198 @@ using System.Linq;
 using System.Text;
 using System.ComponentModel;
 using System.Windows.Forms;
+using System.Windows.Forms.Design;
+using System.Drawing;
+using System.Drawing.Design;
 namespace DirectXEmu
 {
-    public struct Keybinds
+    public struct Keybinds 
     {
         [CategoryAttribute("General")]
-        public Keys Rewind
+        [BrowsableAttribute(true)]
+        public EmuKeys Rewind
         {
             get;
             set;
         }
         [CategoryAttribute("General")]
-        public Keys FastForward
+        [BrowsableAttribute(true)]
+        public EmuKeys FastForward
         {
             get;
             set;
         }
         [CategoryAttribute("General")]
-        public Keys SaveState
+        [BrowsableAttribute(true)]
+        public EmuKeys SaveState
         {
             get;
             set;
         }
         [CategoryAttribute("General")]
-        public Keys LoadState
+        [BrowsableAttribute(true)]
+        public EmuKeys LoadState
         {
             get;
             set;
         }
         [CategoryAttribute("General")]
-        public Keys Pause
+        [BrowsableAttribute(true)]
+        public EmuKeys Pause
         {
             get;
             set;
         }
         [CategoryAttribute("General")]
-        public Keys Reset
+        [BrowsableAttribute(true)]
+        public EmuKeys Reset
         {
             get;
             set;
         }
         [CategoryAttribute("General")]
-        public Keys Power
+        [BrowsableAttribute(true)]
+        public EmuKeys Power
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Keys Player1Up
+        [BrowsableAttribute(true)]
+        public EmuKeys Player1Up
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Keys Player1Down
+        [BrowsableAttribute(true)]
+        public EmuKeys Player1Down
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Keys Player1Left
+        [BrowsableAttribute(true)]
+        public EmuKeys Player1Left
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Keys Player1Right
+        [BrowsableAttribute(true)]
+        public EmuKeys Player1Right
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Keys Player1Start
+        [BrowsableAttribute(true)]
+        public EmuKeys Player1Start
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Keys Player1Select
+        [BrowsableAttribute(true)]
+        public EmuKeys Player1Select
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Keys Player1A
+        [BrowsableAttribute(true)]
+        public EmuKeys Player1A
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Keys Player1B
+        [BrowsableAttribute(true)]
+        public EmuKeys Player1B
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Keys Player1TurboA
+        [BrowsableAttribute(true)]
+        public EmuKeys Player1TurboA
         {
             get;
             set;
         }
         [CategoryAttribute("Player 1")]
-        public Keys Player1TurboB
+        [BrowsableAttribute(true)]
+        public EmuKeys Player1TurboB
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Keys Player2Up
+        [BrowsableAttribute(true)]
+        public EmuKeys Player2Up
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Keys Player2Down
+        [BrowsableAttribute(true)]
+        public EmuKeys Player2Down
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Keys Player2Left
+        [BrowsableAttribute(true)]
+        public EmuKeys Player2Left
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Keys Player2Right
+        [BrowsableAttribute(true)]
+        public EmuKeys Player2Right
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Keys Player2Start
+        [BrowsableAttribute(true)]
+        public EmuKeys Player2Start
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Keys Player2Select
+        [BrowsableAttribute(true)]
+        public EmuKeys Player2Select
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Keys Player2A
+        [BrowsableAttribute(true)]
+        public EmuKeys Player2A
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Keys Player2B
+        [BrowsableAttribute(true)]
+        public EmuKeys Player2B
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Keys Player2TurboA
+        [BrowsableAttribute(true)]
+        public EmuKeys Player2TurboA
         {
             get;
             set;
         }
         [CategoryAttribute("Player 2")]
-        public Keys Player2TurboB
+        [BrowsableAttribute(true)]
+        public EmuKeys Player2TurboB
         {
             
             get;
