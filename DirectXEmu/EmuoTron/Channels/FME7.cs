@@ -34,6 +34,7 @@ namespace EmuoTron.Channels
 
         private bool[] dutyCycle = { true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false };
         private byte[] sunsoftOut;
+        private byte[] sunsoftEnvOut;
 
         public FME7()
         {
@@ -45,12 +46,20 @@ namespace EmuoTron.Channels
             volume = new byte[3];
             envelopeEnabled = new bool[3];
             sunsoftOut = new byte[16];
+            sunsoftEnvOut = new byte[32];
             double vol = 1.0;
             double step = Math.Pow(10, (3) / 20.0);
             for (int i = 0; i < 16; i++)
             {
                 sunsoftOut[i] = (byte)(vol * 0.48); //0.48 is tweaked to keep the max volume * 3 under the 255 cap of the channel.
                 vol *= step;
+            }
+            double envVol = 1.0;
+            double envStep = Math.Pow(5, (3) / 20.0); //Rough guess for envelopes volume
+            for (int i = 0; i < 32; i++)
+            {
+                sunsoftEnvOut[i] = (byte)(envVol * 0.48);
+                envVol *= envStep;
             }
         }
         public override void Power()
@@ -91,7 +100,7 @@ namespace EmuoTron.Channels
                             freq[2] = (freq[2] & 0x0FF) | ((value & 0xF) << 8);
                             break;
                         case 6:
-                            noiseFreq = (value & 0x1F) << 1; //Not sure about shifting this over, but I think I have to to match double the pulse duty length.
+                            noiseFreq = (value & 0x1F) ;
                             break;
                         case 7:
                             enabled[0] = ((value & 1) == 0);
@@ -135,7 +144,7 @@ namespace EmuoTron.Channels
         {
             byte volume = 0;
             envTimer++;
-            if(envTimer >= envFreq << 1)  //Have NO idea how I should be shifting the envelope, this is my best guess.
+            if(envTimer >= envFreq << 5)  //Have NO idea how I should be shifting the envelope, this is my best guess.
             {
                 envTimer = 0;
                 if (envVolume + envInc > 31 || envVolume + envInc < 0)
@@ -173,7 +182,7 @@ namespace EmuoTron.Channels
                 }
             }
             noiseTimer++;
-            if (noiseTimer >= noiseFreq)
+            if (noiseTimer >= noiseFreq << 1)//Not sure about shifting this over, but I think I have to to match double the pulse duty length.
             {
                 noiseTimer = 0;
                 noiseOutput = NoiseClock();
@@ -189,8 +198,8 @@ namespace EmuoTron.Channels
                 }
                 if (dutyCycle[dutyCounter[i] % 32] && (enabled[i] || (noiseOutput && noiseEnabled[i])))
                 {
-                    if (envelopeEnabled[i])//Don't know if envelope is linear or not, going to act like it is for simplicities sake.
-                        volume += (byte)(envVolume << 1);
+                    if (envelopeEnabled[i])
+                        volume += sunsoftEnvOut[envVolume];
                     else
                         volume += sunsoftOut[this.volume[i]];
                 }
