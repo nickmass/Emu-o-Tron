@@ -25,6 +25,7 @@ namespace EmuoTron.Mappers
         public double speed;
         public double counter;
         public bool overTime;
+
         public mNSF(NESCore nes, byte[] banks, int PBRATE, int specialChip)
         {
             this.nes = nes;
@@ -108,38 +109,22 @@ namespace EmuoTron.Mappers
                 nes.Memory.Swap4kROM(0xF000, banks[7]);
             }
         }
-        public override void IRQ(int cycles)
+
+        public int IRQ(int cycles)
         {
-            counter -= cycles;
+            if (!nes.PPU.frameComplete)
+                counter -= cycles;
             if (counter <= 0)
             {
                 overTime = true;
-                counter += speed;
-            }
-        }
-        public int IRQ(int cycles, int opCode)
-        {
-            if (opCode == OpInfo.InstrBRK)
-            {
-                if (!overTime)
-                    cycles = (int)(Math.Round(counter) + 1);
                 counter = speed;
                 nes.PPU.frameComplete = true;
                 nes.RegPC = playAddress;
                 overTime = false;
+                nes.RegS = 0xFF;
+                nes.PushWordStack(playAddress - 1);
             }
-            else
-            {
-                counter -= cycles;
-                if (counter <= 0)
-                {
-                    overTime = true;
-                    counter = speed;
-                    nes.PPU.frameComplete = true;
-                    nes.RegPC = playAddress;
-                    overTime = false;
-                }
-            }
+
             return cycles;
         }
         public override void StateSave(BinaryWriter writer)

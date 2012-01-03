@@ -289,10 +289,10 @@ namespace EmuoTron
                     int oldA12 = (loopyV >> 12) & 1;
                     if (scanline < 240 && (spriteRendering || backgroundRendering)) //Young Indiana Jones fix, http://nesdev.parodius.com/bbs/viewtopic.php?t=6401
                     {
-                        if (vramInc)
-                            VerticalIncrement();
-                        else
-                            loopyV++;//Some parts of the thread suggest that this should be a horz increment but that breaks Camerica games intro
+                        //if (vramInc)
+                            VerticalIncrement();  //Doing ONLY verticle inc here regardless of vramInc seems to make Zelda 2's title screen background scroll correct, atleast compared to nintendulator need to make sure hardware is the same.
+                        //else
+                        //    HorizontalIncrement();//loopyV++;//Some parts of the thread suggest that this should be a horz increment but that breaks Camerica games intro
                     }
                     else
                         loopyV = (loopyV + (vramInc ? 0x20 : 0x01)) & 0x7FFF;

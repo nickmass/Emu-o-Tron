@@ -142,6 +142,7 @@ namespace EmuoTron
                 opAddr = RegPC;
                 RegPC += (opInfo >> 16) & 0xF;
                 RegPC &= 0xFFFF;
+
                 #region CPU
                 switch (addressing)
                 {
@@ -383,12 +384,6 @@ namespace EmuoTron
                         pendingFlagIRQ2 = 0;
                         RegPC = ReadWord(0xFFFE);
 
-                        if (nsfPlayer)
-                        {
-                            value = ((Mappers.mNSF)mapper).IRQ(0, OpInfo.InstrBRK);
-                            counter += value;
-                            APU.AddCycles(value);
-                        }
                         break;
                     case OpInfo.InstrBVC:
                         if (FlagOverflow == 0)
@@ -650,6 +645,13 @@ namespace EmuoTron
                         Read(RegS | 0x0100);
                         RegPC = (PopWordStack() + 1) & 0xFFFF;
                         Read(RegPC);
+                        if(nsfPlayer && RegS == 0xFF)
+                        {
+                            PushWordStack(RegPC - 1);
+                            APU.AddCycles((int)((Mappers.mNSF) mapper).counter);
+                            PPU.frameComplete = true;
+                            ((Mappers.mNSF)mapper).counter = ((Mappers.mNSF)mapper).speed;
+                        }
                         break;
                     case OpInfo.InstrSBC:
                         value = Read(addr);
@@ -1636,7 +1638,7 @@ namespace EmuoTron
             }
             else
             {
-                value = ((Mappers.mNSF)mapper).IRQ(value, -1); //NEEDS FIX FOR SECOND ARG
+                value = ((Mappers.mNSF)mapper).IRQ(value);
                 counter += value;
                 APU.AddCycles(value);
             }
@@ -1692,6 +1694,7 @@ namespace EmuoTron
                     song = ((Mappers.mNSF)mapper).totalSongs;
                 ((Mappers.mNSF)mapper).currentSong = song;
                 RegPC = ((Mappers.mNSF)mapper).initAddress;
+                RegS = 0xFF;
                 PushWordStack(((Mappers.mNSF)mapper).playAddress - 1);
                 RegA = (song - 1) & 0xFF;
                 if (RegA == 0xFF)

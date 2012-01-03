@@ -1723,7 +1723,7 @@ namespace DirectXEmu
         {
             if (!this.generateNameTables)
             {
-                this.nameTablePreview = new NameTablePreview(this.colorChart, this.generateLine);
+                this.nameTablePreview = new NameTablePreview(cpu == null ? this.colorChart : cpu.PPU.colorChart, this.generateLine);
                 this.nameTablePreview.FormClosed += new FormClosedEventHandler(this.nameTablePreviewForm_Closed);
                 this.generateNameTables = true;
                 nameTablePreview.Show();
@@ -1741,7 +1741,7 @@ namespace DirectXEmu
         {
             if (!this.generatePatternTables)
             {
-                this.patternTablePreview = new PatternTablePreview(this.colorChart, this.generatePatternLine);
+                this.patternTablePreview = new PatternTablePreview(cpu == null ? this.colorChart : cpu.PPU.colorChart, this.generatePatternLine);
                 this.patternTablePreview.FormClosed += new FormClosedEventHandler(this.patternTablePreviewForm_Closed);
                 this.generatePatternTables = true;
                 patternTablePreview.Show();
