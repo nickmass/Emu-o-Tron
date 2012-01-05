@@ -103,6 +103,7 @@
             this.recordDialog = new System.Windows.Forms.SaveFileDialog();
             this.surfaceControl = new System.Windows.Forms.Panel();
             this.saveMovie = new System.Windows.Forms.SaveFileDialog();
+            this.memoryVisualizerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -556,7 +557,8 @@
             this.cheatFinderToolStripMenuItem,
             this.testConsoleToolStripMenuItem,
             this.enableLoggingToolStripMenuItem,
-            this.openLogToolStripMenuItem});
+            this.openLogToolStripMenuItem,
+            this.memoryVisualizerToolStripMenuItem});
             this.logToolStripMenuItem.Name = "logToolStripMenuItem";
             this.logToolStripMenuItem.Size = new System.Drawing.Size(54, 20);
             this.logToolStripMenuItem.Text = "Debug";
@@ -702,6 +704,13 @@
             this.saveMovie.Filter = "FM2 files|*.fm2";
             this.saveMovie.Title = "Save Movie";
             // 
+            // memoryVisualizerToolStripMenuItem
+            // 
+            this.memoryVisualizerToolStripMenuItem.Name = "memoryVisualizerToolStripMenuItem";
+            this.memoryVisualizerToolStripMenuItem.Size = new System.Drawing.Size(191, 22);
+            this.memoryVisualizerToolStripMenuItem.Text = "Memory Visualizer...";
+            this.memoryVisualizerToolStripMenuItem.Click += new System.EventHandler(this.memoryVisualizerToolStripMenuItem_Click);
+            // 
             // Program
             // 
             this.AllowDrop = true;
@@ -802,5 +811,6 @@
         private System.Windows.Forms.ToolStripMenuItem hQ2xToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem recordAVSToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem stopAVSToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem memoryVisualizerToolStripMenuItem;
     }
 }

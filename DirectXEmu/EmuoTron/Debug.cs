@@ -9,6 +9,12 @@ namespace EmuoTron
     {
         private NESCore nes;
 
+        public long cpuTime;
+
+        public long[] memoryReads = new long[0x10000];
+        public long[] memoryWrites = new long[0x10000];
+        public long[] memoryExecutes = new long[0x10000];
+
         public bool irqEnable = false;
         private int irqCounter = 0;
         public bool debugInterrupt = false;
@@ -176,6 +182,7 @@ namespace EmuoTron
 
         public void Execute(ushort address)
         {
+            memoryExecutes[address] = cpuTime;
             lastExec = address;
             if (logging)
             {
@@ -193,12 +200,14 @@ namespace EmuoTron
         }
         public byte Read(byte value, ushort address)
         {
+            memoryReads[address] = cpuTime; 
             if ((breakPoints[address] & BREAKPOINTREAD) != 0)
                 debugInterrupt = true;
             return value;
         }
         public void Write(byte value, ushort address)
         {
+            memoryWrites[address] = cpuTime; 
             if((breakPoints[address] & BREAKPOINTWRITE) != 0)
                 debugInterrupt = true;
         }
@@ -218,6 +227,7 @@ namespace EmuoTron
         }
         public void AddCycles(int cycles)
         {
+            cpuTime += cycles;
             if (irqEnable)
             {
                 for (int i = 0; i < cycles; i++)

@@ -246,6 +246,12 @@
     <Compile Include="Input\DXInput.cs" />
     <Compile Include="Input\IInput.cs" />
     <Compile Include="Input\NullInput.cs" />
+    <Compile Include="MemoryVis.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MemoryVis.Designer.cs">
+      <DependentUpon>MemoryVis.cs</DependentUpon>
+    </Compile>
     <Compile Include="NSFScreen.cs" />
     <Compile Include="PaletteConfig.cs">
       <SubType>Form</SubType>
@@ -581,6 +587,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="MemoryViewer.resx">
       <DependentUpon>MemoryViewer.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MemoryVis.resx">
+      <DependentUpon>MemoryVis.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="NameTablePreview.resx">
       <DependentUpon>NameTablePreview.cs</DependentUpon>

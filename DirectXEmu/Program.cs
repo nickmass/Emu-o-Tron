@@ -752,6 +752,8 @@ namespace DirectXEmu
             input.Create();
             input.InputEvent += new InputHandler(input_InputEvent);
             input.InputScalerEvent += new InputScalerHandler(input_InputScalerEvent);
+
+
         }
 
         void input_InputScalerEvent(EmuKeys key, int value)
@@ -2418,6 +2420,15 @@ namespace DirectXEmu
             }
         }
         #endregion
+
+        private void memoryVisualizerToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if(cpu != null)
+            {
+                MemoryVis vis = new MemoryVis(cpu.debug);
+                vis.Show();
+            }
+        }
 
     }
 }
