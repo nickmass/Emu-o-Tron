@@ -79,7 +79,7 @@ namespace DirectXEmu
         PatternTablePreview patternTablePreview;
         MemoryViewer memoryViewer;
         Debugger debugger;
-
+        private MemoryVis memoryVis;
         EmuConfig config;
 
         SoundVolume volume;
@@ -662,6 +662,15 @@ namespace DirectXEmu
                 debugger.Close();
             debugger = new Debugger(cpu.debug);
             debugger.UpdateDebug();
+            if (memoryVis != null && memoryVis.Visible)
+            {
+                Point loc = memoryVis.Location;
+                memoryVis.Close();
+                memoryVis = new MemoryVis(cpu.debug);
+                memoryVis.Show();
+                memoryVis.Location = loc;
+                this.BringToFront();
+            }
             ejectDiskToolStripMenuItem.DropDownItems.Clear();
             ejectDiskToolStripMenuItem.Text = "Eject Disk";
             ejectDiskToolStripMenuItem.Visible = (cpu.GetSideCount() != 0);
@@ -2425,8 +2434,9 @@ namespace DirectXEmu
         {
             if(cpu != null)
             {
-                MemoryVis vis = new MemoryVis(cpu.debug);
-                vis.Show();
+                if (memoryVis == null || !memoryVis.Visible)
+                    memoryVis = new MemoryVis(cpu.debug);
+                memoryVis.Show();
             }
         }
 

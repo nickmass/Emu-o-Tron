@@ -55,23 +55,10 @@ namespace DirectXEmu
 
             if (time == 0)
                 return 0x00;
-            if (age <= 29781)
-                return 0xFF;
-            if (age <= 29781 * 10)
-                return 0xDD;
-            if (age <= 29781 * 20)
-                return 0xBB;
-            if (age <= 29781 * 30)
-                return 0xBB;
-            if (age <= 29781 * 40)
-                return 0x99;
-            if (age <= 29781 * 50)
-                return 0x77;
-            if (age <= 29781 * 60)
-                return 0x55;
-            if (age <= 29781 * 70)
-                return 0x33;
-            return 0x11;
+            if (age > 29781 * 100)
+                return 0x10;
+            age = 2978100 - age;
+            return (byte) (((age/2978100.0)*0xEF) + 0x10);
         }
 
     }
