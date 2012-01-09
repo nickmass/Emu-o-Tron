@@ -127,11 +127,11 @@ namespace EmuoTron.Channels
                     volume = envelope;
                 else
                     volume = envelopeCounter;
-                byte feedback;
+                int feedback;
                 if (loop)
-                    feedback = (byte)((shiftReg & 1) ^ ((shiftReg >> 6) & 1));
+                    feedback = (shiftReg & 1) ^ ((shiftReg >> 6) & 1);
                 else
-                    feedback = (byte)((shiftReg & 1) ^ ((shiftReg >> 1) & 1));
+                    feedback = (shiftReg & 1) ^ ((shiftReg >> 1) & 1);
                 shiftReg >>= 1;
                 shiftReg = (ushort)(shiftReg | (feedback << 14));
                 divider = timer;

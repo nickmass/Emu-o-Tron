@@ -86,14 +86,14 @@ namespace EmuoTron.Channels
                     break;
                 case 2: //Low Timer
                     timer = (ushort)((timer & 0x700) | value);
-                    freq = (timer + 1) * 2;
+                    freq = (timer * 2) + 1;
                     divider = freq;
                     break;
                 case 3: //Length Counter and High Timer
                     if (enabled)
                         lengthCounter = nes.APU.lengthTable[value >> 3];
                     timer = (ushort)((timer & 0x00FF) | ((value & 0x7) << 8));
-                    freq = (timer + 1) * 2;
+                    freq = (timer * 2) + 1;
                     divider = freq;
                     dutySequencer = 0;
                     startFlag = true;

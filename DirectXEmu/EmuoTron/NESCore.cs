@@ -648,7 +648,17 @@ namespace EmuoTron
                         if(nsfPlayer && RegS == 0xFF)
                         {
                             PushWordStack(RegPC - 1);
-                            APU.AddCycles((int)((Mappers.mNSF) mapper).counter);
+                            ((Mappers.mNSF) mapper).readOut = true;
+                            int i = 0;
+                            while ((int)((Mappers.mNSF)mapper).counter > 0)
+                            {
+                                if(i % 3 == 0)
+                                    Write(0xFFFF,0xFF);
+                                else
+                                    Read(0x0000);
+                                i++;
+                            }
+                            ((Mappers.mNSF)mapper).readOut = false;
                             PPU.frameComplete = true;
                             ((Mappers.mNSF)mapper).counter = ((Mappers.mNSF)mapper).speed;
                         }

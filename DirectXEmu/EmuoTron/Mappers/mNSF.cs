@@ -25,6 +25,7 @@ namespace EmuoTron.Mappers
         public double speed;
         public double counter;
         public bool overTime;
+        public bool readOut;
 
         public mNSF(NESCore nes, byte[] banks, int PBRATE, int specialChip)
         {
@@ -114,7 +115,7 @@ namespace EmuoTron.Mappers
         {
             if (!nes.PPU.frameComplete)
                 counter -= cycles;
-            if (counter <= 0)
+            if (counter <= 0 && !readOut)
             {
                 overTime = true;
                 counter = speed;

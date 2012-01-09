@@ -79,7 +79,8 @@ namespace DirectXEmu
         PatternTablePreview patternTablePreview;
         MemoryViewer memoryViewer;
         Debugger debugger;
-        private MemoryVis memoryVis;
+        SoundVis soundVis;
+        MemoryVis memoryVis;
         EmuConfig config;
 
         SoundVolume volume;
@@ -378,8 +379,12 @@ namespace DirectXEmu
                 cpu.PPU.generateLine = this.nameTablePreview.UpdateNameTables(cpu.PPU.nameTables);
                 cpu.PPU.generateNameTables = true;
             }
-
+            if (soundVis != null && soundVis.Visible)
+                soundVis.Update(cpu);
+            if (memoryVis != null && memoryVis.Visible)
+                memoryVis.Update(cpu);
         }
+
         public void Initialize()
         {
             this.appPath = Path.GetDirectoryName(Application.ExecutablePath);
@@ -662,15 +667,6 @@ namespace DirectXEmu
                 debugger.Close();
             debugger = new Debugger(cpu.debug);
             debugger.UpdateDebug();
-            if (memoryVis != null && memoryVis.Visible)
-            {
-                Point loc = memoryVis.Location;
-                memoryVis.Close();
-                memoryVis = new MemoryVis(cpu.debug);
-                memoryVis.Show();
-                memoryVis.Location = loc;
-                this.BringToFront();
-            }
             ejectDiskToolStripMenuItem.DropDownItems.Clear();
             ejectDiskToolStripMenuItem.Text = "Eject Disk";
             ejectDiskToolStripMenuItem.Visible = (cpu.GetSideCount() != 0);
@@ -761,7 +757,6 @@ namespace DirectXEmu
             input.Create();
             input.InputEvent += new InputHandler(input_InputEvent);
             input.InputScalerEvent += new InputScalerHandler(input_InputScalerEvent);
-
 
         }
 
@@ -2432,12 +2427,24 @@ namespace DirectXEmu
 
         private void memoryVisualizerToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if(cpu != null)
+            if (memoryVis == null || memoryVis.Visible == false)
             {
-                if (memoryVis == null || !memoryVis.Visible)
-                    memoryVis = new MemoryVis(cpu.debug);
+                memoryVis = new MemoryVis();
                 memoryVis.Show();
             }
+            else
+                memoryVis.BringToFront();
+        }
+
+        private void soundVisualizerToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (soundVis == null || soundVis.Visible == false)
+            {
+                soundVis = new SoundVis();
+                soundVis.Show();
+            }
+            else
+                soundVis.BringToFront();
         }
 
     }

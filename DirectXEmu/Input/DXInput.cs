@@ -269,7 +269,8 @@ namespace DirectXEmu
         {
             keyboard.Dispose();
             mouse.Dispose();
-            joystick.Dispose();
+            if(joystick != null)
+                joystick.Dispose();
             device.Dispose();
         }
 

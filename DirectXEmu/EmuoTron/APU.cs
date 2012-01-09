@@ -101,12 +101,12 @@ namespace EmuoTron
             output = new short[this.sampleRate]; //the buffers really don't need to be this large, but it should prevent overflows when the FPS is set exceptionally low.
             for (int i = 0; i < 32; i++)
             {
-                pulseTable[i] = ((95.52 / (8128.0 / i + 100)));
+                pulseTable[i] = ((95.52 / (8128.0 / i + 100.0)));
                 pulseTableShort[i] = (int)(pulseTable[i] * 0x7FFF); //Half the range for internal channels, half for external.
             }
             for (int i = 0; i < 204; i++)
             {
-                tndTable[i] = ((163.67 / (24329.0 / i + 100)));
+                tndTable[i] = ((163.67 / (24329.0 / i + 100.0)));
                 tndTableShort[i] = (int)(tndTable[i] * 0x7FFF);
             }
             volume.square1 = 1;
@@ -236,6 +236,9 @@ namespace EmuoTron
             outputPtr = 0;
             dmc.ptr = 0;
             dmcOutputPtr = 0;
+#if DEBUGGER
+            nes.debug.APUFrameReset();
+#endif
         }
         private void QuarterFrame()
         {
@@ -316,12 +319,21 @@ namespace EmuoTron
             }
             for (int updateCycle = lastUpdateCycle; updateCycle < currentTime; updateCycle++)
             {
-                byte square1Volume = (byte)(square1.Cycle() * volume.square1);
-                byte square2Volume = (byte)(square2.Cycle() * volume.square2);
-                byte triangleVolume = (byte)(triangle.Cycle() * volume.triangle);
-                byte noiseVolume = (byte)(noise.Cycle() * volume.noise);
-                byte dmcVolume = (byte)(dmc.buffer[dmcOutputPtr++] * volume.dmc);
-                byte externalVolume = (byte)(external.Cycle() * volume.external);//treating external volume as 0-255
+                byte square1Volume = square1.Cycle();
+                byte square2Volume = square2.Cycle();
+                byte triangleVolume = triangle.Cycle();
+                byte noiseVolume = noise.Cycle();
+                byte dmcVolume = dmc.buffer[dmcOutputPtr++];
+                byte externalVolume = external.Cycle();//treating external volume as 0-255
+#if DEBUGGER
+                nes.debug.APUCycle(square1Volume, square2Volume, triangleVolume, noiseVolume, dmcVolume, externalVolume);
+#endif
+                square1Volume = (byte)(square1Volume * volume.square1);
+                square2Volume = (byte)(square2Volume * volume.square2);
+                triangleVolume = (byte)(triangleVolume * volume.triangle);
+                noiseVolume = (byte)(noiseVolume * volume.noise);
+                dmcVolume = (byte)(dmcVolume * volume.dmc);
+                externalVolume = (byte)(externalVolume * volume.external);
                 sampleTotal += (short)((tndTableShort[(3 * triangleVolume) + (2 * noiseVolume) + dmcVolume] + pulseTableShort[square1Volume + square2Volume] + (externalVolume << 7)) ^ 0x8000);//just inserting external sound linearly.
                 sampleCount++;
                 sampleRateDivider--;

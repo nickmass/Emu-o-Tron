@@ -13,30 +13,39 @@ namespace DirectXEmu
 {
     public partial class MemoryVis : Form
     {
-        private Debug debug;
+        private NESCore nes;
         private Bitmap buffer = new Bitmap(512,512, PixelFormat.Format32bppArgb);
         private Graphics screenGfx;
-        public MemoryVis(Debug debug)
+        public MemoryVis()
         {
             InitializeComponent();
-            this.debug = debug;
-            tmrUpdate.Enabled = true;
-
             screenGfx = visPanel.CreateGraphics();
         }
 
-        private unsafe void tmrUpdate_Tick(object sender, EventArgs e)
+        private int timer;
+        public void Update(NESCore nes)
         {
-            var bmd = buffer.LockBits(new Rectangle(0, 0, 512, 512), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
-            uint* ptr = (uint*) bmd.Scan0;
 
-            double time = debug.cpuTime;
-            for(int x = 0; x < 256; x++)
+            this.nes = nes;
+            if(timer++ % 6 == 0)
+                Redraw();
+        }
+
+        private unsafe void Redraw()
+        {
+
+            var bmd = buffer.LockBits(new Rectangle(0, 0, 512, 512), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            uint* ptr = (uint*)bmd.Scan0;
+
+            for (int x = 0; x < 256; x++)
             {
-                for(int y = 0; y < 256; y++)
+                for (int y = 0; y < 256; y++)
                 {
-                    int address = (y*256) + x;
-                    uint color = (uint)(0xFF000000) | (uint)TimeToColor(debug.memoryReads[address]) | (uint)(TimeToColor(debug.memoryWrites[address]) << 8) | (uint)(TimeToColor(debug.memoryExecutes[address]) << 16);
+                    int address = (y * 256) + x;
+                    uint color = (uint)(0xFF000000) | 
+                        (uint)TimeToColor(nes.debug.memoryReads[address]) | 
+                        (uint)(TimeToColor(nes.debug.memoryWrites[address]) << 8) | 
+                        (uint)(TimeToColor(nes.debug.memoryExecutes[address]) << 16);
                     ptr[(((y * 2) + 0) * 512) + ((x * 2) + 0)] = color;
                     ptr[(((y * 2) + 0) * 512) + ((x * 2) + 1)] = color;
                     ptr[(((y * 2) + 1) * 512) + ((x * 2) + 0)] = color;
@@ -51,7 +60,7 @@ namespace DirectXEmu
 
         private byte TimeToColor(long time)
         {
-            long age = debug.cpuTime - time;
+            long age = nes.debug.cpuTime - time;
 
             if (time == 0)
                 return 0x00;

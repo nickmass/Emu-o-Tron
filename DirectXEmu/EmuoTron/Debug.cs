@@ -40,6 +40,17 @@ namespace EmuoTron
         public StringBuilder logBuilder = new StringBuilder();
         public bool logging = false;
 
+        public int historySamplesPerFrame = 128;
+        public int historyTimer;
+        public int historyCounter;
+
+        public byte[] square1History;
+        public byte[] square2History;
+        public byte[] triangleHistory;
+        public byte[] noiseHistory;
+        public byte[] dmcHistory;
+        public byte[] externalHistory;
+
         public int Scanline
         {
             get
@@ -178,6 +189,37 @@ namespace EmuoTron
         public Debug(NESCore nes)
         {
             this.nes = nes;
+            square1History = new byte[historySamplesPerFrame];
+            square2History = new byte[historySamplesPerFrame];
+            triangleHistory = new byte[historySamplesPerFrame];
+            noiseHistory = new byte[historySamplesPerFrame];
+            dmcHistory = new byte[historySamplesPerFrame];
+            externalHistory = new byte[historySamplesPerFrame];
+        }
+
+        public void APUCycle(byte square1, byte square2, byte triangle, byte noise, byte dmc, byte external)
+        {
+            if(historyTimer == 0)
+            {
+                historyTimer = nes.APU.CPUClock / historySamplesPerFrame / (int)(nes.APU.FPS);
+                if (historyCounter < historySamplesPerFrame)
+                {
+                    square1History[historyCounter] = square1;
+                    square2History[historyCounter] = square2;
+                    triangleHistory[historyCounter] = triangle;
+                    noiseHistory[historyCounter] = noise;
+                    dmcHistory[historyCounter] = dmc;
+                    externalHistory[historyCounter] = external;
+                }
+                historyCounter++;
+            }
+            historyTimer--;
+        }
+        
+        public void APUFrameReset()
+        {
+            historyCounter = 0;
+            historyTimer = 0;
         }
 
         public void Execute(ushort address)

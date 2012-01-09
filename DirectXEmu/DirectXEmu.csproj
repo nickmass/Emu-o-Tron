@@ -266,6 +266,12 @@
       <DependentUpon>PollKey.cs</DependentUpon>
     </Compile>
     <Compile Include="RomPatching.cs" />
+    <Compile Include="SoundVis.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="SoundVis.Designer.cs">
+      <DependentUpon>SoundVis.cs</DependentUpon>
+    </Compile>
     <Compile Include="Video\DX10Renderer.cs" />
     <Compile Include="Video\DX9Renderer.cs" />
     <Compile Include="EmuoTron\APU.cs" />
@@ -676,6 +682,9 @@
     </Compile>
     <Compile Include="Video\Scalers\Scale2x.cs" />
     <Compile Include="Video\Scalers\IScaler.cs" />
+    <EmbeddedResource Include="SoundVis.resx">
+      <DependentUpon>SoundVis.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Video\Shaders\SimpleRender.fx" />
   </ItemGroup>
   <ItemGroup>

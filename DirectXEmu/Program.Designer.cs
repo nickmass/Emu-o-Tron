@@ -92,6 +92,7 @@
             this.testConsoleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.enableLoggingToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.openLogToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.memoryVisualizerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.romInfoToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -103,7 +104,7 @@
             this.recordDialog = new System.Windows.Forms.SaveFileDialog();
             this.surfaceControl = new System.Windows.Forms.Panel();
             this.saveMovie = new System.Windows.Forms.SaveFileDialog();
-            this.memoryVisualizerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.soundVisualizerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -558,7 +559,8 @@
             this.testConsoleToolStripMenuItem,
             this.enableLoggingToolStripMenuItem,
             this.openLogToolStripMenuItem,
-            this.memoryVisualizerToolStripMenuItem});
+            this.memoryVisualizerToolStripMenuItem,
+            this.soundVisualizerToolStripMenuItem});
             this.logToolStripMenuItem.Name = "logToolStripMenuItem";
             this.logToolStripMenuItem.Size = new System.Drawing.Size(54, 20);
             this.logToolStripMenuItem.Text = "Debug";
@@ -625,6 +627,13 @@
             this.openLogToolStripMenuItem.Size = new System.Drawing.Size(191, 22);
             this.openLogToolStripMenuItem.Text = "Open Log...";
             this.openLogToolStripMenuItem.Click += new System.EventHandler(this.openLogToolStripMenuItem_Click);
+            // 
+            // memoryVisualizerToolStripMenuItem
+            // 
+            this.memoryVisualizerToolStripMenuItem.Name = "memoryVisualizerToolStripMenuItem";
+            this.memoryVisualizerToolStripMenuItem.Size = new System.Drawing.Size(191, 22);
+            this.memoryVisualizerToolStripMenuItem.Text = "Memory Visualizer...";
+            this.memoryVisualizerToolStripMenuItem.Click += new System.EventHandler(this.memoryVisualizerToolStripMenuItem_Click);
             // 
             // helpToolStripMenuItem
             // 
@@ -704,12 +713,12 @@
             this.saveMovie.Filter = "FM2 files|*.fm2";
             this.saveMovie.Title = "Save Movie";
             // 
-            // memoryVisualizerToolStripMenuItem
+            // soundVisualizerToolStripMenuItem
             // 
-            this.memoryVisualizerToolStripMenuItem.Name = "memoryVisualizerToolStripMenuItem";
-            this.memoryVisualizerToolStripMenuItem.Size = new System.Drawing.Size(191, 22);
-            this.memoryVisualizerToolStripMenuItem.Text = "Memory Visualizer...";
-            this.memoryVisualizerToolStripMenuItem.Click += new System.EventHandler(this.memoryVisualizerToolStripMenuItem_Click);
+            this.soundVisualizerToolStripMenuItem.Name = "soundVisualizerToolStripMenuItem";
+            this.soundVisualizerToolStripMenuItem.Size = new System.Drawing.Size(191, 22);
+            this.soundVisualizerToolStripMenuItem.Text = "Sound Visualizer...";
+            this.soundVisualizerToolStripMenuItem.Click += new System.EventHandler(this.soundVisualizerToolStripMenuItem_Click);
             // 
             // Program
             // 
@@ -812,5 +821,6 @@
         private System.Windows.Forms.ToolStripMenuItem recordAVSToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem stopAVSToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem memoryVisualizerToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem soundVisualizerToolStripMenuItem;
     }
 }
