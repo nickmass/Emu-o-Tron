@@ -1,0 +1,6 @@
+DirectXEmu/bin/
+DirectXEmu/obj/
+*.suo
+*~
+DirectXEmu/DirectXEmu.csproj.user
+DirectXEmu/Test/
